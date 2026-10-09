@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'JetBrains Mono', monospace;
+  --font-sans: 'Figtree', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Brand Accents */
+  --color-royal-blue: #325FEC;
+  --color-cyan-blue: #518FFF;
+
+  /* Light Theme - Refined Off-Whites with gentle light blue tint & slightly darker canvas for depth */
+  --canvas-bg: #EAEEF4;
+  --card-bg: #FAFBFD;
+  --card-subtle-bg: #EEF3F8;
+  --card-hover-bg: #E2EAF4;
+  --border-color: #D2DCEA;
+  --border-subtle-color: #DFE7F2;
+  --text-main: #0F172A;
+  --text-body: #334155;
+  --text-muted: #5A6A85;
+  --text-faint: #8896AB;
+  --accent-color: #325FEC;
+  --accent-hover: #274AC4;
+  --accent-soft: rgba(50, 95, 236, 0.08);
+  /* Semantic Color Hierarchy System (Applied with restraint for information hierarchy) */
+  /* Info (Blue) */
+  --semantic-info-lightest: #EBF2FE;
+  --semantic-info-lighter: #82A9FA;
+  --semantic-info-default: #2F68F6;
+  --semantic-info-darker: #1B45B4;
+  --semantic-info-darkest: #132A78;
+
+  /* Success (Green) */
+  --semantic-success-lightest: #E2F4E9;
+  --semantic-success-lighter: #7DC29A;
+  --semantic-success-default: #1B8748;
+  --semantic-success-darker: #135E32;
+  --semantic-success-darkest: #0B3A1E;
+
+  /* Warning (Amber/Yellow) */
+  --semantic-warning-lightest: #FEF7E0;
+  --semantic-warning-lighter: #FDD166;
+  --semantic-warning-default: #F5A623;
+  --semantic-warning-darker: #B27510;
+  --semantic-warning-darkest: #6E4605;
+
+  /* Danger (Red) */
+  --semantic-danger-lightest: #FDE8E8;
+  --semantic-danger-lighter: #E67A7A;
+  --semantic-danger-default: #C92A2A;
+  --semantic-danger-darker: #8E1B1B;
+  --semantic-danger-darkest: #550F0F;
+}
+
+.dark {
+  /* Proper Deep Black Grayscale Palette */
+  --canvas-bg: #09090B;          /* True deep black canvas */
+  --card-bg: #121214;            /* Dark neutral charcoal card surface */
+  --card-subtle-bg: #18181B;     /* Secondary dark surface / pills */
+  --card-hover-bg: #222226;      /* Hover background */
+  --border-color: #27272A;        /* Hairline neutral border */
+  --border-subtle-color: #1E1E22; /* Subtle divider */
+  --text-main: #FAFAFA;          /* High contrast primary text */
+  --text-body: #D4D4D8;          /* High legibility reading body text */
+  --text-muted: #A1A1AA;         /* Secondary / metadata text */
+  --text-faint: #71717A;         /* Inactive icons / captions */
+  --accent-color: #325FEC;
+  --accent-hover: #4E7BFF;
+  --accent-soft: rgba(81, 143, 255, 0.12);
+  --accent-border: rgba(81, 143, 255, 0.28);
+
+  /* Dark Mode Semantics: Subtle deep tinted surfaces with luminous high-contrast accents */
+  --semantic-info-lightest: rgba(47, 104, 246, 0.12);
+  --semantic-info-lighter: rgba(130, 169, 250, 0.28);
+  --semantic-info-default: #518FFF;
+  --semantic-info-darker: #93C5FD;
+  --semantic-info-darkest: #DBEAFE;
+
+  --semantic-success-lightest: rgba(27, 135, 72, 0.12);
+  --semantic-success-lighter: rgba(125, 194, 154, 0.28);
+  --semantic-success-default: #34D399;
+  --semantic-success-darker: #6EE7B7;
+  --semantic-success-darkest: #D1FAE5;
+
+  --semantic-warning-lightest: rgba(245, 166, 35, 0.12);
+  --semantic-warning-lighter: rgba(253, 209, 102, 0.28);
+  --semantic-warning-default: #FBBF24;
+  --semantic-warning-darker: #FDE68A;
+  --semantic-warning-darkest: #FEF3C7;
+
+  --semantic-danger-lightest: rgba(201, 42, 42, 0.12);
+  --semantic-danger-lighter: rgba(230, 122, 122, 0.28);
+  --semantic-danger-default: #F87171;
+  --semantic-danger-darker: #FCA5A5;
+  --semantic-danger-darkest: #FEE2E2;
+}
+
+body {
+  background-color: var(--canvas-bg);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3F3F46;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Reading Text Selection */
+::selection {
+  background-color: rgba(50, 95, 236, 0.22);
+  color: inherit;
+}
+
+.dark ::selection {
+  background-color: rgba(81, 143, 255, 0.25);
+  color: #FFFFFF;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideLeft {
+  from { transform: translateX(100%); opacity: 0.8; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-popIn {
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideLeft {
+  animation: slideLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, #121214 25%, #27272A 50%, #121214 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+:not(.dark) .animate-shimmer {
+  background: linear-gradient(90deg, #F1F4F9 25%, #E2E5EB 50%, #F1F4F9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PDF.js Official Text Layer & Selection Styles
+   ══════════════════════════════════════════════════════════════════ */
+.textLayer,
+.pdf-text-layer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  -webkit-text-size-adjust: none;
+  -moz-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: transparent;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  z-index: 10;
+  --user-unit: 1;
+  --scale-factor: 1;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer :is(span, br),
+.pdf-text-layer :is(span, br) {
+  color: transparent !important;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  line-height: 1 !important;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent),
+.pdf-text-layer > :not(.markedContent),
+.pdf-text-layer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height)) !important;
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)) !important;
+}
+
+.textLayer .markedContent,
+.pdf-text-layer .markedContent {
+  display: contents;
+}
+
+.textLayer span[role="img"],
+.pdf-text-layer span[role="img"] {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+.textLayer ::selection,
+.pdf-text-layer ::selection {
+  background: rgba(50, 95, 236, 0.35) !important;
+  color: transparent !important;
+}
+
+.textLayer ::-moz-selection,
+.pdf-text-layer ::-moz-selection {
+  background: rgba(50, 95, 236, 0.35) !important;
+  color: transparent !important;
+}
+
+.textLayer br,
+.pdf-text-layer br {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Static, perfectly aligned highlight boundaries */
+.textLayer span.pdf-match-highlight,
+.pdf-text-layer span.pdf-match-highlight {
+  background-color: rgba(250, 204, 21, 0.4) !important;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.5);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.textLayer span.pdf-active-citation-highlight,
+.pdf-text-layer span.pdf-active-citation-highlight {
+  background-color: rgba(50, 95, 236, 0.28) !important;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px #325FEC;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Static saved highlight - stable and non-blinking */
+.textLayer span.pdf-saved-highlight,
+.pdf-text-layer span.pdf-saved-highlight {
+  background-color: rgba(253, 224, 71, 0.38) !important;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.45);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+

@@ -1,0 +1,91 @@
+{
+  "manifest_version": 3,
+  "name": "Researchie — In-Situ Knowledge Capture & Send",
+  "version": "1.2.5",
+  "description": "Capture text highlights, links, DOM blocks, and image crops with live W3C deep links directly into your Researchie project timeline.",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "contextMenus",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "content.js",
+        "blockPicker.js",
+        "cropper.js",
+        "qnaDrawer.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Researchie Workspace"
+  },
+  "commands": {
+    "save-selection": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Send current text selection to active Researchie project"
+    },
+    "pick-block": {
+      "suggested_key": {
+        "default": "Alt+B",
+        "mac": "Alt+B"
+      },
+      "description": "Inspect and send DOM layout block"
+    },
+    "crop-image": {
+      "suggested_key": {
+        "default": "Alt+C",
+        "mac": "Alt+C"
+      },
+      "description": "Crop screen area"
+    },
+    "open-sidebar": {
+      "suggested_key": {
+        "default": "Alt+P",
+        "mac": "Alt+P"
+      },
+      "description": "Open Researchie AI Assistant / Q&A sidebar"
+    },
+    "select-image": {
+      "description": "Hover and send page image"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidepanel.html",
+        "sidepanel.css",
+        "sidepanel.js",
+        "popup.html",
+        "popup.css",
+        "popup.js",
+        "icons/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

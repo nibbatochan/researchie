@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Researchie Side Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body class="sidepanel-root">
+  <div class="sidepanel-app">
+    
+    <!-- TOP HEADER -->
+    <header class="sp-header">
+      <div class="sp-header-top">
+        <div class="sp-brand">
+          <div class="sp-brand-logo" title="Researchie">
+            <svg viewBox="0 0 240.02 240.02" width="18" height="18" fill="currentColor">
+              <path d="M179.94,196.99c-8.38-13.37-16.75-26.7-25.17-40.02-4.09-6.47-8.23-12.99-12.33-19.46-1.95-3.05-3.85-6.23-5.81-9.37,8.28.57,16.51,1.52,24.75,1.67,10.18.19,20.32-7.14,17.89-18.37-.9-4.09-3.33-7.85-5.28-11.52-2.52-4.76-5.04-9.52-7.57-14.23-9.8-18.23-19.75-36.4-29.93-54.44-4.47-8.04-15.85-7.38-20.51,0-5.81,9.14-8.57,19.46-10.71,29.93-2.38,11.56-4.66,23.08-7,34.64-.52,2.66-1.05,5.28-1.62,7.95-20.03.43-40.02,1.95-59.91,4.47-6.38.81-11.9,4.85-11.9,11.9,0,6.52,5.47,11.75,11.9,11.9,14.66.24,29.27.48,43.92.71,3.38.05,6.76.14,10.14.19-2.14,10.9-4.38,21.8-6.57,32.69-1.24,6.28,1.81,12.85,8.33,14.61,5.85,1.62,13.37-1.95,14.66-8.28,2.33-11.52,4.62-23.03,6.95-34.55,15.37,23.65,30.27,47.68,45.21,71.57,8.09,12.94,28.7,1.05,20.56-11.99ZM127.31,71.88c.43-2,.81-4.05,1.24-6.04,2.86,5.23,5.71,10.42,8.57,15.66,3.33,6.04,6.61,12.14,9.85,18.23.86,1.62,1.95,3.43,3.14,5.38-5.04-.38-10.04-.67-15.09-.9-4.71-.19-9.42-.33-14.09-.43,2.14-10.66,4.24-21.27,6.38-31.88Z" />
+            </svg>
+          </div>
+          <div class="sp-brand-meta">
+            <div class="sp-brand-title">
+              <span>researchie</span>
+            </div>
+            <div class="sp-sync-indicator" id="sp-sync-indicator" title="Connection status">
+              <span class="sp-pulse-dot"></span>
+              <span id="sp-sync-status-text">Connected</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sp-header-actions">
+          <button class="sp-icon-btn" id="sp-btn-shortcuts-help" title="Keyboard Shortcuts Help">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="6" y1="8" x2="6.01" y2="8"></line>
+              <line x1="10" y1="8" x2="10.01" y2="8"></line>
+              <line x1="14" y1="8" x2="14.01" y2="8"></line>
+              <line x1="18" y1="8" x2="18.01" y2="8"></line>
+              <line x1="6" y1="12" x2="6.01" y2="12"></line>
+              <line x1="18" y1="12" x2="18.01" y2="12"></line>
+              <line x1="10" y1="16" x2="14" y2="16"></line>
+            </svg>
+          </button>
+          <button class="sp-icon-btn" id="sp-btn-open-dash" title="Open Dashboard in new tab">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </button>
+          <button class="sp-icon-btn" id="sp-btn-refresh-all" title="Refresh data">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+            </svg>
+          </button>
+          <button class="sp-icon-btn" id="sp-btn-close-panel" title="Close Sidebar (Alt+P or Esc)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- PROJECT PICKER (SWAPPED HIERARCHY) -->
+      <div class="sp-project-pod" id="sp-project-pod">
+        <div class="sp-project-pill" id="sp-project-pill" title="Click to switch project">
+          <div class="sp-proj-avatar" id="sp-proj-avatar">MO</div>
+          <div class="sp-proj-info">
+            <span class="sp-proj-parent-label" id="sp-proj-parent-label">WORKSPACE</span>
+            <span class="sp-proj-name" id="sp-proj-name">Mountain Gorilla Ethology & Social Dynamics</span>
+          </div>
+          <svg class="sp-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+
+        <!-- Project Selector Dropdown -->
+        <div class="sp-project-menu hidden" id="sp-project-menu">
+          <div class="sp-menu-header">
+            <span>SWITCH PROJECT / SUB-PROJECT</span>
+            <button class="sp-menu-close" id="sp-menu-close">✕</button>
+          </div>
+          <div class="sp-project-items" id="sp-project-items">
+            <!-- Dynamically injected with prominent sub-projects and clear hierarchy -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 NAVIGATION TABS: CAPTURE, FEED, PAGE AI -->
+      <nav class="sp-nav-tabs">
+        <button class="sp-tab-btn" data-tab="capture" id="nav-tab-capture">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          <span>Capture</span>
+        </button>
+        <button class="sp-tab-btn active" data-tab="feed" id="nav-tab-feed">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span>Feed</span>
+          <span class="sp-tab-count" id="sp-atoms-count-badge">0</span>
+        </button>
+        <button class="sp-tab-btn" data-tab="page-ai" id="nav-tab-page-ai">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Page AI</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- MAIN SCROLLABLE CONTENT -->
+    <main class="sp-main">
+      
+      <!-- ============================================ -->
+      <!-- TAB 1: CAPTURE                              -->
+      <!-- ============================================ -->
+      <section class="sp-tab-pane" id="tab-capture">
+        <div class="sp-capture-hub">
+          <div class="sp-section-title">CAPTURE TOOLS</div>
+
+          <div class="sp-capture-grid">
+            <button class="sp-capture-tile" id="sp-cap-text">
+              <div class="sp-cap-icon-box text-color">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+              </div>
+              <div class="sp-cap-details">
+                <strong>Text Highlight</strong>
+                <span>Save selected text with source link</span>
+              </div>
+              <span class="sp-key-badge">Alt + S</span>
+            </button>
+
+            <button class="sp-capture-tile" id="sp-cap-block">
+              <div class="sp-cap-icon-box block-color">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              <div class="sp-cap-details">
+                <strong>Page Element</strong>
+                <span>Select tables, cards, or HTML blocks</span>
+              </div>
+              <span class="sp-key-badge">Alt + B</span>
+            </button>
+
+            <button class="sp-capture-tile" id="sp-cap-image">
+              <div class="sp-cap-icon-box image-color">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </div>
+              <div class="sp-cap-details">
+                <strong>Image Capture</strong>
+                <span>Select and save any image on page</span>
+              </div>
+              <span class="sp-key-badge">Alt + I</span>
+            </button>
+
+            <button class="sp-capture-tile" id="sp-cap-crop">
+              <div class="sp-cap-icon-box crop-color">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
+                  <path d="M18 22V8a2 2 0 0 0-2-2H2"></path>
+                </svg>
+              </div>
+              <div class="sp-cap-details">
+                <strong>Screenshot Area</strong>
+                <span>Crop and save any screen region</span>
+              </div>
+              <span class="sp-key-badge">Alt + C</span>
+            </button>
+
+            <button class="sp-capture-tile" id="sp-cap-link">
+              <div class="sp-cap-icon-box link-color">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+              </div>
+              <div class="sp-cap-details">
+                <strong>Save Page Link</strong>
+                <span>Bookmark active URL and metadata</span>
+              </div>
+              <span class="sp-key-badge">Alt + L</span>
+            </button>
+          </div>
+
+          <!-- CONNECTION STATUS -->
+          <div class="sp-section-title" style="margin-top: 20px;">CONNECTION</div>
+          <div class="sp-status-card">
+            <div class="sp-status-row">
+              <span>App server</span>
+              <strong id="sp-bridge-status">http://localhost:3001</strong>
+            </div>
+            <div class="sp-status-row">
+              <span>Offline queue</span>
+              <strong id="sp-offline-queue-count">0 items</strong>
+            </div>
+            <button class="sp-secondary-btn" id="sp-btn-flush-offline">Sync offline notes</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- TAB 2: FEED (QUICK NOTE REMOVED)             -->
+      <!-- ============================================ -->
+      <section class="sp-tab-pane active" id="tab-feed">
+        
+        <!-- SEARCH & FILTER -->
+        <div class="sp-feed-controls">
+          <div class="sp-search-wrapper">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="sp-feed-search" placeholder="Search notes, clips, and OCR...">
+          </div>
+          
+          <div class="sp-type-filter-chips">
+            <button class="sp-chip active" data-type="all">All</button>
+            <button class="sp-chip" data-type="quote">Quotes</button>
+            <button class="sp-chip" data-type="block">Blocks</button>
+            <button class="sp-chip" data-type="image">Images</button>
+            <button class="sp-chip" data-type="note">Notes</button>
+            <button class="sp-chip" data-type="link">Links</button>
+          </div>
+        </div>
+
+        <!-- ATOMS STREAM -->
+        <div class="sp-atom-stream" id="sp-atom-stream">
+          <div class="sp-feed-loading">
+            <div class="sp-spinner"></div>
+            <span>Loading notes...</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- TAB 3: PAGE AI (SUMMARIZE + Q&A ONLY)        -->
+      <!-- ============================================ -->
+      <section class="sp-tab-pane" id="tab-page-ai">
+        
+        <!-- ACTIVE TAB CARD -->
+        <div class="sp-active-tab-card" id="sp-active-tab-card">
+          <div class="sp-at-header">
+            <img id="sp-at-favicon" src="icons/icon16.png" class="sp-at-icon" alt="Favicon">
+            <div class="sp-at-meta">
+              <div class="sp-at-title" id="sp-at-title">Reading active page...</div>
+              <div class="sp-at-domain" id="sp-at-domain">detecting...</div>
+            </div>
+            <button class="sp-mini-icon-btn" id="sp-btn-refresh-tab-ctx" title="Refresh page content">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="sp-at-stats" id="sp-at-stats">
+            <span class="sp-at-stat-pill" id="sp-at-words-pill">0 words</span>
+            <span class="sp-at-stat-pill" id="sp-at-headings-pill">0 sections</span>
+          </div>
+
+          <!-- SINGLE SUMMARIZE ACTION -->
+          <div class="sp-at-quick-actions">
+            <button class="sp-action-card-btn" id="sp-btn-ai-summarize-tab">
+              <div class="sp-btn-icon-box royal-glow">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+              <div class="sp-btn-texts">
+                <strong>Summarize Page</strong>
+                <span>Generate a concise overview with key points</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- CONVERSATIONAL Q&A -->
+        <div class="sp-chat-container">
+          <div class="sp-chat-messages" id="sp-chat-messages">
+            <div class="sp-chat-bubble assistant">
+              <div class="sp-bubble-header">
+                <div class="sp-bot-tag-group">
+                  <span class="sp-bot-icon">✦</span>
+                  <span class="sp-bot-tag">RESEARCHIE AI</span>
+                </div>
+                <span class="sp-bubble-time">Ready</span>
+              </div>
+              <p>Ask any question about this page or your saved notes in this project.</p>
+            </div>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <div class="sp-chat-input-bar">
+            <textarea id="sp-chat-input" placeholder="Ask a question about this page..." rows="1"></textarea>
+            <button id="sp-chat-send-btn" class="sp-chat-send-btn" title="Send (Enter)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- VISIBLE SHORTCUTS BAR AT BOTTOM -->
+    <footer class="sp-footer-shortcuts">
+      <div class="sp-shortcut-chip"><kbd>Alt+S</kbd><span>Quote</span></div>
+      <div class="sp-shortcut-chip"><kbd>Alt+L</kbd><span>Link</span></div>
+      <div class="sp-shortcut-chip"><kbd>Alt+I</kbd><span>Image</span></div>
+      <div class="sp-shortcut-chip"><kbd>Alt+B</kbd><span>Block</span></div>
+      <div class="sp-shortcut-chip"><kbd>Alt+C</kbd><span>Crop</span></div>
+      <div class="sp-shortcut-chip"><kbd>Alt+P</kbd><span>Sidebar</span></div>
+    </footer>
+
+    <!-- SHORTCUTS HELP MODAL -->
+    <div class="sp-shortcuts-modal hidden" id="sp-shortcuts-modal">
+      <div class="sp-shortcuts-dialog">
+        <div class="sp-shortcuts-header">
+          <div class="sp-shortcuts-title">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <line x1="6" y1="8" x2="6.01" y2="8"></line>
+              <line x1="10" y1="8" x2="10.01" y2="8"></line>
+              <line x1="14" y1="8" x2="14.01" y2="8"></line>
+              <line x1="18" y1="8" x2="18.01" y2="8"></line>
+              <line x1="10" y1="16" x2="14" y2="16"></line>
+            </svg>
+            <span>Keyboard Shortcuts</span>
+          </div>
+          <button class="sp-shortcuts-close" id="sp-shortcuts-close">✕</button>
+        </div>
+        <div class="sp-shortcuts-body">
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Toggle Sidebar Drawer</div>
+            <div class="sp-shortcut-key">Alt + P</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Save Text Highlight Quote</div>
+            <div class="sp-shortcut-key">Alt + S</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Save Current Page Link</div>
+            <div class="sp-shortcut-key">Alt + L</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Select Element / Block</div>
+            <div class="sp-shortcut-key">Alt + B</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Capture Page Image</div>
+            <div class="sp-shortcut-key">Alt + I</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Screenshot Area Crop</div>
+            <div class="sp-shortcut-key">Alt + C</div>
+          </div>
+          <div class="sp-shortcut-row">
+            <div class="sp-shortcut-label">Close Drawer / Modal</div>
+            <div class="sp-shortcut-key">Esc</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GLOBAL TOAST HUD -->
+    <div class="sp-toast hidden" id="sp-toast">
+      <span class="sp-toast-dot"></span>
+      <span class="sp-toast-text" id="sp-toast-text">Done</span>
+    </div>
+
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

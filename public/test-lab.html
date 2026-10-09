@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Researchie Test Lab — Local Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Figtree', sans-serif; }
+    body { background-color: #0F1117; color: #E2E8F0; padding: 40px 20px; line-height: 1.6; }
+    .container { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+    header { border-bottom: 1px solid #262B38; padding-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-family: 'Space Grotesk', sans-serif; font-size: 26px; color: #FFF; font-weight: 700; }
+    h2 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; color: #FFF; font-weight: 600; margin-bottom: 12px; }
+    .badge { background-color: #D2F83C; color: #000; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 4px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .tool-card { background: #161922; border: 1px solid #262B38; padding: 14px; border-radius: 10px; }
+    .tool-title { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .tool-desc { font-size: 11px; color: #8B949E; line-height: 1.4; }
+    kbd { background: #262B38; color: #D2F83C; font-family: 'Space Mono', monospace; font-size: 10px; padding: 1px 4px; border-radius: 3px; }
+    blockquote { border-left: 3px solid #D2F83C; background: #161922; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; font-style: italic; color: #CBD5E1; }
+    .pricing-table-container { background: #161922; border: 1px solid #262B38; border-radius: 12px; padding: 20px; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .tier-box { background: #101218; border: 1px solid #262B38; padding: 16px; border-radius: 8px; }
+    .tier-highlight { border-color: #D2F83C; position: relative; }
+    .tier-price { font-size: 20px; font-weight: bold; color: #D2F83C; margin: 8px 0; }
+    .tier-list { list-style: none; font-size: 11px; color: #CBD5E1; }
+    .tier-list li { margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; background: #161922; border-radius: 8px; overflow: hidden; border: 1px solid #262B38; }
+    th { background: #101218; color: #8B949E; font-family: 'Space Mono', monospace; font-size: 11px; padding: 10px 14px; border-bottom: 1px solid #262B38; }
+    td { padding: 10px 14px; border-bottom: 1px solid #1C202B; }
+    .img-box { background: #161922; border: 1px solid #262B38; border-radius: 10px; padding: 16px; text-align: center; }
+    .img-box img { max-width: 100%; max-height: 280px; border-radius: 6px; border: 1px solid #383E4E; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <span class="badge">RESEARCHIE TEST LAB</span>
+        <h1 style="margin-top: 6px;">In-Situ Research Sandbox</h1>
+        <p style="font-size: 12px; color: #8B949E; margin-top: 2px;">Test text selection, DOM block inspection, screen cropping, and popup summarizer.</p>
+      </div>
+      <a href="http://localhost:3000" target="_blank" style="color:#D2F83C; font-family:'Space Mono',monospace; font-size:12px; text-decoration:none; border:1px solid #262B38; padding:6px 12px; border-radius:6px;">Open Workbench ↗</a>
+    </header>
+
+    <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+      <div class="tool-card">
+        <div class="tool-title" style="color:#D2F83C;">1. Text Quote</div>
+        <div class="tool-desc">Highlight text & click arrow or press <kbd>Alt+S</kbd>.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-title" style="color:#A78BFA;">2. DOM Block</div>
+        <div class="tool-desc">Press <kbd>Alt+B</kbd>. Hover element, press <kbd>↑</kbd>/<kbd>↓</kbd> & click.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-title" style="color:#60A5FA;">3. Image Hover</div>
+        <div class="tool-desc">Press <kbd>Alt+I</kbd>. Hover any image & click to send.</div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-title" style="color:#F472B6;">4. Screen Crop</div>
+        <div class="tool-desc">Press <kbd>Alt+C</kbd>. Drag marquee box & confirm.</div>
+      </div>
+    </div>
+
+    <!-- Article Content -->
+    <section>
+      <h2>Article: GPU Latency Economics in Autoregressive Serving</h2>
+      <p style="font-size: 13px; color: #CBD5E1; margin-bottom: 12px;">
+        In foundation model serving architectures, autoregressive decoding is intrinsically bound by memory bandwidth throughput rather than arithmetic tensor compute capabilities. As sequence length increases, KV-cache bandwidth demands scale linearly with batch concurrency.
+      </p>
+      <blockquote>
+        "Dynamic speculative decoding paired with FP8 block-scaled quantization delivers a 2.4x throughput increase on H100 clusters while cutting per-token energy dissipation by 38%."
+      </blockquote>
+      <p style="font-size: 13px; color: #CBD5E1;">
+        Consequently, multi-tenant inference clusters require fine-grained cache paging mechanisms to maximize token generation efficiency.
+      </p>
+    </section>
+
+    <!-- Pricing / Block Container -->
+    <section>
+      <h2>Target Container: Hardware Tier Comparison Grid (Alt+B)</h2>
+      <div class="pricing-table-container" id="hardware-pricing-container">
+        <div class="pricing-grid">
+          <div class="tier-box">
+            <span style="font-family:'Space Mono',monospace; font-size:10px; color:#8B949E;">TIER 1</span>
+            <h3 style="font-size:15px; margin-top:4px;">NVIDIA L40S</h3>
+            <div class="tier-price">$0.45 <span style="font-size:11px; color:#8B949E;">/ hr</span></div>
+            <ul class="tier-list">
+              <li>• 48 GB GDDR6 Memory</li>
+              <li>• 862 GB/s Bandwidth</li>
+              <li>• 7B–14B Dense Models</li>
+            </ul>
+          </div>
+          <div class="tier-box tier-highlight">
+            <span style="font-family:'Space Mono',monospace; font-size:10px; color:#D2F83C;">POPULAR</span>
+            <h3 style="font-size:15px; margin-top:4px;">NVIDIA H100 SXM</h3>
+            <div class="tier-price">$2.10 <span style="font-size:11px; color:#8B949E;">/ hr</span></div>
+            <ul class="tier-list">
+              <li>• 80 GB HBM3 Memory</li>
+              <li>• 3.35 TB/s Bandwidth</li>
+              <li>• Transformer Engine FP8</li>
+              <li>• Sub-200ms TTFT SLA</li>
+            </ul>
+          </div>
+          <div class="tier-box">
+            <span style="font-family:'Space Mono',monospace; font-size:10px; color:#8B949E;">ULTRA</span>
+            <h3 style="font-size:15px; margin-top:4px;">NVIDIA B200 NVL</h3>
+            <div class="tier-price">$4.80 <span style="font-size:11px; color:#8B949E;">/ hr</span></div>
+            <ul class="tier-list">
+              <li>• 192 GB HBM3e Memory</li>
+              <li>• 8.0 TB/s Bandwidth</li>
+              <li>• Dual-die Interconnect</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Table -->
+    <section>
+      <h2>Data Table: Benchmark Throughput</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Model Architecture</th>
+            <th>Batch Size</th>
+            <th>Throughput (TPS)</th>
+            <th>KV-Cache Footprint</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:#FFF; font-weight:600;">Llama-3-70B FP8</td>
+            <td style="font-family:'Space Mono',monospace;">32</td>
+            <td style="font-family:'Space Mono',monospace; color:#D2F83C; font-weight:bold;">1,420</td>
+            <td style="font-family:'Space Mono',monospace;">18.4 GB</td>
+          </tr>
+          <tr>
+            <td style="color:#FFF; font-weight:600;">Mixtral-8x22B MoE</td>
+            <td style="font-family:'Space Mono',monospace;">16</td>
+            <td style="font-family:'Space Mono',monospace; color:#D2F83C; font-weight:bold;">890</td>
+            <td style="font-family:'Space Mono',monospace;">31.2 GB</td>
+          </tr>
+          <tr>
+            <td style="color:#FFF; font-weight:600;">DeepSeek-V3 671B</td>
+            <td style="font-family:'Space Mono',monospace;">8</td>
+            <td style="font-family:'Space Mono',monospace; color:#D2F83C; font-weight:bold;">580</td>
+            <td style="font-family:'Space Mono',monospace;">64.0 GB</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Chart / Diagram for Crop -->
+    <section>
+      <h2>Visual Chart: Memory Scaling Curve (Alt+C)</h2>
+      <div class="img-box">
+        <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=900&q=80" alt="Benchmark Chart" />
+        <p style="font-size:11px; color:#8B949E; margin-top:8px; font-family:'Space Mono',monospace;">Figure 1: KV-Cache Bandwidth Scaling Across Distributed Nodes</p>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

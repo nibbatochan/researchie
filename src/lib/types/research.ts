@@ -1,0 +1,142 @@
+export type AtomType = 'text' | 'link' | 'image' | 'block' | 'quote' | 'note' | 'document';
+
+export interface ProvenanceMetadata {
+  sourceUrl: string;
+  pageTitle: string;
+  domainFavicon?: string;
+  scrollToTextFragment?: string; // e.g. #:~:text=start_phrase,end_phrase
+  textFragment?: string;
+  deepLink?: string;
+  domCssSelector?: string;
+  selector?: string;
+  authorOrByline?: string;
+  publishedTime?: string;
+  sectionHeading?: string;
+  contextPrefix?: string;
+  contextSuffix?: string;
+  surroundingContext?: string;
+  surroundingParagraphs?: string[];
+  contextRebuiltAt?: string;
+  siteName?: string;
+  
+  // PDF & Local Document Provenance
+  documentType?: 'web' | 'pdf' | 'epub' | 'markdown';
+  documentName?: string;
+  documentId?: string;
+  documentUrl?: string;
+  pageNumber?: number;
+  totalDocumentPages?: number;
+  pdfBoundingRect?: { x: number; y: number; width: number; height: number };
+}
+
+export interface ContentPayload {
+  rawText?: string;
+  text?: string;
+  markdownContent?: string;
+  sanitizedHtml?: string;
+  imageUrl?: string;
+  targetUrl?: string;
+  sourceUrl?: string;
+  description?: string;
+  surroundingParagraphs?: string[];
+  ocrText?: string;
+  ocrConfidence?: number;
+}
+
+export interface ResearchAtom {
+  id: string;
+  projectId: string;
+  project_id?: string;
+  userId?: string;
+  user_id?: string;
+  type: AtomType;
+  title: string;
+  content: ContentPayload;
+  metadata: ProvenanceMetadata;
+  tags?: string[];
+  userNotes?: string;
+  user_notes?: string;
+  embedding?: number[];
+  similarity?: number;
+  visualSnapshot?: {
+    rasterSnapshotUrl?: string;
+    htmlSnapshot?: string;
+    capturedAt?: string;
+    capturedViewport?: string | { width: number; height: number };
+    width?: number;
+    height?: number;
+  };
+  capturedAt?: string; // ISO 8601
+  created_at?: string;
+}
+
+export interface ResearchDocumentPage {
+  pageNumber: number;
+  title?: string;
+  content: string;
+  highlights?: {
+    id: string;
+    text: string;
+    atomId?: string;
+    color?: string;
+    createdAt?: string;
+  }[];
+}
+
+export interface ResearchDocument {
+  id: string;
+  projectId: string;
+  title: string;
+  filename: string;
+  author?: string;
+  publicationDate?: string;
+  fileSize?: string;
+  totalPages: number;
+  pages: ResearchDocumentPage[];
+  uploadedAt: string;
+  sourceUrl?: string;
+  fileUrl?: string;
+  fileData?: string;
+  tags?: string[];
+}
+
+export interface Collaborator {
+  id: string;
+  email: string;
+  name?: string;
+  role: 'owner' | 'editor' | 'viewer';
+  avatarUrl?: string;
+  invitedAt?: string;
+  status: 'active' | 'pending';
+}
+
+export interface ProjectSharingSettings {
+  isPublic: boolean;
+  publicSlug?: string;
+  allowGuestComments: boolean;
+  allowDuplication: boolean;
+  collaborators: Collaborator[];
+}
+
+export interface ResearchProject {
+  id: string;
+  userId?: string;
+  user_id?: string;
+  parentId?: string | null;
+  parent_id?: string | null;
+  folderIcon?: string;
+  title: string;
+  description: string;
+  color?: string;
+  color_badge?: string;
+  tags?: string[];
+  atomCount?: number;
+  atom_count?: number;
+  lastAccessedAt?: string;
+  last_accessed_at?: string;
+  sharing?: ProjectSharingSettings;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+}
