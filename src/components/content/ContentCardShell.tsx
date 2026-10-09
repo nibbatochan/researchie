@@ -36,20 +36,21 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
   const [showRawMarkdown, setShowRawMarkdown] = useState(false);
 
   const getSourceBadge = () => {
+    const grayscaleBadge = 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700';
     switch (card.sourceType) {
       case 'ai':
-        return { label: 'Researchie AI', icon: Sparkle, badgeClass: 'bg-blue-50 dark:bg-blue-950/60 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-800/40' };
+        return { label: 'Researchie AI', icon: Sparkle, badgeClass: grayscaleBadge, iconClass: 'text-[#325FEC] dark:text-[#518FFF]' };
       case 'pdf':
-        return { label: 'Document Vault', icon: FileText, badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40' };
+        return { label: 'Document Vault', icon: FileText, badgeClass: grayscaleBadge, iconClass: 'text-emerald-600 dark:text-emerald-400' };
       case 'clip':
-        return { label: 'Web Clip', icon: Quotes, badgeClass: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40' };
+        return { label: 'Web Clip', icon: Quotes, badgeClass: grayscaleBadge, iconClass: 'text-purple-600 dark:text-purple-400' };
       case 'plugin':
-        return { label: 'Extension', icon: PuzzlePiece, badgeClass: 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40' };
+        return { label: 'Extension', icon: PuzzlePiece, badgeClass: grayscaleBadge, iconClass: 'text-indigo-600 dark:text-indigo-400' };
       case 'canvas':
-        return { label: 'Canvas', icon: Graph, badgeClass: 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40' };
+        return { label: 'Canvas', icon: Graph, badgeClass: grayscaleBadge, iconClass: 'text-sky-600 dark:text-sky-400' };
       case 'user':
       default:
-        return { label: 'Note', icon: User, badgeClass: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700' };
+        return { label: 'Note', icon: User, badgeClass: grayscaleBadge, iconClass: 'text-slate-600 dark:text-zinc-400' };
     }
   };
 
@@ -61,15 +62,15 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
   const summaryPreview = firstSummary && 'text' in firstSummary ? firstSummary.text : card.title;
 
   return (
-    <article className={`rounded-xl border border-[#E2E8F0] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-xs overflow-hidden transition-all ${className}`}>
+    <article className={`rounded-xl border border-[#E2E8F0] dark:border-[#222225] bg-white dark:bg-[#0E0E10] shadow-xs overflow-hidden transition-all ${className}`}>
       {/* L1 Card Header */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="px-3.5 py-2.5 bg-[#FAFBFD] dark:bg-[#121214] border-b border-[#E2E8F0] dark:border-[#27272A] flex items-center justify-between gap-3 cursor-pointer select-none group"
+        className="px-3.5 py-2.5 bg-[#FAFBFD] dark:bg-[#08080A] border-b border-[#E2E8F0] dark:border-[#1E1E22] flex items-center justify-between gap-3 cursor-pointer select-none group"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-semibold flex-shrink-0 ${badge.badgeClass}`}>
-            <SourceIcon size={12} weight="bold" />
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-mono font-medium flex-shrink-0 ${badge.badgeClass}`}>
+            <SourceIcon size={12} weight="bold" className={badge.iconClass} />
             <span>{badge.label}</span>
           </span>
 
@@ -104,7 +105,7 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
       {!isExpanded && (
         <div 
           onClick={() => setIsExpanded(true)}
-          className="px-3.5 py-2 text-xs text-[#64748B] dark:text-[#94A3B8] truncate cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#1C1C20] transition-colors"
+          className="px-3.5 py-2 text-xs text-[#64748B] dark:text-[#94A3B8] truncate cursor-pointer hover:bg-[#F8FAFC] dark:hover:bg-[#141416] transition-colors"
         >
           {summaryPreview}
         </div>
@@ -115,7 +116,7 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
         <div className="p-3.5 space-y-3">
           {/* Never show raw markdown unless explicitly toggled */}
           {showRawMarkdown && card.rawMarkdownBackup ? (
-            <div className="p-3 rounded-lg bg-[#F8FAFC] dark:bg-[#09090B] border border-[#E2E8F0] dark:border-[#27272A] font-mono text-[11px] text-[#334155] dark:text-[#CBD5E1] whitespace-pre-wrap">
+            <div className="p-3 rounded-lg bg-[#F8FAFC] dark:bg-[#050507] border border-[#E2E8F0] dark:border-[#222225] font-mono text-[11px] text-[#334155] dark:text-[#CBD5E1] whitespace-pre-wrap">
               {card.rawMarkdownBackup}
             </div>
           ) : (
@@ -131,7 +132,7 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
 
           {/* Footer Controls: Inspector toggle for Raw Markdown (hidden by default) */}
           {card.rawMarkdownBackup && (
-            <div className="pt-2 border-t border-[#E2E8F0] dark:border-[#27272A] flex justify-end">
+            <div className="pt-2 border-t border-[#E2E8F0] dark:border-[#222225] flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowRawMarkdown(!showRawMarkdown)}

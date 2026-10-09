@@ -210,7 +210,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                     e.preventDefault();
                     if (onCitationClick) onCitationClick(href);
                   }}
-                  className="text-[#325FEC] dark:text-[#518FFF] hover:underline font-medium inline-flex items-center cursor-pointer bg-blue-50/50 dark:bg-blue-950/30 px-1 rounded mx-0.5"
+                  className="text-[#325FEC] dark:text-[#518FFF] hover:underline font-medium inline-flex items-center cursor-pointer bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-1.5 py-0.2 rounded text-[11px] font-mono mx-0.5"
                   title="View Citation"
                 >
                   {renderSemanticNode(children, searchQuery)}

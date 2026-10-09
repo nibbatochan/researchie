@@ -166,14 +166,14 @@ const MOCK_STRESS_CARD: ContentCardModel = {
 
 export default function GalleryPage() {
   return (
-    <div className="min-h-screen bg-[#FAFBFD] dark:bg-[#121214] text-[#0F172A] dark:text-[#F8FAFC] font-sans p-6 md:p-12 transition-colors">
+    <div className="min-h-screen bg-[#FAFBFD] dark:bg-[#09090B] text-[#0F172A] dark:text-[#F8FAFC] font-sans p-6 md:p-12 transition-colors">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Gallery Header */}
-        <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-[#27272A] pb-5">
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-[#222225] pb-5">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] transition-colors"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#141416] transition-colors"
               title="Return to Dashboard"
             >
               <ArrowLeft size={16} />
@@ -217,13 +217,13 @@ export default function GalleryPage() {
         </section>
 
         {/* Verification Checklist */}
-        <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold">
+        <div className="p-4 rounded-xl border border-[#E2E8F0] dark:border-[#222225] bg-white dark:bg-[#0E0E10] text-xs text-slate-700 dark:text-zinc-300 space-y-1">
+          <div className="flex items-center gap-1.5 font-semibold text-[#0F172A] dark:text-white">
             <CheckCircle size={15} weight="bold" className="text-emerald-600 dark:text-emerald-400" />
             <span>Anti-Slop Design Guardrails Verified:</span>
           </div>
           <p>• Max 2 nested container layers (Card to Inset Section/Table).</p>
-          <p>• Color strictly carries semantic meaning (Borders and chips, neutral text).</p>
+          <p>• Grayscale surfaces throughout; semantic colors strictly on icons and accents.</p>
           <p>• Raw Markdown backup is concealed by default with toggleable inspector.</p>
           <p>• 100% typed via Matt Pocock discriminated unions without 'any'.</p>
         </div>

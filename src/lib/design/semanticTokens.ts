@@ -8,14 +8,14 @@
 export const SEMANTIC_TOKENS = {
   // Layer A: Neutral Surfaces & Hierarchy
   surfaces: {
-    base: 'bg-[#FAFBFD] dark:bg-[#121214]',
-    elevated: 'bg-white dark:bg-[#18181B]',
-    inset: 'bg-[#F4F6F9] dark:bg-[#09090B]',
-    hover: 'hover:bg-[#EEF3F8] dark:hover:bg-[#202024]',
+    base: 'bg-[#FAFBFD] dark:bg-[#09090B]',
+    elevated: 'bg-white dark:bg-[#0E0E10]',
+    inset: 'bg-[#F4F6F9] dark:bg-[#050507]',
+    hover: 'hover:bg-[#EEF3F8] dark:hover:bg-[#18181B]',
   },
   borders: {
-    subtle: 'border-[#E2E8F0] dark:border-[#27272A]',
-    strong: 'border-[#CBD5E1] dark:border-[#3F3F46]',
+    subtle: 'border-[#E2E8F0] dark:border-[#222225]',
+    strong: 'border-[#CBD5E1] dark:border-[#333338]',
     active: 'border-[#325FEC] dark:border-[#518FFF]',
   },
   text: {
@@ -25,56 +25,59 @@ export const SEMANTIC_TOKENS = {
     accent: 'text-[#325FEC] dark:text-[#518FFF]',
   },
 
-  // Layer B: Semantic Roles
+  // Layer B: Semantic Roles (Strict Grayscale Surfaces + Semantic Accents)
   roles: {
     evidence: {
       border: 'border-l-2 border-l-[#325FEC] dark:border-l-[#518FFF]',
-      bg: 'bg-[#325FEC]/5 dark:bg-[#325FEC]/10',
+      bg: 'bg-slate-50 dark:bg-[#0E0E10]',
       tag: 'text-[#325FEC] dark:text-[#518FFF]',
       label: 'Evidence',
     },
     sources: {
-      chipBg: 'bg-[#EEF3F8] dark:bg-[#27272A]',
-      chipBorder: 'border border-[#D2DCEA] dark:border-[#3F3F46]',
-      chipText: 'text-[#475569] dark:text-[#CBD5E1]',
+      chipBg: 'bg-slate-100 dark:bg-zinc-800',
+      chipBorder: 'border border-slate-200 dark:border-zinc-700',
+      chipText: 'text-slate-700 dark:text-zinc-300',
       label: 'Source',
     },
     success: {
-      border: 'border-emerald-200 dark:border-emerald-800/60',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-      text: 'text-emerald-800 dark:text-emerald-300',
+      border: 'border-slate-200 dark:border-[#222225]',
+      bg: 'bg-slate-50 dark:bg-[#0E0E10]',
+      text: 'text-slate-800 dark:text-zinc-200',
       icon: 'text-emerald-600 dark:text-emerald-400',
       label: 'Verified',
     },
     warning: {
-      border: 'border-amber-200 dark:border-amber-800/60',
-      bg: 'bg-amber-50 dark:bg-amber-950/40',
-      text: 'text-amber-800 dark:text-amber-300',
+      border: 'border-slate-200 dark:border-[#222225]',
+      bg: 'bg-slate-50 dark:bg-[#0E0E10]',
+      text: 'text-slate-800 dark:text-zinc-200',
       icon: 'text-amber-600 dark:text-amber-400',
       label: 'Uncertain / Conflict',
     },
     danger: {
-      border: 'border-red-200 dark:border-red-800/60',
-      bg: 'bg-red-50 dark:bg-red-950/40',
-      text: 'text-red-800 dark:text-red-300',
-      icon: 'text-red-600 dark:text-red-400',
+      border: 'border-slate-200 dark:border-[#222225]',
+      bg: 'bg-slate-50 dark:bg-[#0E0E10]',
+      text: 'text-slate-800 dark:text-zinc-200',
+      icon: 'text-rose-600 dark:text-rose-400',
       label: 'Error',
     },
     ai: {
-      badge: 'bg-blue-50 dark:bg-blue-950/60 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-800/40',
+      badge: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700',
       icon: 'text-[#325FEC] dark:text-[#518FFF]',
       label: 'Researchie AI',
     },
     user: {
       badge: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700',
+      icon: 'text-slate-600 dark:text-zinc-400',
       label: 'User',
     },
     plugin: {
-      badge: 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40',
+      badge: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700',
+      icon: 'text-indigo-600 dark:text-indigo-400',
       label: 'Extension',
     },
     canvas: {
-      badge: 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40',
+      badge: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700',
+      icon: 'text-sky-600 dark:text-sky-400',
       label: 'Canvas',
     },
   },

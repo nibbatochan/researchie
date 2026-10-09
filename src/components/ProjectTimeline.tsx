@@ -602,7 +602,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               Showing <span className="text-[#325FEC] dark:text-[#518FFF] font-bold">{filteredAtoms.length}</span> of {atoms.length} items
             </span>
             {searchQuery && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-900/40">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
                 <span>"{searchQuery}"</span>
                 <button onClick={() => setSearchQuery('')} className="hover:text-red-500 font-bold ml-0.5">×</button>
               </span>
@@ -643,7 +643,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
 
       {/* Select Mode Action Bar */}
       {isSelectMode && (
-        <div className="px-4 py-2 bg-blue-50/80 dark:bg-[#121214] border-b border-blue-200 dark:border-[#27272A] flex items-center justify-between text-xs font-sans animate-popIn">
+        <div className="px-4 py-2 bg-slate-100 dark:bg-[#0E0E10] border-b border-slate-200 dark:border-[#222225] flex items-center justify-between text-xs font-sans animate-popIn">
           <div className="flex items-center gap-3">
             <button
               onClick={handleSelectAll}
