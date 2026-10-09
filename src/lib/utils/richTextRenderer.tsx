@@ -86,33 +86,39 @@ export function renderRichText(
         const pageMatch = part.match(/^\[(?:Page|p\.|pp\.)\s*(\d+(?:-\d+)?)\]$/i);
         if (pageMatch) {
           const pageNum = pageMatch[1];
-          return (
-            <button
-              key={index}
-              type="button"
-              onClick={() => onCitationClick?.(`#cite-page-${pageNum}`)}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 mx-0.5 rounded text-[10.5px] font-mono font-medium bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer align-baseline"
-              title={`Jump to Page ${pageNum}`}
-            >
-              <span>p. {pageNum}</span>
-            </button>
-          );
+          if (onCitationClick) {
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onCitationClick(`#cite-page-${pageNum}`)}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.2 mx-0.5 rounded text-[10.5px] font-mono font-medium text-[#325FEC] dark:text-[#518FFF] hover:underline transition-colors cursor-pointer align-baseline"
+                title={`Jump to Page ${pageNum}`}
+              >
+                <span>p. {pageNum}</span>
+              </button>
+            );
+          }
+          return <span key={index} className="text-slate-500 dark:text-zinc-400 font-normal"> (p. {pageNum})</span>;
         }
 
         const refMatch = part.match(/^\[(\d+)\]$/);
         if (refMatch) {
           const refNum = refMatch[1];
-          return (
-            <button
-              key={index}
-              type="button"
-              onClick={() => onCitationClick?.(`#cite-ref-${refNum}`)}
-              className="inline-flex items-center px-1 py-0.2 mx-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-zinc-800 text-[#325FEC] dark:text-[#518FFF] border border-slate-200 dark:border-zinc-700 hover:underline cursor-pointer align-baseline"
-              title={`Citation [${refNum}]`}
-            >
-              <span>[{refNum}]</span>
-            </button>
-          );
+          if (onCitationClick) {
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onCitationClick(`#cite-ref-${refNum}`)}
+                className="inline-flex items-center px-1 py-0.2 mx-0.5 rounded text-[10px] font-mono font-semibold text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer align-baseline"
+                title={`Citation [${refNum}]`}
+              >
+                <span>[{refNum}]</span>
+              </button>
+            );
+          }
+          return <span key={index} className="text-slate-400 dark:text-zinc-500 text-[11px] font-mono">[{refNum}]</span>;
         }
 
         const sourceMatch = part.match(/^\[Source:\s*([^\]]+)\]$/i);
@@ -121,9 +127,9 @@ export function renderRichText(
           return (
             <span
               key={index}
-              className="inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 align-baseline"
+              className="text-slate-500 dark:text-zinc-400 font-mono text-[11px] align-baseline"
             >
-              {sourceTitle}
+              ({sourceTitle})
             </span>
           );
         }

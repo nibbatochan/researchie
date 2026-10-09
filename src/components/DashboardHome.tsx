@@ -14,7 +14,6 @@ import {
   CaretRight,
   TreeStructure,
   Trash,
-  Warning,
   ShareNetwork
 } from '@phosphor-icons/react';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
@@ -141,8 +140,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onOpenShareModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Partition projects into Main Projects and Sub-Projects
   const { allMainProjects, subProjectsByParent } = useMemo(() => {
@@ -367,7 +364,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             {filteredMainProjects.map((mainProj) => {
               const subProjects = subProjectsByParent.get(mainProj.id) || [];
               const totalFolderAtoms = (mainProj.atomCount || 0) + subProjects.reduce((sum, sp) => sum + (sp.atomCount || 0), 0);
-              const isConfirmingDelete = projectToDelete === mainProj.id;
 
               return (
                 <div
@@ -403,8 +399,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setProjectToDelete(mainProj.id);
-                              setDeleteConfirmText('');
+                              onDeleteProject(mainProj.id);
                             }}
                             className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
                             title={`Delete ${mainProj.title}`}
@@ -460,62 +455,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     </div>
                   </div>
 
-                  {/* 2-Step Type 'delete' Confirmation Prompt */}
-                  {isConfirmingDelete ? (
-                    <div 
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs space-y-2 animate-fadeIn"
+                  {/* Bottom Actions */}
+                  <div className="mt-4 pt-3 border-t border-[#D2DCEA]/60 dark:border-[#27272A] flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => onOpenCreateModal(mainProj.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium bg-[#EEF3F8] hover:bg-[#E2EAF4] dark:bg-[#18181B] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 border border-[#D2DCEA] dark:border-[#27272A] transition-colors cursor-pointer"
+                      title="Add a sub-project"
                     >
-                      <div className="flex items-center gap-1.5 text-red-700 dark:text-red-300 font-semibold">
-                        <Warning size={14} className="flex-shrink-0" />
-                        <span>Delete "{mainProj.title}" and its sub-projects?</span>
-                      </div>
-                      <p className="text-[10.5px] text-slate-600 dark:text-zinc-300">
-                        Type <span className="font-mono font-bold text-red-600 dark:text-red-400">delete</span> to confirm:
-                      </p>
-                      <input
-                        type="text"
-                        value={deleteConfirmText}
-                        onChange={(e) => setDeleteConfirmText(e.target.value)}
-                        placeholder="Type delete"
-                        className="w-full px-2.5 py-1 bg-[#FAFBFD] dark:bg-[#121214] border border-red-300 dark:border-red-800 rounded-lg text-xs text-[#0F172A] dark:text-[#FAFAFA] font-mono outline-none"
-                      />
-                      <div className="flex items-center justify-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProjectToDelete(null);
-                            setDeleteConfirmText('');
-                          }}
-                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-[#FAFBFD] dark:bg-[#18181B] text-slate-600 dark:text-zinc-300 border border-[#D2DCEA] dark:border-[#27272A] cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deleteConfirmText.trim().toLowerCase() !== 'delete'}
-                          onClick={() => {
-                            if (onDeleteProject) {
-                              onDeleteProject(mainProj.id);
-                            }
-                            setProjectToDelete(null);
-                            setDeleteConfirmText('');
-                          }}
-                          className="px-3 py-1 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-xs cursor-pointer"
-                        >
-                          Delete Project
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Bottom Actions */
-                    <div className="mt-4 pt-3 border-t border-[#D2DCEA]/60 dark:border-[#27272A] flex items-center justify-between gap-2">
-                      <button
-                        onClick={() => onOpenCreateModal(mainProj.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium bg-[#EEF3F8] hover:bg-[#E2EAF4] dark:bg-[#18181B] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 border border-[#D2DCEA] dark:border-[#27272A] transition-colors cursor-pointer"
-                        title="Add a sub-project"
-                      >
-                        <Plus size={13} weight="bold" />
+                      <Plus size={13} weight="bold" />
                         <span>Sub-Project</span>
                       </button>
 
@@ -527,7 +474,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                         <ArrowRight size={12} weight="bold" />
                       </button>
                     </div>
-                  )}
                 </div>
               );
             })}

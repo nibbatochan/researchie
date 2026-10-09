@@ -301,8 +301,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onClick={() => onSelectProject(parent.id)}
                   className={`group relative flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
                     isParentActive
-                      ? 'bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white border-2 border-[#325FEC] dark:border-[#518FFF] shadow-xs font-semibold'
-                      : 'bg-white dark:bg-[#18181B] text-slate-800 dark:text-zinc-200 hover:bg-[#EEF3F8] dark:hover:bg-[#202024] border border-[#D9E1EC] dark:border-[#27272A]'
+                      ? 'bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white border border-[#325FEC] dark:border-[#518FFF] shadow-xs font-semibold'
+                      : 'bg-transparent border border-transparent text-slate-800 dark:text-zinc-200 hover:bg-[#EEF3F8] dark:hover:bg-[#202024]'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 pr-1">
@@ -334,12 +334,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
                   {/* Actions & Count */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {hasSubProjects && (
-                      <span className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-900/40">
-                        {subProjects.length} sub
-                      </span>
-                    )}
-
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:hidden">
                       {parent.atomCount || 0}
                     </span>

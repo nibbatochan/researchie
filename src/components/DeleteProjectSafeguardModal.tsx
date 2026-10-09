@@ -53,7 +53,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-red-500/80 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-red-500 text-red-600 dark:text-red-500 flex items-center justify-center">
               <ShieldWarning size={20} weight="bold" />
             </div>
             <div>
@@ -124,9 +124,9 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
                   name="strategy"
                   checked={strategy === 'hard_purge'}
                   onChange={() => setStrategy('hard_purge')}
-                  className="accent-rose-600"
+                  className="accent-red-600"
                 />
-                <span className="text-xs text-rose-600 dark:text-rose-400">
+                <span className="text-xs text-red-600 dark:text-red-500 font-medium">
                   <strong>Delete all:</strong> Permanently erase project and clips
                 </span>
               </label>
@@ -136,14 +136,14 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
           {/* Confirmation Input */}
           <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
             <label className="block text-[11px] text-zinc-600 dark:text-zinc-400">
-              Type <strong className="text-rose-600 dark:text-rose-400 font-mono">delete</strong> to confirm:
+              Type <strong className="text-red-600 dark:text-red-500 font-mono">delete</strong> to confirm:
             </label>
             <input
               type="text"
               value={confirmationInput}
               onChange={(e) => setConfirmationInput(e.target.value)}
               placeholder="Type delete to confirm"
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 focus:border-rose-500 rounded-xl text-xs font-mono text-zinc-900 dark:text-white outline-none"
+              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 focus:border-red-500 rounded-xl text-xs font-mono text-zinc-900 dark:text-white outline-none"
             />
           </div>
         </div>
@@ -153,7 +153,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -164,9 +164,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
             onClick={handleExecute}
             className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold text-white transition-all shadow-xs ${
               isConfirmed && !isDeleting
-                ? strategy === 'archive_clips'
-                  ? 'bg-[#325FEC] hover:bg-[#274AC4]'
-                  : 'bg-rose-600 hover:bg-rose-700'
+                ? 'bg-red-600 hover:bg-red-700 cursor-pointer'
                 : 'bg-zinc-300 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-500 cursor-not-allowed'
             }`}
           >

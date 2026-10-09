@@ -171,38 +171,68 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           isSelected ? 'bg-blue-50/80 dark:bg-[#1C1C20] ring-1 ring-[#325FEC]/40 border-[#325FEC]' : ''
         } ${selectable ? 'cursor-pointer' : ''}`}
       >
-        {/* Subtle hover actions in Compact mode */}
-        <div 
-          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity z-10"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {targetLink && (
-            <a
-              href={targetLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors"
-              title={hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open Link'}
-            >
-              <ArrowSquareOut size={14} className={hasTextFragment ? 'text-[#325FEC] dark:text-[#518FFF]' : ''} />
-            </a>
-          )}
-          <button
-            onClick={handleCopyCitation}
-            className="p-1 rounded text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors"
-            title="Copy citation"
+        {/* Top Header with Meta & Visible Actions (never overlaps content) */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {selectable && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onToggleSelect?.(atom.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-3.5 h-3.5 rounded border-[#CBD5E1] dark:border-[#3F3F46] bg-[#FAFBFD] dark:bg-[#09090B] text-[#325FEC] focus:ring-[#325FEC] cursor-pointer mr-0.5"
+              />
+            )}
+            {atom.metadata?.domainFavicon && (
+              <img 
+                src={atom.metadata.domainFavicon} 
+                alt="" 
+                className="w-3.5 h-3.5 rounded-xs flex-shrink-0 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            )}
+            <span className="font-mono text-[10.5px] text-slate-400 dark:text-zinc-500 truncate">
+              {getSourceHostname(atom.metadata?.sourceUrl)}
+            </span>
+            <span className="font-mono text-[10px] text-slate-400 dark:text-zinc-500 flex-shrink-0">
+              • {formatDate(createdAtTime)}
+            </span>
+          </div>
+
+          <div 
+            className="flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
           >
-            {copied ? <Check size={14} className="text-[#325FEC] dark:text-[#518FFF]" /> : <Copy size={14} />}
-          </button>
-          {onDelete && (
+            {targetLink && (
+              <a
+                href={targetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors"
+                title={hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open Link'}
+              >
+                <ArrowSquareOut size={13} className={hasTextFragment ? 'text-[#325FEC] dark:text-[#518FFF]' : ''} />
+              </a>
+            )}
             <button
-              onClick={() => onDelete(atom.id)}
-              className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors"
-              title="Delete"
+              onClick={handleCopyCitation}
+              className="p-1 rounded text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
+              title="Copy citation"
             >
-              <Trash size={14} />
+              {copied ? <Check size={13} className="text-[#325FEC] dark:text-[#518FFF]" /> : <Copy size={13} />}
             </button>
-          )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(atom.id)}
+                className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
+                title="Delete"
+              >
+                <Trash size={13} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Compact Content */}
@@ -624,12 +654,12 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             {onDelete && (
               <div className="relative">
                 {showConfirmDelete ? (
-                  <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/50 shadow-xs animate-fadeIn">
-                    <span className="text-[10px] text-rose-700 dark:text-rose-300 font-mono font-medium">Delete?</span>
+                  <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded-lg border border-red-200 dark:border-red-900/50 shadow-xs animate-fadeIn">
+                    <span className="text-[10px] text-red-700 dark:text-red-300 font-mono font-medium">Delete?</span>
                     <button
                       onClick={handleConfirmDelete}
                       disabled={deleting}
-                      className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                      className="px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-500 text-white font-mono text-[10px] font-bold transition-colors cursor-pointer"
                     >
                       {deleting ? '...' : 'Yes'}
                     </button>
@@ -643,7 +673,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 ) : (
                   <button
                     onClick={() => setShowConfirmDelete(true)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1 rounded transition-opacity"
+                    className="text-slate-400 hover:text-red-500 p-1 rounded transition-colors cursor-pointer"
                     title="Delete clip"
                   >
                     <Trash size={13} />

@@ -240,16 +240,25 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
     case 'chips':
       return (
         <div className="my-1.5 flex flex-wrap gap-1.5">
-          {block.items.map((chip, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onChipClick?.(chip)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-            >
-              <span>{chip.label}</span>
-            </button>
-          ))}
+          {block.items.map((chip, idx) =>
+            onChipClick ? (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => onChipClick(chip)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+              >
+                <span>{chip.label}</span>
+              </button>
+            ) : (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700"
+              >
+                {chip.label}
+              </span>
+            )
+          )}
         </div>
       );
 
