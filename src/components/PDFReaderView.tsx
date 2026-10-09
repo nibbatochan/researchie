@@ -31,12 +31,12 @@ import {
   SidebarSimple,
   BookOpen,
   ArrowRight,
-  Copy
+  Copy,
+  FolderPlus
 } from '@phosphor-icons/react';
 import { ResearchDocument, AtomType } from '@/lib/types/research';
 import { CustomPDFViewer } from './CustomPDFViewer';
 import { FormattedAIMessage } from './FormattedAIMessage';
-import { FolderPlus, Check as LucideCheck } from 'lucide-react';
 
 // ─── Saved Highlight type ──────────────────────────────────────────
 interface SavedHighlight {
@@ -1540,7 +1540,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                           title="Save AI answer to project"
                         >
                           {savedAiMessages.has(i) ? (
-                            <LucideCheck size={14} className="text-emerald-500" />
+                            <Check size={14} className="text-emerald-500" weight="bold" />
                           ) : (
                             <FolderPlus size={14} />
                           )}
