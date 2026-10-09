@@ -53,7 +53,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-red-500/80 text-rose-600 dark:text-rose-400 flex items-center justify-center">
               <ShieldWarning size={20} weight="bold" />
             </div>
             <div>
@@ -136,7 +136,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
           {/* Confirmation Input */}
           <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
             <label className="block text-[11px] text-zinc-600 dark:text-zinc-400">
-              Type <strong className="text-rose-600 dark:text-rose-400 font-mono">delete</strong> or <strong className="text-zinc-900 dark:text-white font-mono">"{project.title}"</strong> to confirm:
+              Type <strong className="text-rose-600 dark:text-rose-400 font-mono">delete</strong> to confirm:
             </label>
             <input
               type="text"

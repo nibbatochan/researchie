@@ -248,7 +248,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           <MagnifyingGlass size={13} className="absolute left-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search streams... (⌘K)"
+            placeholder="Search streams..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-7 pr-3 py-1.5 bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs text-[#0F172A] dark:text-white placeholder-slate-400 outline-none transition-colors"
@@ -301,7 +301,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onClick={() => onSelectProject(parent.id)}
                   className={`group relative flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
                     isParentActive
-                      ? 'bg-[#325FEC] text-white shadow-sm font-semibold'
+                      ? 'bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white border-2 border-[#325FEC] dark:border-[#518FFF] shadow-xs font-semibold'
                       : 'bg-white dark:bg-[#18181B] text-slate-800 dark:text-zinc-200 hover:bg-[#EEF3F8] dark:hover:bg-[#202024] border border-[#D9E1EC] dark:border-[#27272A]'
                   }`}
                 >
@@ -311,9 +311,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       <button
                         type="button"
                         onClick={(e) => toggleFolder(parent.id, e)}
-                        className={`p-0.5 rounded hover:bg-black/10 transition-colors ${
-                          isParentActive ? 'text-white' : 'text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200'
-                        }`}
+                        className="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-black/10 transition-colors"
                         title={isFolderCollapsed ? 'Expand sub-projects' : 'Collapse sub-projects'}
                       >
                         {isFolderCollapsed ? <CaretRight size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
@@ -322,12 +320,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       <div className="w-3" />
                     )}
 
-                    {/* Project Folder Icon with Project Color */}
+                    {/* Common Blue Folder Icon */}
                     <div className="relative flex items-center justify-center flex-shrink-0">
                       {isFolderCollapsed ? (
-                        <FolderSimple size={15} weight="fill" style={{ color: isParentActive ? '#fff' : (parent.color || '#325FEC') }} />
+                        <FolderSimple size={15} weight="fill" className="text-[#325FEC] dark:text-[#518FFF]" />
                       ) : (
-                        <FolderOpen size={15} weight="fill" style={{ color: isParentActive ? '#fff' : (parent.color || '#325FEC') }} />
+                        <FolderOpen size={15} weight="fill" className="text-[#325FEC] dark:text-[#518FFF]" />
                       )}
                     </div>
 
@@ -337,24 +335,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   {/* Actions & Count */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {hasSubProjects && (
-                      <span
-                        className={`text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-full ${
-                          isParentActive
-                            ? 'bg-white/20 text-white'
-                            : 'bg-blue-50 dark:bg-blue-950/40 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-900/40'
-                        }`}
-                      >
+                      <span className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-900/40">
                         {subProjects.length} sub
                       </span>
                     )}
 
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                        isParentActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:hidden'
-                      }`}
-                    >
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:hidden">
                       {parent.atomCount || 0}
                     </span>
 
@@ -366,9 +352,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                           e.stopPropagation();
                           onOpenCreateModal(parent.id);
                         }}
-                        className={`p-1 rounded hover:bg-black/10 transition-colors ${
-                          isParentActive ? 'text-white' : 'text-slate-400 hover:text-slate-800 dark:hover:text-white'
-                        }`}
+                        className="p-1 rounded text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-black/10 transition-colors"
                         title="Add Sub-project"
                       >
                         <Plus size={12} weight="bold" />
@@ -380,9 +364,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             e.stopPropagation();
                             onDeleteProject(parent.id);
                           }}
-                          className={`p-1 rounded hover:bg-red-500/20 transition-colors ${
-                            isParentActive ? 'text-white hover:text-red-200' : 'text-slate-400 hover:text-red-600'
-                          }`}
+                          className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-500/20 transition-colors"
                           title="Delete Project"
                         >
                           <Trash size={12} />
@@ -392,9 +374,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   </div>
                 </div>
 
-                {/* Sub-Projects (Visual Tree with Guide Lines) */}
+                {/* Sub-Projects (Visual Tree with Guide Lines to the left, no dots) */}
                 {!isFolderCollapsed && hasSubProjects && (
-                  <div className="pl-4 space-y-1 ml-3 border-l-2 border-[#CBD5E1] dark:border-[#27272A]">
+                  <div className="pl-3.5 space-y-1 ml-3 border-l-2 border-[#CBD5E1] dark:border-[#27272A]">
                     {subProjects.map((child) => {
                       const isChildActive = activeProjectId === child.id;
                       return (
@@ -403,15 +385,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                           onClick={() => onSelectProject(child.id)}
                           className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                             isChildActive
-                              ? 'bg-[#325FEC] text-white shadow-xs font-semibold'
+                              ? 'border border-[#325FEC] dark:border-[#518FFF] bg-transparent text-[#0F172A] dark:text-white font-semibold'
                               : 'text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: isChildActive ? '#fff' : (child.color || '#325FEC') }}
-                            />
+                          <div className="flex items-center min-w-0">
                             <span className="truncate">{child.title}</span>
                           </div>
 
@@ -419,7 +397,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             <span
                               className={`text-[9px] font-mono px-1 rounded ${
                                 isChildActive
-                                  ? 'bg-white/20 text-white'
+                                  ? 'text-[#325FEC] dark:text-[#518FFF] font-semibold'
                                   : 'text-slate-400 dark:text-zinc-500 group-hover:hidden'
                               }`}
                             >

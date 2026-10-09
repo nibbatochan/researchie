@@ -181,8 +181,8 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   // Spacebar key state for pan
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
-  // Mode: Compact vs Detailed cards across canvas
-  const [globalNodeMode, setGlobalNodeMode] = useState<CanvasNodeMode>('detailed');
+  // Mode: Compact vs Detailed cards across canvas (default: compact)
+  const [globalNodeMode, setGlobalNodeMode] = useState<CanvasNodeMode>('compact');
 
   // Per-card override for shrink / expand app window
   const [shrunkCardIds, setShrunkCardIds] = useState<Set<string>>(new Set());
@@ -224,44 +224,6 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
   // Toggle for DOM Block code inspection vs live UI preview
   const [blockCodeViewIds, setBlockCodeViewIds] = useState<Set<string>>(new Set());
-
-  // Cognee AI Knowledge Graph Auto-Connect State
-  const [isGraphLoading, setIsGraphLoading] = useState(false);
-
-  const handleAutoConnectGraph = async () => {
-    if (!project?.id) return;
-    setIsGraphLoading(true);
-    try {
-      const res = await fetch(`/api/ai/graph?projectId=${encodeURIComponent(project.id)}`);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data?.links)) {
-        setLinks((prev) => {
-          const existingKeys = new Set(prev.map((l) => `${l.fromId}-${l.toId}`));
-          const newLinks: CanvasLink[] = [];
-          for (const rawLink of json.data.links) {
-            const key = `${rawLink.fromId}-${rawLink.toId}`;
-            if (!existingKeys.has(key)) {
-              newLinks.push({
-                id: rawLink.id || `cognee-link-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                fromId: rawLink.fromId,
-                toId: rawLink.toId,
-                fromPort: rawLink.fromPort || 'right',
-                toPort: rawLink.toPort || 'left',
-                label: rawLink.label || 'Related',
-                type: rawLink.type || 'relates',
-              });
-              existingKeys.add(key);
-            }
-          }
-          return [...prev, ...newLinks];
-        });
-      }
-    } catch (err) {
-      console.warn('Failed to auto-connect graph:', err);
-    } finally {
-      setIsGraphLoading(false);
-    }
-  };
 
   // Center initial viewport on mount
   useEffect(() => {
@@ -902,20 +864,20 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       onMouseDown={handleMouseDownCanvas}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className={`overflow-hidden bg-[#EAEEF4] dark:bg-[#09090B] select-none font-sans ${
+      className={`overflow-hidden bg-[#FAFBFD] dark:bg-[#09090B] select-none font-sans ${
         isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : 'relative w-full h-full'
       } ${
         isSpacePressed || activeTool === 'hand' || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
       }`}
     >
-      {/* TOP FIGMA-STYLE TOOLBAR */}
-      <div className="absolute top-3 left-4 z-30 flex items-center gap-2 bg-[#FAFBFD]/95 dark:bg-[#121214]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-xl p-1.5 shadow-xl text-xs">
+      {/* TOP TOOLBAR */}
+      <div className="absolute top-3 left-4 z-30 flex items-center gap-1.5 bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] rounded-xl px-2 py-1.5 shadow-sm text-xs">
         {/* Tool Select: Pointer vs Hand */}
-        <div className="flex items-center bg-[#EEF3F8] dark:bg-[#18181B] rounded-lg p-0.5 border border-[#D2DCEA] dark:border-[#27272A]">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => setActiveTool('pointer')}
-            className={`p-1.5 rounded transition-colors ${activeTool === 'pointer' && !isSpacePressed ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'}`}
+            className={`p-1.5 rounded-lg transition-colors ${activeTool === 'pointer' && !isSpacePressed ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024]'}`}
             title="Select & Move (V)"
           >
             <Cursor size={13} weight="bold" />
@@ -923,7 +885,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           <button
             type="button"
             onClick={() => setActiveTool('hand')}
-            className={`p-1.5 rounded transition-colors ${activeTool === 'hand' || isSpacePressed ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'}`}
+            className={`p-1.5 rounded-lg transition-colors ${activeTool === 'hand' || isSpacePressed ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024]'}`}
             title="Pan Canvas (Hold Spacebar + Drag)"
           >
             <HandGrabbing size={13} weight="bold" />
@@ -932,81 +894,65 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
         <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A]" />
 
-        {/* Global Mode Switcher: Compact vs Detailed */}
-        <div className="flex items-center bg-[#EEF3F8] dark:bg-[#18181B] rounded-lg p-0.5 border border-[#D2DCEA] dark:border-[#27272A]">
+        {/* Global Mode Switcher: Compact vs Detailed (Icons only) */}
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={() => setGlobalNodeMode('compact')}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-              globalNodeMode === 'compact' ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'
+            className={`p-1.5 rounded-lg transition-colors ${
+              globalNodeMode === 'compact' ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024]'
             }`}
-            title="Compact Node View (Exact Content without extra metadata)"
+            title="Compact View"
           >
-            <Rows size={12} />
-            <span>Compact</span>
+            <Rows size={13} />
           </button>
           <button
             type="button"
             onClick={() => setGlobalNodeMode('detailed')}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-              globalNodeMode === 'detailed' ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'
+            className={`p-1.5 rounded-lg transition-colors ${
+              globalNodeMode === 'detailed' ? 'bg-[#325FEC] text-white shadow-xs' : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024]'
             }`}
-            title="Detailed Bento Card View (With Tags, Provenance & Context)"
+            title="Detailed View"
           >
-            <ListDashes size={12} />
-            <span>Detailed</span>
+            <ListDashes size={13} />
           </button>
         </div>
 
         <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A]" />
 
-        {/* Create Elements: Figma Section, Sticky Note, Heading */}
+        {/* Create Elements: Section, Note, Text (No plus in words) */}
         <button
           type="button"
           onClick={handleCreateNewSection}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E2EAF4] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D2DCEA] dark:border-[#27272A] transition-colors"
-          title="Create Figma Section (Folder)"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024] transition-colors"
+          title="Create Section (Folder)"
         >
           <SquaresFour size={13} className="text-[#325FEC] dark:text-[#518FFF]" weight="bold" />
-          <span>+ Section</span>
+          <span>Section</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleCreateShape('sticky')}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E2EAF4] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D2DCEA] dark:border-[#27272A] transition-colors"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024] transition-colors"
           title="Add Sticky Note"
         >
           <Sticker size={13} className="text-amber-500 dark:text-amber-400" />
-          <span>+ Note</span>
+          <span>Note</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleCreateShape('heading')}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E2EAF4] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D2DCEA] dark:border-[#27272A] transition-colors"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#202024] transition-colors"
           title="Add Section Text Banner"
         >
           <TextT size={13} className="text-purple-500 dark:text-purple-400" />
-          <span>+ Text</span>
-        </button>
-
-        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A]" />
-
-        {/* Cognee Auto-Connect Graph Button */}
-        <button
-          type="button"
-          onClick={handleAutoConnectGraph}
-          disabled={isGraphLoading}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E2EAF4] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D2DCEA] dark:border-[#27272A] transition-colors"
-          title="Auto-Connect Knowledge Graph using Cognee"
-        >
-          <Sparkle size={13} className={`text-[#325FEC] dark:text-[#518FFF] ${isGraphLoading ? 'animate-spin' : ''}`} weight="bold" />
-          <span className="font-medium">{isGraphLoading ? 'Analyzing...' : 'Auto-Connect Graph'}</span>
+          <span>Text</span>
         </button>
       </div>
 
-      {/* 5X BOUNDED CANVAS ARTBOARD SURFACE (Instant 60fps rendering without CSS transition lag) */}
+      {/* 5X BOUNDED CANVAS ARTBOARD SURFACE */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -1016,9 +962,9 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           height: `${CANVAS_HEIGHT}px`,
         }}
       >
-        {/* Workspace Artboard Frame & Subtle Dot Grid */}
+        {/* Workspace Plain Background & Subtle Dot Grid */}
         <div 
-          className="absolute inset-0 rounded-3xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD]/95 dark:bg-[#09090B]/95 shadow-2xl overflow-hidden canvas-artboard pointer-events-auto transition-colors"
+          className="absolute inset-0 bg-[#FAFBFD] dark:bg-[#09090B] canvas-artboard pointer-events-auto transition-colors"
           style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px` }}
         >
           {/* Dot Grid Background */}

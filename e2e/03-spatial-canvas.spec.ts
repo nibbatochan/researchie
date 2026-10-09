@@ -29,8 +29,8 @@ test.describe('3. 2D Spatial Canvas & Whiteboard Suite', () => {
       await canvasBtn.click();
       await page.waitForTimeout(400);
 
-      const compactBtn = page.locator('button:has-text("Compact")').first();
-      const detailedBtn = page.locator('button:has-text("Detailed")').first();
+      const compactBtn = page.locator('button[title*="Compact"], button:has-text("Compact")').first();
+      const detailedBtn = page.locator('button[title*="Detailed"], button:has-text("Detailed")').first();
 
       if (await compactBtn.isVisible()) {
         await compactBtn.click();
@@ -49,13 +49,13 @@ test.describe('3. 2D Spatial Canvas & Whiteboard Suite', () => {
       await canvasBtn.click();
       await page.waitForTimeout(400);
 
-      const sectionBtn = page.locator('button:has-text("+ Section")').first();
+      const sectionBtn = page.locator('button:has-text("Section")').first();
       if (await sectionBtn.isVisible()) {
         await sectionBtn.click();
         await page.waitForTimeout(300);
       }
 
-      const noteBtn = page.locator('button:has-text("+ Note")').first();
+      const noteBtn = page.locator('button:has-text("Note")').first();
       if (await noteBtn.isVisible()) {
         await noteBtn.click();
         await page.waitForTimeout(300);

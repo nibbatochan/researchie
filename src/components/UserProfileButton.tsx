@@ -102,7 +102,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
                   <span className="font-semibold text-xs text-[#0F172A] dark:text-white truncate">{user.name}</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold uppercase">
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">
                     {user.tier}
                   </span>
                 </div>
@@ -184,7 +184,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
           <div className="min-w-0 text-left">
             <div className="flex items-center gap-1">
               <span className="font-semibold text-xs text-[#0F172A] dark:text-white truncate">{user.name}</span>
-              <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold uppercase">
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">
                 {user.tier}
               </span>
             </div>
