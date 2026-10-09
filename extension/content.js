@@ -240,6 +240,9 @@
 
   function normalizeTextForMatching(text) {
     return (text || '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/^###?\s+/gm, '')
       .replace(/[\r\n\t]+/g, ' ')
       .replace(/\s+/g, ' ')
       .replace(/[“”]/g, '"')
@@ -247,6 +250,97 @@
       .replace(/[—–]/g, '-')
       .replace(/^["'“‘\s]+|["'”’\s]+$/g, '')
       .trim();
+  }
+
+  function htmlToStructuredMarkdown(node) {
+    if (!node) return '';
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || '';
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return '';
+    }
+
+    const tagName = node.tagName.toUpperCase();
+
+    // Preserve line break
+    if (tagName === 'BR') {
+      return '\n';
+    }
+
+    // Detect bold text weights (strong, b, or font-weight >= 600)
+    let isBold = false;
+    let isItalic = false;
+
+    if (['STRONG', 'B'].includes(tagName)) {
+      isBold = true;
+    } else {
+      try {
+        const computed = window.getComputedStyle(node);
+        const fw = computed.fontWeight;
+        if (fw === 'bold' || fw === '700' || fw === '800' || fw === '900' || parseInt(fw, 10) >= 600) {
+          isBold = true;
+        }
+        if (computed.fontStyle === 'italic') {
+          isItalic = true;
+        }
+      } catch {}
+    }
+
+    let childrenText = '';
+    for (let i = 0; i < node.childNodes.length; i++) {
+      childrenText += htmlToStructuredMarkdown(node.childNodes[i]);
+    }
+
+    if (!childrenText.trim()) {
+      return '';
+    }
+
+    let result = childrenText;
+    if (isBold && !result.startsWith('**') && !result.endsWith('**')) {
+      result = `**${result.trim()}**`;
+    } else if (isItalic && !result.startsWith('*') && !result.endsWith('*')) {
+      result = `*${result.trim()}*`;
+    }
+
+    // Preserve block-level spacing & line skips
+    if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(tagName)) {
+      return `\n\n### ${result.trim()}\n\n`;
+    }
+    if (['P', 'BLOCKQUOTE', 'SECTION', 'ARTICLE'].includes(tagName)) {
+      return `\n\n${result.trim()}\n\n`;
+    }
+    if (tagName === 'LI') {
+      return `\n- ${result.trim()}`;
+    }
+    if (tagName === 'DIV') {
+      return `\n${result}\n`;
+    }
+
+    return result;
+  }
+
+  function extractFormattedTextFromSelection(selection) {
+    if (!selection || selection.rangeCount === 0) return '';
+    try {
+      const range = selection.getRangeAt(0);
+      const cloned = range.cloneContents();
+      const container = document.createElement('div');
+      container.appendChild(cloned);
+
+      const structured = htmlToStructuredMarkdown(container);
+      if (structured && structured.trim().length > 0) {
+        return structured
+          .replace(/[ \t]+\n/g, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
+    } catch (e) {
+      console.warn('Formatted selection extraction failed, fallback to plain:', e);
+    }
+    return (selection ? selection.toString() : '').trim();
   }
 
   function encodeFragmentComponent(str) {
@@ -424,7 +518,7 @@
   }
 
   async function saveCurrentSelection(text, tags = []) {
-    const cleanText = (text || activeSelectedText || (window.getSelection() ? window.getSelection().toString() : '')).trim();
+    const cleanText = (text || activeSelectedText || extractFormattedTextFromSelection(window.getSelection())).trim();
     if (!cleanText) return;
 
     const userTag = tags.length > 0 ? tags[0] : '';
@@ -519,7 +613,7 @@
       return;
     }
 
-    const text = selection.toString().trim();
+    const text = extractFormattedTextFromSelection(selection);
     if (text.length < 2) {
       removeButton();
       return;
@@ -723,7 +817,7 @@
       e.preventDefault();
       e.stopPropagation();
       const selection = window.getSelection();
-      const text = selection ? selection.toString().trim() : '';
+      const text = selection ? extractFormattedTextFromSelection(selection) : '';
       if (text.length >= 2) {
         saveCurrentSelection(text);
       } else {
@@ -991,7 +1085,7 @@
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'SAVE_SELECTION_TRIGGERED') {
       const selection = window.getSelection();
-      const text = selection ? selection.toString().trim() : message.selectionText;
+      const text = selection ? extractFormattedTextFromSelection(selection) : message.selectionText;
       if (text) {
         saveCurrentSelection(text);
         sendResponse({ success: true });

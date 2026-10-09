@@ -12,7 +12,7 @@ interface ManualClipModalProps {
     projectId: string;
     type: AtomType;
     title?: string;
-    content: { text?: string; description?: string; targetUrl?: string; imageUrl?: string; markdownContent?: string };
+    content: { text?: string; rawText?: string; description?: string; targetUrl?: string; imageUrl?: string; markdownContent?: string };
     metadata?: { sourceUrl?: string; pageTitle?: string };
   }) => Promise<void>;
 }
@@ -75,9 +75,11 @@ export const ManualClipModal: React.FC<ManualClipModalProps> = ({
         title: title.trim() || undefined,
         content: {
           text: type === 'quote' ? text.trim() : undefined,
+          rawText: type === 'quote' ? text.trim() : undefined,
           targetUrl: sourceUrl.trim() || undefined,
           imageUrl: type === 'image' ? imageUrl.trim() : undefined,
           description: description.trim() || undefined,
+          markdownContent: type === 'note' ? (description.trim() || text.trim() || undefined) : undefined,
         },
         metadata: {
           sourceUrl: sourceUrl.trim() || undefined,

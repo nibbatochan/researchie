@@ -36,6 +36,7 @@ interface AtomCardProps {
 }
 
 import { semanticHighlight } from '@/lib/utils/semanticHighlight';
+import { renderRichText } from '@/lib/utils/richTextRenderer';
 
 export const AtomCard: React.FC<AtomCardProps> = ({ 
   atom, 
@@ -207,8 +208,8 @@ export const AtomCard: React.FC<AtomCardProps> = ({
         {/* Compact Content */}
         <div>
           {isQuoteType && rawQuote && (
-            <blockquote className="text-[13px] md:text-[13.5px] leading-relaxed text-slate-800 dark:text-zinc-100 border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-3.5 py-0.5 my-0.5">
-              "{semanticHighlight(rawQuote, searchQuery)}"
+            <blockquote className="text-[13px] md:text-[13.5px] leading-relaxed text-slate-800 dark:text-zinc-100 border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-3.5 py-0.5 my-0.5 whitespace-pre-line break-words [&_strong]:font-bold [&_strong]:text-[#0F172A] dark:[&_strong]:text-white">
+              "{renderRichText(rawQuote, searchQuery)}"
             </blockquote>
           )}
 
@@ -216,7 +217,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             <div className="text-[13px] text-slate-800 dark:text-zinc-200 leading-relaxed font-sans">
               {atom.title && (
                 <h4 className="font-semibold text-[#0F172A] dark:text-white mb-1 text-[13px]">
-                  {semanticHighlight(atom.title, searchQuery)}
+                  {renderRichText(atom.title, searchQuery)}
                 </h4>
               )}
               {atom.content.markdownContent ? (
@@ -381,8 +382,8 @@ export const AtomCard: React.FC<AtomCardProps> = ({
       <div className="space-y-3">
         {isQuoteType && rawQuote && (
           <div className="space-y-2">
-            <blockquote className="text-[13.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] font-normal border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-4 py-0.5 my-1">
-              "{semanticHighlight(rawQuote, searchQuery)}"
+            <blockquote className="text-[13.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-4 py-0.5 my-1 whitespace-pre-line break-words [&_strong]:font-bold [&_strong]:text-[#0F172A] dark:[&_strong]:text-white">
+              "{renderRichText(rawQuote, searchQuery)}"
             </blockquote>
 
             {/* Context Re-Builder Toggle */}
@@ -434,11 +435,11 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 )}
 
                 {/* Captured Excerpt Focus */}
-                <div className="p-3.5 rounded-lg bg-[#FAFBFD] dark:bg-[#18181B] border-l-3 border-[#325FEC] dark:border-[#518FFF] border-t border-r border-b border-[#D9E1EC] dark:border-[#27272A] text-slate-900 dark:text-zinc-100 font-medium leading-relaxed shadow-xs text-[13px]">
+                <div className="p-3.5 rounded-lg bg-[#FAFBFD] dark:bg-[#18181B] border-l-3 border-[#325FEC] dark:border-[#518FFF] border-t border-r border-b border-[#D9E1EC] dark:border-[#27272A] text-slate-900 dark:text-zinc-100 font-medium leading-relaxed shadow-xs text-[13px] whitespace-pre-line break-words [&_strong]:font-bold [&_strong]:text-[#0F172A] dark:[&_strong]:text-white">
                   <span className="text-[10px] font-mono uppercase text-[#325FEC] dark:text-[#518FFF] block font-bold mb-1">
                     Captured Excerpt
                   </span>
-                  "{rawQuote}"
+                  "{renderRichText(rawQuote, searchQuery)}"
                 </div>
 
                 {/* Following Context */}
@@ -497,7 +498,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           <div className="space-y-2.5 font-sans">
             {atom.title && (
               <h3 className="text-base md:text-lg font-display font-bold text-[#0F172A] dark:text-[#FAFAFA]">
-                {semanticHighlight(atom.title, searchQuery)}
+                {renderRichText(atom.title, searchQuery)}
               </h3>
             )}
             {atom.content.markdownContent ? (

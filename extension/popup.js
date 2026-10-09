@@ -448,14 +448,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const answer = json.data?.answer || 'No direct answer found.';
         currentQnAData = { tab, question, answer };
 
+        const formattedAnswer = typeof parseMarkdownToBlocks === 'function' && typeof renderBlock === 'function'
+          ? parseMarkdownToBlocks(answer).map(renderBlock).join('')
+          : (typeof renderInlineMarkdown === 'function' ? renderInlineMarkdown(answer) : escapeHtml(answer));
+
         qnaAnswerText.innerHTML = `
           <div class="qna-question-display">
             <span style="color:#FAFAFA;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;display:block;margin-bottom:2px;">Question</span>
             ${escapeHtml(question)}
           </div>
           <div class="summary-section-card" style="margin-top:6px;">
-            <span style="color:#FAFAFA;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;display:block;margin-bottom:4px;">Grounded Answer</span>
-            <div style="color:#D4D4D8;line-height:1.55;font-size:12px;white-space:pre-wrap;">${escapeHtml(answer)}</div>
+            <span style="color:#FAFAFA;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;display:block;margin-bottom:6px;">Grounded Answer</span>
+            <div class="qna-answer-rendered" style="color:#D4D4D8;line-height:1.6;font-size:12.5px;">${formattedAnswer}</div>
           </div>
         `;
       } else {

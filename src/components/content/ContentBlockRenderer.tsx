@@ -21,6 +21,7 @@ import {
 } from '@phosphor-icons/react';
 import { ContentBlock, InlineChip, assertNever } from '@/lib/types/contentBlocks';
 import { SEMANTIC_TOKENS } from '@/lib/design/semanticTokens';
+import { renderRichText } from '@/lib/utils/richTextRenderer';
 
 interface ContentBlockRendererProps {
   block: ContentBlock;
@@ -43,7 +44,7 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
       return (
         <div className="py-1">
           <p className="text-[13.5px] font-medium leading-relaxed text-[#0F172A] dark:text-[#F8FAFC]">
-            {block.text}
+            {renderRichText(block.text, { onCitationClick })}
           </p>
           {block.confidence !== undefined && (
             <span className="text-[10px] font-mono text-[#64748B] dark:text-[#71717A] mt-0.5 block">
@@ -55,19 +56,19 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
 
     case 'heading': {
       const headingStyles = {
-        1: 'text-[17px] font-bold font-display text-[#0F172A] dark:text-white mt-3 mb-1 pb-1 border-b border-[#E2E8F0] dark:border-[#27272A]',
+        1: 'text-[17px] font-bold font-display text-[#0F172A] dark:text-white mt-3 mb-1 pb-1 border-b border-[#E2E8F0] dark:border-[#222225]',
         2: 'text-[15px] font-semibold font-display text-[#0F172A] dark:text-white mt-2.5 mb-1',
         3: 'text-[13.5px] font-semibold font-display text-[#334155] dark:text-[#CBD5E1] mt-2 mb-0.5',
         4: 'text-[11px] font-mono uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8] mt-1.5 mb-0.5',
       }[block.level];
 
-      return <div className={headingStyles}>{block.text}</div>;
+      return <div className={headingStyles}>{renderRichText(block.text, { onCitationClick })}</div>;
     }
 
     case 'paragraph':
       return (
-        <p className="text-[13px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] my-1.5 break-words">
-          {block.text}
+        <p className="text-[13px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] my-1.5 break-words whitespace-pre-line">
+          {renderRichText(block.text, { onCitationClick })}
           {block.inlineChips && block.inlineChips.length > 0 && (
             <span className="inline-flex flex-wrap gap-1 ml-1.5 align-middle">
               {block.inlineChips.map((chip, idx) => (
@@ -99,10 +100,10 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
     case 'list': {
       const ListTag = block.ordered ? 'ol' : 'ul';
       return (
-        <ListTag className={`my-2 space-y-1 pl-4 text-[13px] text-[#334155] dark:text-[#CBD5E1] ${block.ordered ? 'list-decimal' : 'list-disc marker:text-[#94A3B8]'}`}>
+        <ListTag className={`my-2 space-y-1.5 pl-4 text-[13px] text-[#334155] dark:text-[#CBD5E1] ${block.ordered ? 'list-decimal' : 'list-disc marker:text-[#94A3B8]'}`}>
           {block.items.map((item, idx) => (
             <li key={idx} className="leading-relaxed pl-0.5 break-words">
-              {item}
+              {renderRichText(item, { onCitationClick })}
             </li>
           ))}
         </ListTag>
@@ -158,8 +159,8 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
     case 'quote':
       return (
         <div className="my-2 pl-3 py-1.5 border-l-2 border-[#325FEC] dark:border-[#518FFF] bg-slate-50 dark:bg-[#0E0E10] border border-slate-200/70 dark:border-[#222225] rounded-r-lg">
-          <p className="text-[13px] italic leading-relaxed text-[#0F172A] dark:text-[#F8FAFC]">
-            "{block.quote}"
+          <p className="text-[13px] italic leading-relaxed text-[#0F172A] dark:text-[#F8FAFC] whitespace-pre-line">
+            "{renderRichText(block.quote, { onCitationClick })}"
           </p>
           {(block.sourceTitle || block.pageNumber || block.deepLink) && (
             <div className="mt-1 flex items-center gap-2 text-[10.5px] font-mono text-[#64748B] dark:text-[#94A3B8]">
@@ -311,10 +312,10 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
       return (
         <div className="my-2 space-y-1">
           <div className="text-xs font-semibold text-[#0F172A] dark:text-white">
-            Q: {block.question}
+            Q: {renderRichText(block.question, { onCitationClick })}
           </div>
-          <div className="text-[12.5px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] pl-2 border-l border-[#CBD5E1] dark:border-[#3F3F46]">
-            {block.answer}
+          <div className="text-[12.5px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] pl-2 border-l border-[#CBD5E1] dark:border-[#3F3F46] whitespace-pre-line">
+            {renderRichText(block.answer, { onCitationClick })}
           </div>
         </div>
       );
@@ -334,8 +335,8 @@ export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
           <div className="flex items-start gap-2.5">
             <Icon size={15} className={`mt-0.5 flex-shrink-0 ${intents.iconColor}`} weight="bold" />
             <div className="space-y-0.5 min-w-0">
-              {block.title && <div className="text-xs font-semibold text-[#0F172A] dark:text-white">{block.title}</div>}
-              <div className="text-[12px] leading-relaxed text-[#334155] dark:text-[#CBD5E1]">{block.body}</div>
+              {block.title && <div className="text-xs font-semibold text-[#0F172A] dark:text-white">{renderRichText(block.title, { onCitationClick })}</div>}
+              <div className="text-[12px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] whitespace-pre-line">{renderRichText(block.body, { onCitationClick })}</div>
             </div>
           </div>
         </div>

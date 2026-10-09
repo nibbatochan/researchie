@@ -1206,7 +1206,8 @@ function renderSimpleMarkdown(text) {
     return `__CODE_BLOCK_${idx}__`;
   });
 
-  // 2. Parse Markdown Tables
+  // 2. Parse Markdown Tables (Protected from HTML escaping)
+  const tableBlocks = [];
   processed = processed.replace(/(?:^|\n)(\|[^\n]+\|\n\|[-:\s|]+\|\n(?:\|[^\n]+\|\n?)+)/g, (match, tableStr) => {
     const lines = tableStr.trim().split('\n').filter(Boolean);
     if (lines.length < 3) return match;
@@ -1215,7 +1216,7 @@ function renderSimpleMarkdown(text) {
     const headerCols = parseRow(lines[0]);
     const bodyRows = lines.slice(2).map(parseRow);
 
-    let html = '<table class="sp-md-table"><thead><tr>';
+    let html = '<div class="sp-table-scroll"><table class="sp-md-table"><thead><tr>';
     headerCols.forEach(col => {
       html += `<th>${escapeHtml(col)}</th>`;
     });
@@ -1227,8 +1228,10 @@ function renderSimpleMarkdown(text) {
       });
       html += '</tr>';
     });
-    html += '</tbody></table>';
-    return `\n${html}\n`;
+    html += '</tbody></table></div>';
+    const idx = tableBlocks.length;
+    tableBlocks.push(html);
+    return `\n__TABLE_BLOCK_${idx}__\n`;
   });
 
   // 3. Escape remaining HTML
@@ -1254,7 +1257,7 @@ function renderSimpleMarkdown(text) {
   clean = clean.replace(/(\[(?:source|\d+|cite:[^\]]+)\])/gi, '<span class="sp-citation-chip">$1</span>');
 
   // 9. Bold
-  clean = clean.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  clean = clean.replace(/\*\*(.+?)\*\*/g, '<strong style="color: var(--text-primary); font-weight: 700;">$1</strong>');
 
   // 10. Italic
   clean = clean.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
@@ -1270,16 +1273,19 @@ function renderSimpleMarkdown(text) {
   clean = clean.replace(/(?<!href=")(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" class="sp-semantic-url">$1</a>');
 
   // 12. Bullet & Numbered lists
-  clean = clean.replace(/^- (.+)$/gm, '<div style="display: flex; gap: 6px; margin: 2px 0;"><span style="color: var(--text-muted);">•</span><span>$1</span></div>');
-  clean = clean.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="display: flex; gap: 6px; margin: 2px 0;"><span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 11px;">$1.</span><span>$2</span></div>');
+  clean = clean.replace(/^- (.+)$/gm, '<div style="display: flex; gap: 6px; margin: 3px 0;"><span style="color: var(--text-muted);">•</span><span>$1</span></div>');
+  clean = clean.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="display: flex; gap: 6px; margin: 3px 0;"><span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 11px;">$1.</span><span>$2</span></div>');
 
   // 13. Spacing & line breaks
   clean = clean.replace(/\n\n/g, '<div style="height: 6px;"></div>');
   clean = clean.replace(/\n/g, '<br>');
 
-  // 14. Restore protected code blocks
+  // 14. Restore protected code and table blocks
   codeBlocks.forEach((block, idx) => {
     clean = clean.replace(`__CODE_BLOCK_${idx}__`, block);
+  });
+  tableBlocks.forEach((block, idx) => {
+    clean = clean.replace(`__TABLE_BLOCK_${idx}__`, block);
   });
 
   return clean;
