@@ -28,7 +28,7 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
   });
 
   test('displays nested project structure (Main Project contains Sub-Projects)', async ({ page }) => {
-    const dashboardLink = page.locator('button:has-text("Dashboard Hub")').first();
+    const dashboardLink = page.locator('button:has-text("Dashboard Hub"), button:has-text("Dashboard")').first();
     if (await dashboardLink.isVisible()) {
       await dashboardLink.click();
       await page.waitForTimeout(400);
@@ -44,7 +44,7 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
   });
 
   test('clicking a project or sub-project drills down directly into that workspace', async ({ page }) => {
-    const dashboardLink = page.locator('button:has-text("Dashboard Hub")').first();
+    const dashboardLink = page.locator('button:has-text("Dashboard Hub"), button:has-text("Dashboard")').first();
     if (await dashboardLink.isVisible()) {
       await dashboardLink.click();
       await page.waitForTimeout(400);
