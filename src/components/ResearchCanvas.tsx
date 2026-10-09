@@ -42,7 +42,7 @@ import {
   CanvasShapeType 
 } from '@/lib/types/canvas';
 import { buildIsolatedBlockDoc } from '@/lib/utils/htmlBlockNormalizer';
-import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { FormattedAIMessage } from '@/components/FormattedAIMessage';
 import { CanvasNodeSkeleton } from '@/components/SkeletonLoader';
 import { semanticHighlightText } from '@/lib/utils/semanticHighlight';
 
@@ -1809,13 +1809,12 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
                       </div>
                     )}
 
-                    {/* Note Rendered with MarkdownRenderer (Zero raw asterisks/slashes) */}
+                    {/* Note Rendered with Unified Block Renderer */}
                     {atom.type === 'note' && (
                       <div className="space-y-1 text-slate-700 dark:text-zinc-300">
                         {atom.title && <h4 className="font-semibold text-[#0F172A] dark:text-zinc-100 text-sm mb-1">{atom.title}</h4>}
-                        <MarkdownRenderer
+                        <FormattedAIMessage
                           content={atom.content?.markdownContent || atom.content?.description || ''}
-                          size="sm"
                           className="line-clamp-4 overflow-hidden"
                         />
                       </div>

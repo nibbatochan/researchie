@@ -21,7 +21,7 @@ import { ResearchAtom } from '@/lib/types/research';
 import { buildDeepLink } from '@/lib/utils/textFragments';
 import { BlockAtomCard } from './BlockAtomCard';
 import { ImageAtomCard } from './ImageAtomCard';
-import { MarkdownRenderer } from './MarkdownRenderer';
+import { FormattedAIMessage } from './FormattedAIMessage';
 
 interface AtomCardProps {
   atom: ResearchAtom;
@@ -220,9 +220,9 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 </h4>
               )}
               {atom.content.markdownContent ? (
-                <MarkdownRenderer content={atom.content.markdownContent} searchQuery={searchQuery} size="sm" />
+                <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} />
               ) : atom.content.description ? (
-                <MarkdownRenderer content={atom.content.description} searchQuery={searchQuery} size="sm" />
+                <FormattedAIMessage content={atom.content.description} searchQuery={searchQuery} />
               ) : null}
             </div>
           )}
@@ -501,9 +501,9 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               </h3>
             )}
             {atom.content.markdownContent ? (
-              <MarkdownRenderer content={atom.content.markdownContent} searchQuery={searchQuery} />
+              <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} />
             ) : atom.content.description ? (
-              <MarkdownRenderer content={atom.content.description} searchQuery={searchQuery} />
+              <FormattedAIMessage content={atom.content.description} searchQuery={searchQuery} />
             ) : null}
           </div>
         )}

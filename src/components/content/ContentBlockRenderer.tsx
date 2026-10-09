@@ -1,0 +1,348 @@
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  Quotes, 
+  Table as TableIcon, 
+  Code as CodeIcon, 
+  LinkSimple, 
+  ArrowSquareOut, 
+  Check, 
+  Copy, 
+  WarningCircle, 
+  Info, 
+  ShieldCheck, 
+  FileText,
+  CaretDown,
+  CaretRight,
+  Eye,
+  PuzzlePiece,
+  Graph
+} from '@phosphor-icons/react';
+import { ContentBlock, InlineChip, assertNever } from '@/lib/types/contentBlocks';
+import { SEMANTIC_TOKENS } from '@/lib/design/semanticTokens';
+
+interface ContentBlockRendererProps {
+  block: ContentBlock;
+  onCitationClick?: (href: string) => void;
+  onChipClick?: (chip: InlineChip) => void;
+}
+
+export const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
+  block,
+  onCitationClick,
+  onChipClick,
+}) => {
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
+  const [isOcrExpanded, setIsOcrExpanded] = useState(false);
+
+  // Matt Pocock Exhaustive Pattern Matcher
+  switch (block.type) {
+    case 'summary':
+      return (
+        <div className="py-1">
+          <p className="text-[13.5px] font-medium leading-relaxed text-[#0F172A] dark:text-[#F8FAFC]">
+            {block.text}
+          </p>
+          {block.confidence !== undefined && (
+            <span className="text-[10px] font-mono text-[#64748B] dark:text-[#71717A] mt-0.5 block">
+              Confidence score: {Math.round(block.confidence * 100)}%
+            </span>
+          )}
+        </div>
+      );
+
+    case 'heading': {
+      const headingStyles = {
+        1: 'text-[17px] font-bold font-display text-[#0F172A] dark:text-white mt-3 mb-1 pb-1 border-b border-[#E2E8F0] dark:border-[#27272A]',
+        2: 'text-[15px] font-semibold font-display text-[#0F172A] dark:text-white mt-2.5 mb-1',
+        3: 'text-[13.5px] font-semibold font-display text-[#334155] dark:text-[#CBD5E1] mt-2 mb-0.5',
+        4: 'text-[11px] font-mono uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8] mt-1.5 mb-0.5',
+      }[block.level];
+
+      return <div className={headingStyles}>{block.text}</div>;
+    }
+
+    case 'paragraph':
+      return (
+        <p className="text-[13px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] my-1.5 break-words">
+          {block.text}
+          {block.inlineChips && block.inlineChips.length > 0 && (
+            <span className="inline-flex flex-wrap gap-1 ml-1.5 align-middle">
+              {block.inlineChips.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (chip.href && onCitationClick) onCitationClick(chip.href);
+                    else if (onChipClick) onChipClick(chip);
+                  }}
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10.5px] font-mono font-medium transition-colors cursor-pointer ${
+                    chip.variant === 'citation'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-[#325FEC] dark:text-[#518FFF] hover:underline'
+                      : chip.variant === 'evidence'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                      : chip.variant === 'warning'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                      : 'bg-[#EEF3F8] dark:bg-[#27272A] text-[#475569] dark:text-[#CBD5E1]'
+                  }`}
+                >
+                  <span>{chip.label}</span>
+                </button>
+              ))}
+            </span>
+          )}
+        </p>
+      );
+
+    case 'list': {
+      const ListTag = block.ordered ? 'ol' : 'ul';
+      return (
+        <ListTag className={`my-2 space-y-1 pl-4 text-[13px] text-[#334155] dark:text-[#CBD5E1] ${block.ordered ? 'list-decimal' : 'list-disc marker:text-[#94A3B8]'}`}>
+          {block.items.map((item, idx) => (
+            <li key={idx} className="leading-relaxed pl-0.5 break-words">
+              {item}
+            </li>
+          ))}
+        </ListTag>
+      );
+    }
+
+    case 'table': {
+      const MAX_PREVIEW_ROWS = 8;
+      const rowsToRender = isTableExpanded ? block.rows : block.rows.slice(0, MAX_PREVIEW_ROWS);
+      const hasOverflow = block.rows.length > MAX_PREVIEW_ROWS;
+
+      return (
+        <div className="my-2.5 overflow-hidden rounded-xl border border-[#E2E8F0] dark:border-[#27272A] bg-white dark:bg-[#18181B]">
+          <div className="overflow-x-auto max-h-[360px] scrollbar-thin">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-[#F8FAFC] dark:bg-[#121214] border-b border-[#E2E8F0] dark:border-[#27272A] sticky top-0 z-10">
+                <tr>
+                  {block.headers.map((h, i) => (
+                    <th key={i} className="py-2 px-3 font-semibold text-[#0F172A] dark:text-white font-mono text-[11px] whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2E8F0] dark:divide-[#27272A]">
+                {rowsToRender.map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-[#F8FAFC] dark:hover:bg-[#202024] transition-colors">
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} className="py-1.5 px-3 text-[#334155] dark:text-[#CBD5E1] text-[12px] break-words">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasOverflow && (
+            <div className="p-1.5 border-t border-[#E2E8F0] dark:border-[#27272A] bg-[#F8FAFC] dark:bg-[#121214] text-center">
+              <button
+                type="button"
+                onClick={() => setIsTableExpanded(!isTableExpanded)}
+                className="text-[11px] font-mono text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer"
+              >
+                {isTableExpanded ? 'Show less rows' : `View all ${block.rows.length} rows`}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case 'quote':
+      return (
+        <div className="my-2 pl-3 py-1 border-l-2 border-[#325FEC] dark:border-[#518FFF] bg-[#325FEC]/5 dark:bg-[#325FEC]/10 rounded-r-lg">
+          <p className="text-[13px] italic leading-relaxed text-[#0F172A] dark:text-[#F8FAFC]">
+            "{block.quote}"
+          </p>
+          {(block.sourceTitle || block.pageNumber || block.deepLink) && (
+            <div className="mt-1 flex items-center gap-2 text-[10.5px] font-mono text-[#64748B] dark:text-[#94A3B8]">
+              {block.sourceTitle && <span>— {block.sourceTitle}</span>}
+              {block.pageNumber && <span>[p. {block.pageNumber}]</span>}
+              {block.deepLink && (
+                <a
+                  href={block.deepLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-0.5 text-[#325FEC] dark:text-[#518FFF] hover:underline"
+                >
+                  <ArrowSquareOut size={10} />
+                  <span>source</span>
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      );
+
+    case 'image':
+      return (
+        <div className="my-2.5 rounded-xl border border-[#E2E8F0] dark:border-[#27272A] bg-white dark:bg-[#18181B] overflow-hidden">
+          <img src={block.url} alt={block.caption || 'Captured visual'} className="w-full max-h-72 object-contain bg-black/5 dark:bg-white/5" />
+          {block.caption && (
+            <div className="p-2 border-t border-[#E2E8F0] dark:border-[#27272A] text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+              {block.caption}
+            </div>
+          )}
+          {block.ocrText && (
+            <div className="border-t border-[#E2E8F0] dark:border-[#27272A] p-2 bg-[#F8FAFC] dark:bg-[#121214]">
+              <button
+                type="button"
+                onClick={() => setIsOcrExpanded(!isOcrExpanded)}
+                className="flex items-center justify-between w-full text-[10.5px] font-mono text-[#64748B] dark:text-[#94A3B8] cursor-pointer"
+              >
+                <span>Extracted OCR Text</span>
+                {isOcrExpanded ? <CaretDown size={12} /> : <CaretRight size={12} />}
+              </button>
+              {isOcrExpanded && (
+                <p className="mt-1.5 text-[11px] font-mono leading-relaxed text-[#334155] dark:text-[#CBD5E1] whitespace-pre-wrap">
+                  {block.ocrText}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      );
+
+    case 'code':
+      return (
+        <div className="my-2 rounded-xl border border-[#E2E8F0] dark:border-[#27272A] bg-[#F8FAFC] dark:bg-[#09090B] overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1 border-b border-[#E2E8F0] dark:border-[#27272A] bg-black/5 dark:bg-white/5">
+            <span className="text-[10px] font-mono text-[#64748B] dark:text-[#94A3B8] uppercase">
+              {block.language || 'code'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(block.code);
+                setCopiedCode(true);
+                setTimeout(() => setCopiedCode(false), 1500);
+              }}
+              className="inline-flex items-center gap-1 text-[10px] font-mono text-[#64748B] hover:text-[#0F172A] dark:hover:text-white cursor-pointer"
+            >
+              {copiedCode ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+              <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
+          <pre className="p-3 text-[11.5px] font-mono overflow-x-auto text-[#0F172A] dark:text-[#F8FAFC]">
+            <code>{block.code}</code>
+          </pre>
+        </div>
+      );
+
+    case 'chips':
+      return (
+        <div className="my-1.5 flex flex-wrap gap-1.5">
+          {block.items.map((chip, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onChipClick?.(chip)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-mono bg-[#EEF3F8] dark:bg-[#27272A] text-[#475569] dark:text-[#CBD5E1] hover:bg-[#E2EAF4] dark:hover:bg-[#323238] transition-colors cursor-pointer"
+            >
+              <span>{chip.label}</span>
+            </button>
+          ))}
+        </div>
+      );
+
+    case 'source':
+      return (
+        <div className="my-1 p-2 rounded-xl border border-[#E2E8F0] dark:border-[#27272A] bg-[#F8FAFC] dark:bg-[#121214] flex items-center justify-between">
+          <div className="min-w-0 pr-2">
+            <a
+              href={block.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-[#325FEC] dark:text-[#518FFF] hover:underline truncate block"
+            >
+              {block.title}
+            </a>
+            {block.domain && (
+              <span className="text-[10px] font-mono text-[#64748B] dark:text-[#71717A]">
+                {block.domain} {block.timestampOffset ? `[${Math.floor(block.timestampOffset / 60)}:${(block.timestampOffset % 60).toString().padStart(2, '0')}]` : ''}
+              </span>
+            )}
+          </div>
+          <a
+            href={block.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1 text-[#64748B] hover:text-[#0F172A] dark:hover:text-white"
+          >
+            <ArrowSquareOut size={13} />
+          </a>
+        </div>
+      );
+
+    case 'plugin-card':
+      return (
+        <div className="my-2 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900 dark:text-indigo-200 mb-1">
+            <PuzzlePiece size={13} className="text-indigo-600 dark:text-indigo-400" />
+            <span>{block.title}</span>
+          </div>
+          <div className="text-[11px] font-mono text-indigo-800 dark:text-indigo-300">
+            {JSON.stringify(block.payload, null, 2)}
+          </div>
+        </div>
+      );
+
+    case 'canvas-card':
+      return (
+        <div className="my-2 p-2.5 rounded-xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Graph size={15} className="text-sky-600 dark:text-sky-400" />
+            <div>
+              <span className="text-xs font-medium text-sky-950 dark:text-sky-100 block">{block.title}</span>
+              <span className="text-[10px] font-mono text-sky-700 dark:text-sky-300">{block.nodeCount} connected nodes</span>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'qa-pair':
+      return (
+        <div className="my-2 space-y-1">
+          <div className="text-xs font-semibold text-[#0F172A] dark:text-white">
+            Q: {block.question}
+          </div>
+          <div className="text-[12.5px] leading-relaxed text-[#334155] dark:text-[#CBD5E1] pl-2 border-l border-[#CBD5E1] dark:border-[#3F3F46]">
+            {block.answer}
+          </div>
+        </div>
+      );
+
+    case 'callout': {
+      const styles = {
+        info: { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-900/60', text: 'text-blue-900 dark:text-blue-200', icon: Info },
+        success: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-900/60', text: 'text-emerald-900 dark:text-emerald-200', icon: ShieldCheck },
+        warning: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-900/60', text: 'text-amber-900 dark:text-amber-200', icon: WarningCircle },
+        danger: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-900/60', text: 'text-red-900 dark:text-red-200', icon: WarningCircle },
+      }[block.intent];
+
+      const Icon = styles.icon;
+
+      return (
+        <div className={`my-2 p-2.5 rounded-xl border ${styles.border} ${styles.bg} ${styles.text}`}>
+          <div className="flex items-start gap-2">
+            <Icon size={14} className="mt-0.5 flex-shrink-0" weight="bold" />
+            <div className="space-y-0.5 min-w-0">
+              {block.title && <div className="text-xs font-semibold">{block.title}</div>}
+              <div className="text-[12px] leading-relaxed">{block.body}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    default:
+      return assertNever(block);
+  }
+};

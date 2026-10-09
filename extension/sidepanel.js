@@ -764,12 +764,16 @@ function appendChatMessage(role, text, citations = []) {
     `;
   }
 
+  const bodyContent = typeof parseMarkdownToBlocks === 'function' && typeof renderBlock === 'function'
+    ? parseMarkdownToBlocks(text).map(renderBlock).join('')
+    : renderSimpleMarkdown(text);
+
   bubble.innerHTML = `
     <div class="sp-bubble-header">
       <span class="sp-bot-tag">${roleLabel}</span>
       <span class="sp-bubble-time">${timeStr}</span>
     </div>
-    <div class="sp-bubble-body">${renderSimpleMarkdown(text)}</div>
+    <div class="sp-bubble-body">${bodyContent}</div>
     ${citationsHtml}
     ${actionsHtml}
   `;
