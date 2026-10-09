@@ -62,3 +62,32 @@
 - **Total Specs**: 6 files
 - **Total Test Cases**: 30 tests
 - **Result**: 30/30 passed (100% green baseline, execution time: 1.5m).
+
+---
+
+## 3. Phase 5: Final Verification & Results
+
+### Changes Applied in Phase 4
+1. **Commit `87724e1`**: `refactor: consolidate icon set to phosphor in PDFReaderView`
+   - Replaced `FolderPlus` and `LucideCheck` with `@phosphor-icons/react` icons in `PDFReaderView.tsx`.
+   - Removed `lucide-react` from `package.json`.
+2. **Commit `26e9039`**: `chore: remove unused InlineClipInserter component`
+   - Deleted dead `InlineClipInserter.tsx` (-384 LOC).
+3. **Commit `c5c0af6`**: `chore: remove unreferenced cn utility and unused dependencies`
+   - Deleted dead `src/lib/cn.ts` (-7 LOC).
+   - Removed unused packages `clsx` and `tailwind-merge` from `package.json`.
+4. **Commit `718b23c`**: `refactor: deduplicate legacy textFragments script`
+   - Deleted legacy duplicate `src/lib/utils/textFragments.mjs` (-39 LOC) and legacy ad-hoc `tests/textFragments.test.mjs` (-21 LOC).
+
+### Final Metrics Comparison
+| Metric | Baseline (Phase 1) | Post-Cleanup (Phase 5) | Delta |
+|---|---|---|---|
+| **Files in `src/`** | 119 files | 117 files | **-2 files** |
+| **Dead Files Deleted** | 0 | 4 files (`src/components/InlineClipInserter.tsx`, `src/lib/cn.ts`, `src/lib/utils/textFragments.mjs`, `tests/textFragments.test.mjs`) | **-4 files total** |
+| **Net LOC Reduction** | 0 | -451 LOC | **-451 lines** |
+| **Unneeded Dependencies** | 3 (`lucide-react`, `clsx`, `tailwind-merge`) | 0 | **-3 dependencies** |
+| **Icon Set Uniformity** | Dual (`@phosphor-icons/react` + `lucide-react`) | Single (`@phosphor-icons/react`) | **100% unified** |
+| **TypeScript Compilation** | 0 errors | 0 errors | **Clean** |
+| **Production Build** | 406 kB First Load JS | 405 kB First Load JS | **-1 kB** |
+| **Verification Suite (`npm run verify`)** | 30/30 passed | 30/30 passed (Run 1, Run 2, Run 3 all green) | **3x consecutive clean** |
+
