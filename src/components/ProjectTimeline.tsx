@@ -751,7 +751,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                 )}
               </div>
             ) : (
-              <div className="max-w-4xl mx-auto flex flex-col gap-2.5">
+              <div className="max-w-4xl mx-auto flex flex-col gap-[26px]">
                 {filteredAtoms.map((atom) => (
                   <React.Fragment key={atom.id}>
                     <AtomCard

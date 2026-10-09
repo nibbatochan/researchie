@@ -202,7 +202,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           </div>
 
           <div 
-            className="flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0"
+            className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0 transition-opacity"
             onClick={(e) => e.stopPropagation()}
           >
             {targetLink && (

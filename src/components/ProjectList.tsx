@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Plus, 
   FolderSimple,
@@ -57,7 +57,45 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 }) => {
   const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [updatedProjectIds, setUpdatedProjectIds] = useState<Set<string>>(new Set());
+  const previousAtomCountsRef = useRef<Record<string, number>>({});
   const { setIsSettingsModalOpen, calculateStorageUsage } = useSettings();
+
+  // Track updates from plugin or backend polling
+  useEffect(() => {
+    projects.forEach((p) => {
+      const prevCount = previousAtomCountsRef.current[p.id];
+      if (prevCount !== undefined && (p.atomCount || 0) > prevCount && p.id !== activeProjectId) {
+        setUpdatedProjectIds((prev) => new Set(prev).add(p.id));
+      }
+      previousAtomCountsRef.current[p.id] = p.atomCount || 0;
+    });
+  }, [projects, activeProjectId]);
+
+  useEffect(() => {
+    const handlePluginCapture = (e: any) => {
+      const projId = e?.detail?.projectId || e?.data?.projectId;
+      if (projId && projId !== activeProjectId) {
+        setUpdatedProjectIds((prev) => new Set(prev).add(projId));
+      }
+    };
+    window.addEventListener('researchie-plugin-capture', handlePluginCapture);
+    window.addEventListener('message', handlePluginCapture);
+    return () => {
+      window.removeEventListener('researchie-plugin-capture', handlePluginCapture);
+      window.removeEventListener('message', handlePluginCapture);
+    };
+  }, [activeProjectId]);
+
+  const handleSelectProject = (id: string) => {
+    setUpdatedProjectIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    onSelectProject(id);
+  };
 
   const storage = useMemo(() => calculateStorageUsage(atoms), [atoms, calculateStorageUsage]);
 
@@ -226,7 +264,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               <span className="font-display font-bold text-sm tracking-tight text-[#0F172A] dark:text-white">
                 researchie
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Cloud Engine Live" />
             </div>
             <span className="text-[10px] font-mono text-slate-400 block -mt-0.5">stream architecture</span>
           </div>
@@ -298,7 +335,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               <div key={parent.id} className="space-y-1">
                 {/* Parent Project Card Row */}
                 <div
-                  onClick={() => onSelectProject(parent.id)}
+                  onClick={() => handleSelectProject(parent.id)}
                   className={`group relative flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-sans transition-all cursor-pointer ${
                     isParentActive
                       ? 'bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white border border-[#325FEC] dark:border-[#518FFF] shadow-xs font-semibold'
@@ -328,6 +365,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         <FolderOpen size={15} weight="fill" className="text-[#325FEC] dark:text-[#518FFF]" />
                       )}
                     </div>
+
+                    {/* Blue dot to the left of project name if updated from plugin */}
+                    {updatedProjectIds.has(parent.id) && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[#325FEC] dark:bg-[#518FFF] flex-shrink-0 animate-pulse"
+                        title="New information updated from plugin"
+                      />
+                    )}
 
                     <span className="truncate font-medium">{parent.title}</span>
                   </div>
@@ -376,14 +421,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       return (
                         <div
                           key={child.id}
-                          onClick={() => onSelectProject(child.id)}
+                          onClick={() => handleSelectProject(child.id)}
                           className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                             isChildActive
                               ? 'border border-[#325FEC] dark:border-[#518FFF] bg-transparent text-[#0F172A] dark:text-white font-semibold'
                               : 'text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
-                          <div className="flex items-center min-w-0">
+                          <div className="flex items-center min-w-0 gap-1.5">
+                            {updatedProjectIds.has(child.id) && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-[#325FEC] dark:bg-[#518FFF] flex-shrink-0 animate-pulse"
+                                title="New information updated from plugin"
+                              />
+                            )}
                             <span className="truncate">{child.title}</span>
                           </div>
 
@@ -391,7 +442,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             <span
                               className={`text-[9px] font-mono px-1 rounded ${
                                 isChildActive
-                                  ? 'text-[#325FEC] dark:text-[#518FFF] font-semibold'
+                                    ? 'text-[#325FEC] dark:text-[#518FFF] font-semibold'
                                   : 'text-slate-400 dark:text-zinc-500 group-hover:hidden'
                               }`}
                             >
@@ -427,7 +478,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         {/* Workspace Mode Switcher */}
         {onWorkspaceModeChange && (
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-1 p-1 rounded-xl bg-[#EEF3F8] dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A]">
+            <div className="flex items-center justify-between gap-1 py-1">
               {[
                 { id: 'dashboard' as const, label: 'Dashboard', icon: House },
                 { id: 'feed' as const, label: 'Feed', icon: ListDashes },
@@ -443,7 +494,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     onClick={() => onWorkspaceModeChange(m.id)}
                     className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-xs font-sans transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#FAFBFD] dark:bg-[#121214] text-[#325FEC] dark:text-[#518FFF] shadow-xs font-semibold flex-1'
+                        ? 'bg-[#EEF3F8] dark:bg-[#18181B] text-[#325FEC] dark:text-[#518FFF] font-semibold flex-1'
                         : 'text-slate-500 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'
                     }`}
                     title={m.label}

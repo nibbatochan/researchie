@@ -5,24 +5,16 @@ import Link from 'next/link';
 import {
   User,
   SignOut,
-  SignIn,
   Key,
   Copy,
   Check,
-  Sparkle,
   CaretDown,
-  ShieldCheck,
-  Crown,
-  Gear,
-  ArrowsClockwise,
   UserSwitch
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
-import { useSettings } from '@/lib/settings/settingsContext';
 
 export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isCollapsed = false }) => {
-  const { user, setIsAuthModalOpen, signOut, signInAsDemo } = useAuth();
-  const { setIsSettingsModalOpen, setActiveSettingsTab } = useSettings();
+  const { user, setIsAuthModalOpen, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -42,12 +34,6 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
     navigator.clipboard.writeText(user.extensionToken);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2000);
-  };
-
-  const handleOpenSettings = (tab: 'general' | 'capture' | 'ai' | 'notion' | 'storage' | 'account') => {
-    setIsOpen(false);
-    setActiveSettingsTab(tab);
-    setIsSettingsModalOpen(true);
   };
 
   if (!user) {
@@ -123,26 +109,14 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
                 {copiedToken ? <Check size={13} className="text-emerald-500 font-bold" /> : <Copy size={13} className="text-slate-400" />}
               </button>
 
-              <button
-                type="button"
-                onClick={() => handleOpenSettings('account')}
+              <Link
+                href="/login"
+                onClick={() => setIsOpen(false)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
               >
-                <Gear size={13} />
-                <span>Settings</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  setIsAuthModalOpen(true);
-                }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-              >
-                <Sparkle size={13} className="text-[#325FEC]" />
-                <span>Switch Account / Social Login</span>
-              </button>
+                <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
+                <span>Switch Accounts</span>
+              </Link>
 
               <button
                 type="button"
@@ -198,14 +172,6 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
       {isOpen && (
         <div className="absolute left-0 bottom-12 w-full bg-[#FAFBFD] dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs font-sans animate-popIn">
           <div className="pb-2 border-b border-[#D9E1EC] dark:border-[#27272A] space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
-              <span>Auth Session:</span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 capitalize flex items-center gap-1">
-                <ShieldCheck size={12} />
-                <span>{user.provider} Auth</span>
-              </span>
-            </div>
-
             {/* Extension Pairing Token Box */}
             <div className="p-2 rounded-xl bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] space-y-1">
               <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
@@ -235,67 +201,18 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
                 {user.extensionToken}
               </code>
             </div>
-
-            {/* Quick Persona Switcher */}
-            <div className="pt-1">
-              <span className="text-[9px] font-mono uppercase text-slate-400 block px-0.5 mb-1">
-                Switch Test Persona
-              </span>
-              <div className="grid grid-cols-3 gap-1">
-                {(['pro', 'team', 'free'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      signInAsDemo(t);
-                    }}
-                    className={`py-1 text-[10px] font-medium rounded capitalize border transition-all cursor-pointer ${
-                      user.tier === t
-                        ? 'bg-[#325FEC] text-white border-[#325FEC]'
-                        : 'bg-white dark:bg-[#18181B] text-slate-600 dark:text-zinc-300 border-[#D9E1EC] dark:border-[#27272A] hover:border-[#325FEC]'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
-          {/* Quick Action Links */}
+          {/* Action Links */}
           <div className="pt-2 space-y-1">
-            <button
-              type="button"
-              onClick={() => handleOpenSettings('general')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Gear size={13} className="text-slate-500" />
-                <span>Preferences & Settings</span>
-              </div>
-              <span className="font-mono text-[10px] text-slate-400">⌘,</span>
-            </button>
-
             <Link
               href="/login"
               onClick={() => setIsOpen(false)}
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
             >
-              <SignIn size={13} className="text-[#325FEC]" />
-              <span>Full Login & Register Page</span>
+              <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
+              <span>Switch Accounts</span>
             </Link>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                setIsAuthModalOpen(true);
-              }}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-            >
-              <Sparkle size={13} className="text-[#325FEC]" />
-              <span>Switch Account / Social Login</span>
-            </button>
 
             <button
               type="button"
