@@ -51,7 +51,7 @@ test.describe('1. Feed Stream & Bento Cards Suite', () => {
       await expect(codeBlock).toBeVisible();
 
       // Switch back to preview
-      const previewTabButton = page.locator('button:has-text("Preview")').first();
+      const previewTabButton = page.locator('button:has-text("Interactive DOM"), button:has-text("Preview")').first();
       await previewTabButton.click();
     }
   });
