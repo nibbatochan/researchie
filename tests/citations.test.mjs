@@ -107,3 +107,22 @@ test('Vancouver returns null for source types not yet verified', () => {
   record.sourceType = 'web_page';
   assert.equal(formatVancouver(record), null);
 });
+
+import { isCitationRecord, withCitation } from '../src/lib/citations/metadata.ts';
+
+test('isCitationRecord accepts a resolved record and rejects malformed input', () => {
+  const record = parseCrossrefResponse(fixture('crossref-nature12373.json'));
+  assert.equal(isCitationRecord(record), true);
+  assert.equal(isCitationRecord(null), false);
+  assert.equal(isCitationRecord([]), false);
+  assert.equal(isCitationRecord({ status: 'made_up', sourceType: 'journal_article', resolvedFrom: 'x', authors: [], missingFields: [] }), false);
+  assert.equal(isCitationRecord({ status: 'manual', sourceType: 'web_page', resolvedFrom: 'manual', authors: 'nope', missingFields: [] }), false);
+});
+
+test('withCitation keeps existing metadata and replaces only the citation', () => {
+  const record = parseCrossrefResponse(fixture('crossref-nature12373.json'));
+  const merged = withCitation({ sourceUrl: 'https://example.com', citation: { status: 'manual' } }, record);
+  assert.equal(merged.sourceUrl, 'https://example.com');
+  assert.equal(merged.citation, record);
+  assert.deepEqual(withCitation(undefined, record), { citation: record });
+});

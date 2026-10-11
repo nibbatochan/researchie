@@ -1,6 +1,9 @@
 export type AtomType = 'text' | 'link' | 'image' | 'block' | 'quote' | 'note' | 'document';
 
+import type { CitationRecord } from '../citations/types';
+
 export interface ProvenanceMetadata {
+  citation?: CitationRecord; // resolved on demand; see src/lib/citations/metadata.ts
   sourceUrl: string;
   pageTitle: string;
   domainFavicon?: string;

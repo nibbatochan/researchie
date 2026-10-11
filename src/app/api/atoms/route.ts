@@ -5,6 +5,7 @@ import { generateTextFragment } from '@/lib/utils/textFragments';
 import { uploadAsset } from '@/lib/storage/service';
 import { generateEmbedding } from '@/lib/ai/embeddings';
 import { buildIsolatedBlockDoc, extractPlainTextFromHtml } from '@/lib/utils/htmlBlockNormalizer';
+import { isCitationRecord, withCitation } from '@/lib/citations/metadata.ts';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -293,12 +294,23 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (body.citation !== undefined && !isCitationRecord(body.citation)) {
+      return NextResponse.json(
+        { success: false, error: 'citation must be a citation record' },
+        { status: 400 }
+      );
+    }
+
     // Try Supabase update first
     try {
       const updateData: Record<string, any> = {};
       if (body.tags !== undefined) updateData.tags = body.tags;
       if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
       if (body.title !== undefined) updateData.title = body.title;
+      if (body.citation !== undefined) {
+        const { data: current } = await supabaseAdmin.from('atoms').select('metadata').eq('id', body.id).single();
+        updateData.metadata = withCitation(current?.metadata, body.citation);
+      }
 
       const { data, error } = await supabaseAdmin
         .from('atoms')
@@ -329,10 +341,14 @@ export async function PATCH(request: Request) {
       // Fallback to local store
     }
 
+    const current = getLocalAtoms().find((atom) => atom.id === body.id);
     const updated = updateLocalAtom(body.id, {
       tags: body.tags,
       userNotes: body.userNotes,
       title: body.title,
+      ...(body.citation !== undefined && current
+        ? { metadata: withCitation(current.metadata, body.citation) }
+        : {}),
     });
 
     if (!updated) {
