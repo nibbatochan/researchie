@@ -126,3 +126,19 @@ test('withCitation keeps existing metadata and replaces only the citation', () =
   assert.equal(merged.citation, record);
   assert.deepEqual(withCitation(undefined, record), { citation: record });
 });
+
+import { findPdfDoi } from '../src/lib/citations/pdf.ts';
+
+test('findPdfDoi prefers a DOI in the PDF metadata', () => {
+  const out = findPdfDoi({ title: 'Paper', keywords: 'doi:10.1038/nature12373' }, 'DOI 10.9999/other');
+  assert.deepEqual(out, { doi: '10.1038/nature12373', source: 'pdf_metadata' });
+});
+
+test('findPdfDoi falls back to the first page text', () => {
+  const out = findPdfDoi({ title: 'Paper' }, 'Nature 500, 54–58 (2013). https://doi.org/10.1038/nature12373.');
+  assert.deepEqual(out, { doi: '10.1038/nature12373', source: 'first_page' });
+});
+
+test('findPdfDoi returns nothing when no DOI is present, so the user confirms', () => {
+  assert.deepEqual(findPdfDoi({ title: 'Untitled' }, 'No identifier on this page.'), {});
+});
