@@ -425,6 +425,8 @@ export default function DashboardPage() {
             onOpenTrashModal={() => setIsTrashModalOpen(true)}
             trashCount={deletedAtomsHistory.length}
             onOpenShareModal={() => handleOpenShareModal(activeProject)}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
           />
         )}
       </div>

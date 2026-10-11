@@ -278,15 +278,20 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   }, [projectId]);
 
   useEffect(() => {
-    if (targetDocId) setActiveDocId(targetDocId);
+    if (targetDocId && targetDocId !== activeDocId) {
+      setActiveDocId(targetDocId);
+    }
     if (targetPage) {
       setCurrentPage(targetPage);
       setQuickClipPage(targetPage);
-      setTimeout(() => {
-        pageRefs.current.get(targetPage)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 300);
     }
-  }, [targetDocId, targetPage]);
+    if (targetHighlightText) {
+      setActiveHighlightText(targetHighlightText);
+    }
+    if (targetPage) {
+      jumpToPage(targetPage, targetHighlightText);
+    }
+  }, [targetDocId, targetPage, targetHighlightText]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -313,6 +318,52 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Deselection & Click-Out Dismissal: Revert Save Clip button and active highlight when clicking away
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (justSaved) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        setSelectedText('');
+        setSelectionPosition(null);
+      }
+    };
+
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-testid="save-clip-pill"]')) {
+        return;
+      }
+      setTimeout(() => {
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+          if (!justSaved) {
+            setSelectedText('');
+            setSelectionPosition(null);
+          }
+        }
+      }, 10);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedText('');
+        setSelectionPosition(null);
+        setActiveHighlightText('');
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [justSaved]);
 
   // Global clean copy interceptor for selected PDF text (prevents unintended metadata/newlines)
   useEffect(() => {
@@ -378,8 +429,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
     setCurrentMatchIndex(nextIdx);
     const target = searchMatches[nextIdx];
-    setCurrentPage(target.pageNumber);
-    pageRefs.current.get(target.pageNumber)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    jumpToPage(target.pageNumber, searchQuery.trim());
   };
 
   const handlePrevSearchMatch = () => {
@@ -387,8 +437,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
     setCurrentMatchIndex(prevIdx);
     const target = searchMatches[prevIdx];
-    setCurrentPage(target.pageNumber);
-    pageRefs.current.get(target.pageNumber)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    jumpToPage(target.pageNumber, searchQuery.trim());
   };
 
   // ─── Local File Dialog Trigger & Real Server-Side Parser ─────────
@@ -653,6 +702,9 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     setSelectionPosition(position);
     setJustSaved(false);
     setCopied(false);
+    if (activeHighlightText) {
+      setActiveHighlightText('');
+    }
   };
 
   // ─── Accurate Text Copy Handler ────────────────────────────────
@@ -712,7 +764,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     const highlightText = (textToSave || selectedText || quickClipText).trim();
     const pageNum = pageNumToSave || selectedPageNum || currentPage || quickClipPage || 1;
 
-    if (!highlightText || !activeDocument || !onCreateAtom) return;
+    if (!highlightText || !activeDocument) return;
 
     const highlight: SavedHighlight = {
       id: `hl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -723,26 +775,28 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     };
     setSavedHighlights((prev) => [highlight, ...prev]);
 
-    // Send citation directly to project stream feed
-    onCreateAtom({
-      projectId,
-      type: 'quote',
-      title: `"${highlightText.slice(0, 50)}..." — p. ${pageNum}`,
-      content: {
-        text: highlightText,
-        description: `From "${activeDocument.title}", Page ${pageNum}`,
-      },
-      metadata: {
-        sourceUrl: activeDocument.sourceUrl || `/reader?doc=${activeDocument.id}&page=${pageNum}`,
-        pageTitle: `${activeDocument.title} (Page ${pageNum})`,
-        documentType: 'pdf',
-        documentName: activeDocument.filename,
-        documentId: activeDocument.id,
-        pageNumber: pageNum,
-        totalDocumentPages: activeDocument.totalPages,
-      },
-      tags: ['doc-highlight', 'pdf-clip'],
-    });
+    // Send citation directly to project stream feed if callback provided
+    if (onCreateAtom) {
+      onCreateAtom({
+        projectId,
+        type: 'quote',
+        title: `"${highlightText.slice(0, 50)}..." — p. ${pageNum}`,
+        content: {
+          text: highlightText,
+          description: `From "${activeDocument.title}", Page ${pageNum}`,
+        },
+        metadata: {
+          sourceUrl: activeDocument.sourceUrl || `/reader?doc=${activeDocument.id}&page=${pageNum}`,
+          pageTitle: `${activeDocument.title} (Page ${pageNum})`,
+          documentType: 'pdf',
+          documentName: activeDocument.filename,
+          documentId: activeDocument.id,
+          pageNumber: pageNum,
+          totalDocumentPages: activeDocument.totalPages,
+        },
+        tags: ['doc-highlight', 'pdf-clip'],
+      });
+    }
 
     setJustSaved(true);
     setQuickClipText('');
@@ -763,16 +817,24 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   const jumpToPage = (pageNum: number, highlightQuote?: string) => {
     setCurrentPage(pageNum);
+    setQuickClipPage(pageNum);
     if (highlightQuote && highlightQuote.trim()) {
       setActiveHighlightText(highlightQuote.trim());
     }
-    // Smooth scroll to target page element
+    // Smooth scroll to target page element with immediate + retry fallback
     setTimeout(() => {
-      const pageEl = pageRefs.current.get(pageNum);
+      const pageEl = document.getElementById(`pdf-page-${pageNum}`) || pageRefs.current.get(pageNum);
       if (pageEl) {
         pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        setTimeout(() => {
+          const retryEl = document.getElementById(`pdf-page-${pageNum}`) || pageRefs.current.get(pageNum);
+          if (retryEl) {
+            retryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
       }
-    }, 100);
+    }, 80);
   };
 
   const jumpToHighlight = (hl: SavedHighlight) => {
@@ -1298,7 +1360,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             {/* Compact Page Controls */}
             <div className="flex items-center gap-1 bg-[#F8F9FB] dark:bg-[#18181B] border border-[#E2E5EB] dark:border-[#27272A] px-2 py-1 rounded-lg text-xs">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => jumpToPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage <= 1}
                 className="p-0.5 text-slate-500 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white disabled:opacity-30"
                 title="Previous Page"
@@ -1315,7 +1377,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10);
                     if (val >= 1 && val <= (activeDocument.totalPages || 1)) {
-                      setCurrentPage(val);
+                      jumpToPage(val);
                     }
                   }}
                   className="w-8 text-center bg-transparent border-b border-slate-300 dark:border-zinc-700 outline-none focus:border-[#325FEC] dark:focus:border-[#518FFF] font-semibold"
@@ -1323,7 +1385,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 <span className="text-slate-400 dark:text-zinc-500">/ {activeDocument.totalPages || 1}</span>
               </div>
               <button
-                onClick={() => setCurrentPage((p) => Math.min(activeDocument.totalPages || 1, p + 1))}
+                onClick={() => jumpToPage(Math.min(activeDocument.totalPages || 1, currentPage + 1))}
                 disabled={currentPage >= (activeDocument.totalPages || 1)}
                 className="p-0.5 text-slate-500 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white disabled:opacity-30"
                 title="Next Page"
@@ -1457,44 +1519,60 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               onJumpToHighlight={(text, page) => {
                 jumpToPage(page, text);
               }}
+              onClearActiveHighlight={() => setActiveHighlightText('')}
               filename={activeDocument.filename}
               pages={activeDocument.pages}
             />
           )}
         </div>
 
-        {/* ── Floating Selection Action Pill (Save Highlight Clip) ── */}
-        {selectedText && selectionPosition && (
-          <div
-            style={{
-              position: 'fixed',
-              left: `${selectionPosition.x}px`,
-              top: `${selectionPosition.y - 8}px`,
-              transform: 'translate(-50%, -100%)',
-              zIndex: 9999
-            }}
-            className="bg-[#0F172A] dark:bg-[#18181B] text-white border border-slate-700/80 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-150 select-none z-50 cursor-pointer"
-            onClick={() => !justSaved && handleSaveHighlight()}
-          >
-            {justSaved ? (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 select-none">
-                <Check size={13} weight="bold" />
-                <span>Saved highlight</span>
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-white hover:text-[#518FFF] transition-colors select-none cursor-pointer"
-              >
-                <BookmarkSimple size={13} weight="bold" className="text-[#518FFF]" />
-                <span>Save Clip</span>
-                <span className="text-[10px] font-mono text-slate-300 bg-slate-800/90 dark:bg-zinc-800 px-1.5 py-0.2 rounded-full">
-                  p. {selectedPageNum}
+        {/* ── Floating Selection Action Pill (Save Highlight Clip - Clamped Viewport) ── */}
+        {selectedText && selectionPosition && (() => {
+          const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+          const winH = typeof window !== 'undefined' ? window.innerHeight : 900;
+          const clampedX = Math.max(120, Math.min(winW - 120, selectionPosition.x));
+          const clampedY = Math.max(72, Math.min(winH - 60, selectionPosition.y));
+          return (
+            <div
+              data-testid="save-clip-pill"
+              style={{
+                position: 'fixed',
+                left: `${clampedX}px`,
+                top: `${clampedY - 8}px`,
+                transform: 'translate(-50%, -100%)',
+                zIndex: 9999
+              }}
+              className="bg-[#0F172A] dark:bg-[#18181B] text-white border border-slate-700/80 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-150 select-none z-50 cursor-pointer"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onMouseUp={(e) => {
+                e.stopPropagation();
+              }}
+              onClick={() => !justSaved && handleSaveHighlight()}
+            >
+              {justSaved ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 select-none">
+                  <Check size={13} weight="bold" />
+                  <span>Saved highlight</span>
                 </span>
-              </button>
-            )}
-          </div>
-        )}
+              ) : (
+                <button
+                  type="button"
+                  data-testid="save-clip-button"
+                  className="inline-flex items-center gap-1.5 text-xs font-sans font-medium text-white hover:text-[#518FFF] transition-colors select-none cursor-pointer"
+                >
+                  <BookmarkSimple size={13} weight="bold" className="text-[#518FFF]" />
+                  <span>Save Clip</span>
+                  <span className="text-[10px] font-mono text-slate-300 bg-slate-800/90 dark:bg-zinc-800 px-1.5 py-0.2 rounded-full">
+                    p. {selectedPageNum}
+                  </span>
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Doc Assistant Drawer (Grounded in Active Uploaded PDF) ── */}
         {isAiOpen && (
@@ -1521,7 +1599,16 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 >
                   {msg.role === 'assistant' ? (
                     <>
-                      <FormattedAIMessage content={msg.text} />
+                      <FormattedAIMessage
+                        content={msg.text}
+                        onCitationClick={(href) => {
+                          const pageMatch = href.match(/#cite-page-(\d+)/);
+                          if (pageMatch) {
+                            const pNum = parseInt(pageMatch[1], 10);
+                            jumpToPage(pNum, msg.citationQuote);
+                          }
+                        }}
+                      />
                       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/aimsg:opacity-100 transition-opacity">
                         <button
                           type="button"

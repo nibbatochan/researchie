@@ -106,17 +106,33 @@ INSTRUCTIONS:
 
     const result = await aiService.askPageQuestion(retrieval.formattedContext, enhancedQuestion);
 
-    // Ensure citations and source page number are populated
-    let bestPageNum = retrieval.bestMatchingPageNumber;
-    const pageMatch = (result.answer || '').match(/\[(?:Page|p\.?)\s*(\d+)\]/i);
-    if (pageMatch && pageMatch[1]) {
-      bestPageNum = parseInt(pageMatch[1], 10);
+    // Ensure citations and source page number are accurately grounded
+    let bestPageNum = retrieval.targetPageMentioned || retrieval.bestMatchingPageNumber;
+    if (!bestPageNum || bestPageNum < 1) {
+      const pageMatch = (result.answer || '').match(/\[(?:Page|p\.?)\s*(\d+)\]/i);
+      if (pageMatch && pageMatch[1]) {
+        bestPageNum = parseInt(pageMatch[1], 10);
+      } else {
+        bestPageNum = currentPage || 1;
+      }
     }
 
     const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(result.answer || '');
 
     const citations = Array.isArray(result.citations) && result.citations.length > 0 && !isNotFound
-      ? result.citations
+      ? result.citations.map((c: any) => ({
+          ...c,
+          pageNumber: c.pageNumber || bestPageNum,
+          quote: c.quote || retrieval.topCitationSnippet || '',
+        }))
+      : retrieval.topCitationSnippet
+      ? [
+          {
+            quote: retrieval.topCitationSnippet,
+            pageNumber: bestPageNum,
+            textFragment: `#:~:text=${encodeURIComponent(retrieval.topCitationSnippet.slice(0, 32))}`,
+          },
+        ]
       : [];
 
     return NextResponse.json(

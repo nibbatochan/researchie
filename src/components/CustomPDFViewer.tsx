@@ -42,6 +42,7 @@ interface CustomPDFViewerProps {
   onDeleteHighlight?: (id: string) => void;
   onSaveHighlightManually?: (text: string, page: number) => void;
   onJumpToHighlight?: (text: string, pageNumber: number) => void;
+  onClearActiveHighlight?: () => void;
 }
 
 export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
@@ -63,8 +64,10 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
   onDeleteHighlight,
   onSaveHighlightManually,
   onJumpToHighlight,
+  onClearActiveHighlight,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const highlightOriginPageRef = useRef<number | null>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -178,9 +181,20 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
     };
   }, [pdfData, pdfUrl, filename, activeDocId]);
 
+  // Track highlight origin page when targetHighlightText is activated
+  useEffect(() => {
+    if (targetHighlightText && targetHighlightText.trim()) {
+      highlightOriginPageRef.current = currentPage;
+    } else {
+      highlightOriginPageRef.current = null;
+    }
+  }, [targetHighlightText, currentPage]);
+
   // 2. Continuous Scroll IntersectionObserver (Detects which page is in viewport)
   useEffect(() => {
     if (!scrollContainerRef.current || totalPages === 0) return;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -198,13 +212,27 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
         });
 
         if (activePageNum > 0 && activePageNum !== currentPage) {
-          onPageChange(activePageNum);
-          setManualClipPage(activePageNum);
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            if (!isProgrammaticScroll.current) {
+              onPageChange(activePageNum);
+              setManualClipPage(activePageNum);
+
+              // Auto-clear active highlight if user scrolls >= 2 pages away
+              if (
+                highlightOriginPageRef.current !== null &&
+                Math.abs(activePageNum - highlightOriginPageRef.current) >= 2
+              ) {
+                onClearActiveHighlight?.();
+                highlightOriginPageRef.current = null;
+              }
+            }
+          }, 80);
         }
       },
       {
         root: scrollContainerRef.current,
-        threshold: [0.15, 0.4, 0.7],
+        threshold: [0.2, 0.5, 0.8],
       }
     );
 
@@ -212,11 +240,15 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
       if (el) observer.observe(el);
     });
 
-    return () => observer.disconnect();
-  }, [totalPages, pdfDoc, currentPage, onPageChange]);
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      observer.disconnect();
+    };
+  }, [totalPages, pdfDoc, currentPage, onPageChange, onClearActiveHighlight]);
 
-  // Scroll to active page smoothly
+  // Scroll to active page smoothly with retry if page elements are still mounting
   const scrollToPage = useCallback((pageNum: number) => {
+    if (!pageNum || pageNum < 1) return;
     const el = pageRefs.current.get(pageNum);
     if (el && scrollContainerRef.current) {
       isProgrammaticScroll.current = true;
@@ -226,46 +258,78 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
 
       setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 600);
+      }, 700);
+    } else {
+      let attempts = 0;
+      const retryInterval = setInterval(() => {
+        attempts++;
+        const targetEl = pageRefs.current.get(pageNum);
+        if (targetEl && scrollContainerRef.current) {
+          clearInterval(retryInterval);
+          isProgrammaticScroll.current = true;
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          onPageChange(pageNum);
+          setManualClipPage(pageNum);
+          setTimeout(() => {
+            isProgrammaticScroll.current = false;
+          }, 700);
+        } else if (attempts >= 8) {
+          clearInterval(retryInterval);
+        }
+      }, 100);
     }
   }, [onPageChange]);
 
-  // External currentPage change handler
+  // External currentPage change handler (Always scrolls precisely without false skips)
   useEffect(() => {
     if (currentPage && !isProgrammaticScroll.current) {
-      const el = pageRefs.current.get(currentPage);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const containerRect = scrollContainerRef.current?.getBoundingClientRect();
-        if (containerRect) {
-          const isVisible = rect.top >= containerRect.top - 50 && rect.bottom <= containerRect.bottom + 50;
-          if (!isVisible) {
-            scrollToPage(currentPage);
-          }
-        }
-      }
+      scrollToPage(currentPage);
     }
   }, [currentPage, scrollToPage]);
 
-  // Handle Precise Character/Line-Level Text Selection
-  const handleMouseUp = (pageNum: number) => {
+  // Handle Precise Character/Line-Level Text Selection with word boundary snapping
+  const handleMouseUp = (pageNum?: number) => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return;
+    if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+      // Clicking out or deselecting text: revert active highlight back to normal mode
+      if (targetHighlightText) {
+        onClearActiveHighlight?.();
+      }
+      return;
+    }
 
     const rawText = selection.toString();
-    // Normalize and clean text: collapse multiple blank lines, trim surrounding noise
+    // Normalize and clean text: collapse multiple blank lines, trim surrounding whitespace
     const cleanText = rawText
       .replace(/\r?\n\s*\r?\n/g, '\n\n')
       .replace(/[ \t]+/g, ' ')
       .trim();
 
-    if (cleanText.length < 2) return;
+    if (cleanText.length < 2) {
+      if (targetHighlightText) {
+        onClearActiveHighlight?.();
+      }
+      return;
+    }
 
     try {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+
+      let targetPage = pageNum || currentPage || 1;
+      const startEl = (
+        range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? (range.startContainer as Element)
+          : range.startContainer.parentElement
+      )?.closest('[data-page-number]');
+
+      if (startEl) {
+        const detected = parseInt(startEl.getAttribute('data-page-number') || '', 10);
+        if (detected > 0) targetPage = detected;
+      }
+
       if (onTextSelected) {
-        onTextSelected(cleanText, pageNum, {
+        onTextSelected(cleanText, targetPage, {
           x: rect.left + rect.width / 2,
           y: rect.top - 10,
         });
@@ -476,6 +540,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                       </div>
 
                       <p
+                        data-testid="saved-clip-item"
                         onClick={() => {
                           scrollToPage(hl.pageNumber);
                           if (onJumpToHighlight) onJumpToHighlight(hl.text, hl.pageNumber);
@@ -486,12 +551,12 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                       </p>
 
                       {highlightToDelete === hl.id && (
-                        <div className="mt-1 p-1.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded text-[9.5px] space-y-1 animate-fadeIn">
-                          <p className="text-red-700 dark:text-red-300 font-medium">Delete highlight?</p>
-                          <div className="flex items-center justify-end gap-1">
+                        <div className="mt-1 p-2 bg-white dark:bg-[#18181B] border border-red-300/80 dark:border-red-900/60 rounded-md text-[10px] space-y-1.5 shadow-xs animate-fadeIn">
+                          <p className="text-slate-700 dark:text-zinc-200 font-medium">Delete highlight?</p>
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => setHighlightToDelete(null)}
-                              className="px-1.5 py-0.5 bg-white dark:bg-[#18181B] border rounded text-slate-600 dark:text-zinc-300"
+                              className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 rounded text-[9.5px] transition-colors"
                             >
                               Cancel
                             </button>
@@ -500,7 +565,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                                 if (onDeleteHighlight) onDeleteHighlight(hl.id);
                                 setHighlightToDelete(null);
                               }}
-                              className="px-1.5 py-0.5 bg-red-600 text-white rounded font-medium"
+                              className="px-2 py-0.5 bg-transparent hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-900 rounded font-medium text-[9.5px] transition-colors"
                             >
                               Delete
                             </button>
@@ -537,8 +602,44 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
       {/* ── Main Scrollable PDF Pages Canvas (Full Page Continuous Scroll) ── */}
       <div
         ref={scrollContainerRef}
+        onMouseUp={() => handleMouseUp()}
+        onClick={(e) => {
+          const target = e.target as HTMLElement | null;
+          if (target && (target.closest('button') || target.closest('a') || target.closest('input'))) {
+            return;
+          }
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+            if (targetHighlightText) {
+              onClearActiveHighlight?.();
+            }
+          }
+        }}
         className="flex-1 overflow-y-auto overflow-x-auto flex flex-col items-center gap-6 py-6 px-4 select-text relative w-full h-full bg-[#EAEEF4] dark:bg-[#09090B]"
       >
+        {/* Floating Active Highlight Banner & Exit Button (Bug 4) */}
+        {targetHighlightText && targetHighlightText.trim() && (
+          <div
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="sticky top-2 z-30 flex items-center gap-2 bg-[#0F172A] dark:bg-[#18181B] text-white px-3.5 py-1.5 rounded-full shadow-xl border border-slate-700/80 dark:border-zinc-700 animate-in fade-in zoom-in-95 duration-150 select-none"
+          >
+            <span className="text-[11px] font-sans text-slate-200">
+              Active highlight on <span className="font-mono font-semibold text-[#518FFF]">p. {currentPage}</span>
+            </span>
+            <button
+              type="button"
+              data-testid="clear-highlight-button"
+              onClick={() => onClearActiveHighlight?.()}
+              className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-white pl-1.5 border-l border-slate-700 transition-colors cursor-pointer"
+              title="Exit highlight mode"
+            >
+              <span>Clear</span>
+              <X size={12} weight="bold" />
+            </button>
+          </div>
+        )}
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
           isNonPdf ? (
             <NonPdfPageCanvas
@@ -689,6 +790,7 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 680, height: 880 });
+  const [textLayerReady, setTextLayerReady] = useState<number>(0);
   const renderTaskRef = useRef<any>(null);
 
   useEffect(() => {
@@ -762,6 +864,9 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
               container.appendChild(span);
             }
           }
+          if (!isCancelled) {
+            setTextLayerReady((v) => v + 1);
+          }
         }
       } catch (err: any) {
         if (err?.name !== 'RenderingCancelledException') {
@@ -785,46 +890,141 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
   // 3. Highlight Matching & Direct Text Positioning (Search, AI Citation & Saved Highlights)
   useEffect(() => {
     if (!textLayerRef.current) return;
-    const spans = textLayerRef.current.querySelectorAll('span');
+    const spans = Array.from(textLayerRef.current.querySelectorAll('span'));
     if (!spans || spans.length === 0) return;
 
-    const sq = (searchQuery || '').trim().toLowerCase();
-    const tq = (targetHighlightText || '').trim().toLowerCase();
-    const clipTexts = (savedHighlights || []).map((h) => h.text.trim().toLowerCase());
+    // Reset previous classes
+    spans.forEach((s) => s.classList.remove('pdf-match-highlight', 'pdf-active-citation-highlight', 'pdf-saved-highlight'));
+
+    // Build concatenated page text map with exact character offsets per span
+    let fullPageText = '';
+    const spanRanges: Array<{ span: HTMLSpanElement; start: number; end: number }> = [];
+
+    spans.forEach((span) => {
+      const txt = span.textContent || '';
+      const start = fullPageText.length;
+      fullPageText += txt + ' ';
+      const end = fullPageText.length;
+      spanRanges.push({ span, start, end });
+    });
+
+    const lowerPageText = fullPageText.toLowerCase();
+
+    // Helper to highlight spans overlapping [matchStart, matchEnd]
+    const applyHighlightToRange = (matchStart: number, matchEnd: number, className: string): HTMLSpanElement | null => {
+      let firstSpan: HTMLSpanElement | null = null;
+      spanRanges.forEach(({ span, start, end }) => {
+        if (Math.max(start, matchStart) < Math.min(end, matchEnd)) {
+          span.classList.add(className);
+          if (!firstSpan) firstSpan = span;
+        }
+      });
+      return firstSpan;
+    };
+
+    // Helper to find all occurrences of a phrase in lowerPageText (Full-Clip Highlighting)
+    const highlightPhrase = (phrase: string, className: string): HTMLSpanElement | null => {
+      let cleanPhrase = phrase
+        .replace(/^[“"']+|[”"']+$/g, '')
+        .replace(/[*#_`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      // Strip trailing page citations if passed with title (e.g. "— p. 5" or "— Page 12")
+      cleanPhrase = cleanPhrase.replace(/\s*[—–-]\s*(?:page|p\.?)\s*\d+.*$/i, '').trim();
+
+      if (cleanPhrase.length < 2) return null;
+
+      let firstMatched: HTMLSpanElement | null = null;
+      let pos = 0;
+      while ((pos = lowerPageText.indexOf(cleanPhrase, pos)) !== -1) {
+        const span = applyHighlightToRange(pos, pos + cleanPhrase.length, className);
+        if (!firstMatched) firstMatched = span;
+        pos += cleanPhrase.length;
+      }
+
+      // If verbatim full phrase was not found in one contiguous string (line breaks, hyphenation, formatting)
+      if (!firstMatched && cleanPhrase.length > 15) {
+        // Method A: Anchor matching (first 4-6 words and last 4-6 words)
+        const words = cleanPhrase.split(/\s+/).filter(Boolean);
+        if (words.length >= 4) {
+          const startAnchor = words.slice(0, Math.min(5, words.length)).join(' ');
+          const endAnchor = words.slice(Math.max(0, words.length - 5)).join(' ');
+          const startPos = lowerPageText.indexOf(startAnchor);
+          const endPos = lowerPageText.lastIndexOf(endAnchor);
+
+          if (startPos !== -1 && endPos !== -1 && endPos >= startPos) {
+            firstMatched = applyHighlightToRange(startPos, endPos + endAnchor.length, className);
+          }
+        }
+
+        // Method B: De-hyphenated normalized matching if still not matched
+        if (!firstMatched) {
+          const dehyphenated = cleanPhrase.replace(/-\s+/g, '');
+          const dehyphenatedPage = lowerPageText.replace(/-\s+/g, '');
+          const dhPos = dehyphenatedPage.indexOf(dehyphenated);
+          if (dhPos !== -1) {
+            firstMatched = applyHighlightToRange(dhPos, dhPos + cleanPhrase.length, className);
+          }
+        }
+
+        // Method C: Sliding multi-chunk coverage (chunks of 4 words) so the FULL clip lights up
+        if (!firstMatched && words.length >= 6) {
+          let chunkFirst: HTMLSpanElement | null = null;
+          for (let w = 0; w < words.length - 2; w += 2) {
+            const chunk = words.slice(w, w + 4).join(' ');
+            const cPos = lowerPageText.indexOf(chunk);
+            if (cPos !== -1) {
+              const span = applyHighlightToRange(cPos, cPos + chunk.length, className);
+              if (!chunkFirst) chunkFirst = span;
+            }
+          }
+          if (chunkFirst) firstMatched = chunkFirst;
+        }
+
+        // Method D: Distinct first 4-5 words match
+        if (!firstMatched && words.length >= 4) {
+          const firstWords = words.slice(0, 5).join(' ');
+          const startPos = lowerPageText.indexOf(firstWords);
+          if (startPos !== -1) {
+            firstMatched = applyHighlightToRange(startPos, startPos + firstWords.length, className);
+          }
+        }
+      }
+
+      return firstMatched;
+    };
 
     let targetElementToScroll: HTMLSpanElement | null = null;
 
-    spans.forEach((span) => {
-      const text = (span.textContent || '').trim().toLowerCase();
-      if (!text) return;
-
-      span.classList.remove('pdf-match-highlight', 'pdf-active-citation-highlight', 'pdf-saved-highlight');
-
-      let isMatch = false;
-
-      // 1. Target Citation / Quote Highlight (Active glow & auto-scroll)
-      if (tq && (text.includes(tq) || tq.includes(text) || (text.length > 5 && tq.includes(text.slice(0, 15))))) {
-        span.classList.add('pdf-active-citation-highlight');
-        if (!targetElementToScroll) targetElementToScroll = span;
-        isMatch = true;
-      }
-
-      // 2. Search Query Match
-      if (sq && text.includes(sq)) {
-        span.classList.add('pdf-match-highlight');
-        isMatch = true;
-      }
-
-      // 3. Saved Clip Highlight
-      if (!isMatch && clipTexts.some((c) => text.includes(c) || c.includes(text))) {
-        span.classList.add('pdf-saved-highlight');
+    // 1. Saved Clip Highlights
+    (savedHighlights || []).forEach((h) => {
+      if (h.text) {
+        highlightPhrase(h.text, 'pdf-saved-highlight');
       }
     });
 
-    if (targetElementToScroll && targetHighlightText) {
-      (targetElementToScroll as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 2. Search Query Match
+    if (searchQuery && searchQuery.trim()) {
+      highlightPhrase(searchQuery, 'pdf-match-highlight');
     }
-  }, [searchQuery, targetHighlightText, savedHighlights, dimensions]);
+
+    // 3. Target Citation / Quote Highlight (Active glow & auto-scroll)
+    if (targetHighlightText && targetHighlightText.trim()) {
+      const targetSpan = highlightPhrase(targetHighlightText, 'pdf-active-citation-highlight');
+      if (targetSpan && !targetElementToScroll) {
+        targetElementToScroll = targetSpan;
+      }
+    }
+
+    // Scroll to citation target element if active
+    if (targetElementToScroll && targetHighlightText) {
+      setTimeout(() => {
+        targetElementToScroll?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 120);
+    }
+  }, [searchQuery, targetHighlightText, savedHighlights, dimensions, textLayerReady]);
 
   return (
     <div
@@ -833,7 +1033,7 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
       data-page-number={pageNumber}
       onMouseUp={onMouseUp}
       style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
-      className="pdf-page-wrapper relative bg-white dark:bg-[#121214] border border-[#CBD5E1]/80 dark:border-[#27272A] rounded-sm shadow-md flex-shrink-0 flex flex-col justify-center items-center overflow-hidden transition-all select-text"
+      className="pdf-page-wrapper relative bg-white dark:bg-[#121214] ring-1 ring-[#CBD5E1]/80 dark:ring-[#27272A] rounded-sm shadow-md flex-shrink-0 flex flex-col justify-center items-center overflow-hidden transition-all select-text"
     >
       {/* 1. High-DPI Vector Canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 block pointer-events-none select-none" />
@@ -911,6 +1111,17 @@ const NonPdfPageCanvas: React.FC<NonPdfPageCanvasProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const effectiveScale = scale * 1.15;
 
+  useEffect(() => {
+    if (targetHighlightText && contentRef.current) {
+      const el = contentRef.current.querySelector('.pdf-active-citation-highlight');
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 120);
+      }
+    }
+  }, [targetHighlightText]);
+
   const renderContentWithHighlights = () => {
     let html = pageContent || '';
     html = html
@@ -918,7 +1129,17 @@ const NonPdfPageCanvas: React.FC<NonPdfPageCanvasProps> = ({
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Very basic wrapping for paragraphs
+    if (targetHighlightText && targetHighlightText.trim()) {
+      const cleanTarget = targetHighlightText.replace(/^[“"']+|[”"']+$/g, '').trim();
+      if (cleanTarget.length >= 2) {
+        try {
+          const regex = new RegExp(`(${cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+          html = html.replace(regex, '<mark class="pdf-active-citation-highlight">$1</mark>');
+        } catch {}
+      }
+    }
+
+    // Basic wrapping for paragraphs
     html = html.split('\n\n').map(p => `<p style="margin-bottom: 1em;">${p.replace(/\n/g, '<br/>')}</p>`).join('');
 
     return { __html: html };

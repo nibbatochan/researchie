@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowSquareOut } from '@phosphor-icons/react';
 import { semanticHighlight } from './semanticHighlight';
 
 /**
@@ -82,24 +83,32 @@ export function renderRichText(
           );
         }
 
-        // 4. Citations ([Page X], [p. X], [1], [Source: X])
-        const pageMatch = part.match(/^\[(?:Page|p\.|pp\.)\s*(\d+(?:-\d+)?)\]$/i);
+        // 4. Citations ([Page X], [p. X], [Page X, Y], [1], [Source: X]) - Gemini Style
+        const pageMatch = part.match(/^\[(?:Page|p\.|pp\.)\s*([^\]]+)\]$/i);
         if (pageMatch) {
-          const pageNum = pageMatch[1];
-          if (onCitationClick) {
-            return (
-              <button
-                key={index}
-                type="button"
-                onClick={() => onCitationClick(`#cite-page-${pageNum}`)}
-                className="inline-flex items-center gap-0.5 px-1.5 py-0.2 mx-0.5 rounded text-[10.5px] font-mono font-medium text-[#325FEC] dark:text-[#518FFF] hover:underline transition-colors cursor-pointer align-baseline"
-                title={`Jump to Page ${pageNum}`}
-              >
-                <span>p. {pageNum}</span>
-              </button>
-            );
-          }
-          return <span key={index} className="text-slate-500 dark:text-zinc-400 font-normal"> (p. {pageNum})</span>;
+          const rawPages = pageMatch[1];
+          const pageNumbers = rawPages.match(/\d+(?:-\d+)?/g) || [];
+          return (
+            <span key={index} className="inline-flex items-center gap-1 mx-0.5 align-baseline">
+              {pageNumbers.map((pNum, pIdx) => {
+                const singleNum = pNum.split('-')[0];
+                return (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    data-testid="gemini-citation-link"
+                    data-page-number={singleNum}
+                    onClick={() => onCitationClick?.(`#cite-page-${singleNum}`)}
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10.5px] font-mono font-medium text-[#325FEC] dark:text-[#518FFF] hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 transition-colors cursor-pointer align-baseline shadow-2xs"
+                    title={`Jump to Page ${singleNum} and highlight source sentence`}
+                  >
+                    <span>p.{pNum}</span>
+                    <ArrowSquareOut size={10} weight="bold" />
+                  </button>
+                );
+              })}
+            </span>
+          );
         }
 
         const refMatch = part.match(/^\[(\d+)\]$/);

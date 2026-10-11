@@ -24,9 +24,15 @@ export interface ProvenanceMetadata {
   documentName?: string;
   documentId?: string;
   documentUrl?: string;
+  docId?: string;
+  pdfDocId?: string;
   pageNumber?: number;
+  page?: number;
   totalDocumentPages?: number;
   pdfBoundingRect?: { x: number; y: number; width: number; height: number };
+  citationQuote?: string;
+  quote?: string;
+  selectedText?: string;
 }
 
 export interface ContentPayload {

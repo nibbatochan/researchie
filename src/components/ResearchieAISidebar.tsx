@@ -33,6 +33,8 @@ import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 import { ResearchieAILogo } from './ResearchieAILogo';
 import { FormattedAIMessage } from './FormattedAIMessage';
 import { downloadFile } from '@/lib/export/download';
+import { getAtomHighlightText } from './AtomCard';
+import { buildDeepLink } from '@/lib/utils/textFragments';
 
 export type AISidebarTab = 'ask' | 'summarize';
 
@@ -294,11 +296,18 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
   }, [selectedAtoms.length]);
 
   const handleCitationClick = (atom: ResearchAtom) => {
+    const isDoc = Boolean(
+      atom.metadata?.documentType === 'pdf' ||
+      typeof atom.metadata?.pageNumber === 'number' ||
+      atom.metadata?.documentId ||
+      atom.metadata?.sourceUrl?.startsWith('/reader') ||
+      atom.content?.targetUrl?.startsWith('/reader')
+    );
     const docId = atom.metadata?.documentId || (atom as any).documentId;
-    const pageNum = atom.metadata?.pageNumber;
-    const quote = atom.content?.text || atom.content?.rawText || (atom as any).text;
+    const pageNum = atom.metadata?.pageNumber || 1;
+    const quote = getAtomHighlightText(atom);
 
-    if (pageNum && onOpenPdfReader) {
+    if (isDoc && onOpenPdfReader) {
       onOpenPdfReader(docId, pageNum, quote);
       return;
     }
@@ -314,12 +323,7 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
     if (sourceUrl) {
       let targetUrl = sourceUrl;
       if (quote && quote.trim()) {
-        const clean = quote.replace(/["'“”«»]/g, '').replace(/\s+/g, ' ').trim();
-        const words = clean.split(' ').slice(0, 6).join(' ');
-        if (words) {
-          const [baseUrl] = sourceUrl.split('#');
-          targetUrl = `${baseUrl}#:~:text=${encodeURIComponent(words)}`;
-        }
+        targetUrl = buildDeepLink(sourceUrl, undefined, quote);
       }
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
     }
@@ -853,8 +857,13 @@ User Question: ${query.trim()}`,
                                 </div>
                                 <div className="grid grid-cols-1 gap-1.5">
                                   {msg.citations.map((atom) => {
-                                    const quote = atom.content?.text || atom.content?.rawText || atom.content?.description || (atom as any).text;
-                                    const isPdf = !!atom.metadata?.pageNumber;
+                                    const quote = getAtomHighlightText(atom);
+                                    const isPdf = Boolean(
+                                      atom.metadata?.documentType === 'pdf' ||
+                                      typeof atom.metadata?.pageNumber === 'number' ||
+                                      atom.metadata?.documentId ||
+                                      atom.metadata?.sourceUrl?.startsWith('/reader')
+                                    );
 
                                     return (
                                       <button

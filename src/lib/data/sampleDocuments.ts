@@ -4,6 +4,20 @@ import path from 'path';
 
 export const INITIAL_DOCUMENTS: ResearchDocument[] = [
   {
+    id: 'doc-just-enough-research',
+    projectId: 'proj-ai-main',
+    title: 'Just Enough Research — Erika Hall',
+    filename: 'just-enough-research.pdf',
+    author: 'Erika Hall',
+    publicationDate: '2024 Edition',
+    fileSize: '2.6 MB',
+    fileUrl: '/fixtures/just-enough-research.pdf',
+    totalPages: 163,
+    uploadedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+    tags: ['research-methods', 'design-strategy', 'user-interviews', 'mental-models'],
+    pages: [],
+  },
+  {
     id: 'doc-rag-arch-2026',
     projectId: 'proj-rag-arch-2026',
     title: 'Adaptive Retrieval-Augmented Generation & Neural Reranking Architecture',
@@ -22,7 +36,7 @@ export const INITIAL_DOCUMENTS: ResearchDocument[] = [
 Standard single-pass Retrieval-Augmented Generation (RAG) architectures exhibit critical failure modes when queries require multi-hop factual aggregation across disparate documents. In this paper, we evaluate adaptive retrieval strategies combining dense HNSW vector index lookups with sparse BM25 token frequencies and cross-encoder neural rerankers.
 
 1. Introduction & Theoretical Motivation:
-Dual-encoder models map queries and documents into a shared latent space independently, optimizing for maximum cosine similarity. While computationally efficient, this decoupled projection loses fine-grained lexical signals and exact numerical constraints. We demonstrate that hybrid fusion (RRF) with reciprocal rank weights (\(k=60\)) recovers 94.2% of lost keyword precision.
+Dual-encoder models map queries and documents into a shared latent space independently, optimizing for maximum cosine similarity. While computationally efficient, this decoupled projection loses fine-grained lexical signals and exact numerical constraints. We demonstrate that hybrid fusion (RRF) with reciprocal rank weights (k=60) recovers 94.2% of lost keyword precision.
 
 Field Evaluation Pipeline:
 We benchmarked 100,000 synthetic multi-turn research queries across a 50M-document corpus. Our findings show that self-reflective query rewriting prior to vector search reduces hallucination rates from 18.4% down to 2.1%.`,
@@ -350,7 +364,8 @@ if (!globalStore.__RESEARCH_DOCUMENTS_STORE__) {
 }
 
 export function getProjectDocuments(projectId?: string): ResearchDocument[] {
-  const docs = globalStore.__RESEARCH_DOCUMENTS_STORE__ || loadPersistedDocs();
+  const docs = loadPersistedDocs();
+  globalStore.__RESEARCH_DOCUMENTS_STORE__ = docs;
   if (!projectId || projectId === 'all') {
     return docs;
   }
@@ -371,7 +386,8 @@ export function getProjectDocuments(projectId?: string): ResearchDocument[] {
 }
 
 export function getDocumentById(id: string): ResearchDocument | undefined {
-  const docs = globalStore.__RESEARCH_DOCUMENTS_STORE__ || loadPersistedDocs();
+  const docs = loadPersistedDocs();
+  globalStore.__RESEARCH_DOCUMENTS_STORE__ = docs;
   return docs.find((d) => d.id === id);
 }
 

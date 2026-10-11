@@ -233,10 +233,6 @@ body {
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
-  line-height: 1 !important;
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
   -webkit-user-select: text;
   -moz-user-select: text;
   user-select: text;

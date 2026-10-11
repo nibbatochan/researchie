@@ -38,6 +38,32 @@ interface AtomCardProps {
 import { semanticHighlight } from '@/lib/utils/semanticHighlight';
 import { renderRichText } from '@/lib/utils/richTextRenderer';
 
+export function getAtomHighlightText(atom: ResearchAtom): string {
+  if (atom.metadata?.citationQuote) return atom.metadata.citationQuote;
+  if (atom.metadata?.quote) return atom.metadata.quote;
+  if (atom.metadata?.selectedText) return atom.metadata.selectedText;
+  if (atom.content?.rawText) return atom.content.rawText;
+  if (atom.content?.text) return atom.content.text;
+  if (atom.content?.ocrText) return atom.content.ocrText;
+
+  if (atom.type === 'note') {
+    const text = atom.content?.markdownContent || atom.content?.description || '';
+    const quoteMatch = text.match(/>\s*["“]?([^"\n”]+)["”]?(?:\n|$)/);
+    if (quoteMatch && quoteMatch[1]?.trim().length > 3) {
+      return quoteMatch[1].trim();
+    }
+    if (atom.title && atom.title !== 'AI Answer' && atom.title !== 'Untitled Note') {
+      return atom.title;
+    }
+    return text.replace(/[#*`_>]/g, ' ').slice(0, 150).trim();
+  }
+
+  if (atom.content?.description) return atom.content.description;
+  if (atom.title) return atom.title;
+
+  return '';
+}
+
 export const AtomCard: React.FC<AtomCardProps> = ({ 
   atom, 
   viewMode = 'detailed',
@@ -110,17 +136,50 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const rawFragment = atom.metadata?.scrollToTextFragment || atom.metadata?.textFragment;
   const createdAtTime = atom.capturedAt || atom.created_at;
 
-  // Dynamic W3C Scroll-To-Text Fragment Deep Link
+  const isDocAtom = Boolean(
+    atom.metadata?.documentType === 'pdf' ||
+    typeof atom.metadata?.pageNumber === 'number' ||
+    atom.metadata?.documentId ||
+    atom.metadata?.sourceUrl?.startsWith('/reader') ||
+    atom.content?.targetUrl?.startsWith('/reader')
+  );
+
+  const highlightText = getAtomHighlightText(atom);
+
+  // Dynamic W3C Scroll-To-Text Fragment Deep Link for Web Atoms, or reader link for Doc Atoms
   const targetLink = useMemo(() => {
-    const source = atom.metadata?.sourceUrl || atom.content.targetUrl || atom.metadata?.deepLink;
+    if (isDocAtom) {
+      const docId = atom.metadata?.documentId || (atom as any).documentId || '';
+      const pageNum = atom.metadata?.pageNumber || 1;
+      return `/reader?doc=${encodeURIComponent(docId)}&page=${pageNum}`;
+    }
+
+    const source = atom.metadata?.sourceUrl || atom.content?.targetUrl || atom.metadata?.deepLink;
     if (!source) return '';
     if (source.includes('#:~:text=')) return source;
     if (rawFragment) return buildDeepLink(source, rawFragment);
-    if (isQuoteType && rawQuote) return buildDeepLink(source, undefined, rawQuote);
+    if (highlightText) return buildDeepLink(source, undefined, highlightText);
     return source;
-  }, [atom, rawFragment, isQuoteType, rawQuote]);
+  }, [atom, isDocAtom, rawFragment, highlightText]);
 
-  const hasTextFragment = targetLink.includes('#:~:text=') || Boolean(rawFragment);
+  const hasTextFragment = targetLink.includes('#:~:text=') || Boolean(rawFragment) || isDocAtom;
+
+  const handleOpenLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDocAtom && onOpenPdfReader) {
+      e.preventDefault();
+      const docId = atom.metadata?.documentId || (atom as any).documentId;
+      const pageNum = atom.metadata?.pageNumber || 1;
+      onOpenPdfReader(docId, pageNum, highlightText);
+      return;
+    }
+
+    if (targetLink) {
+      if (typeof window !== 'undefined') {
+        window.open(targetLink, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
 
   const handleCopyCitation = () => {
     let citation = '';
@@ -205,16 +264,15 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0 transition-opacity"
             onClick={(e) => e.stopPropagation()}
           >
-            {targetLink && (
-              <a
-                href={targetLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors"
-                title={hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open Link'}
+            {(targetLink || isDocAtom) && (
+              <button
+                type="button"
+                onClick={handleOpenLink}
+                className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
+                title={isDocAtom ? `Jump to page ${atom.metadata?.pageNumber || 1} in PDF Reader` : (hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open Link')}
               >
                 <ArrowSquareOut size={13} className={hasTextFragment ? 'text-[#325FEC] dark:text-[#518FFF]' : ''} />
-              </a>
+              </button>
             )}
             <button
               onClick={handleCopyCitation}
@@ -285,14 +343,13 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           {atom.type === 'link' && (
             <div className="flex items-center gap-2 text-sm">
               <LinkSimple size={15} className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
-              <a
-                href={targetLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-800 dark:text-zinc-200 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:underline truncate text-sm"
+              <button
+                type="button"
+                onClick={handleOpenLink}
+                className="text-slate-800 dark:text-zinc-200 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:underline truncate text-sm text-left cursor-pointer"
               >
                 {semanticHighlight(atom.title || targetLink, searchQuery)}
-              </a>
+              </button>
             </div>
           )}
 
@@ -376,18 +433,16 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               {Math.round(atom.similarity * 100)}% match
             </span>
           )}
-          {atom.metadata?.documentType === 'pdf' || typeof atom.metadata?.pageNumber === 'number' ? (
+          {isDocAtom ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenPdfReader?.(atom.metadata?.documentId, atom.metadata?.pageNumber, rawQuote);
-              }}
+              data-testid="timeline-source-link"
+              onClick={handleOpenLink}
               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-semibold bg-blue-50/80 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-900/40 shadow-xs transition-colors cursor-pointer"
-              title="Jump to page in PDF Reader"
+              title={`Jump to page ${atom.metadata?.pageNumber || 1} in PDF Reader`}
             >
               <FileText size={12} weight="bold" className="text-blue-600 dark:text-blue-400" />
-              <span>PDF · p. {atom.metadata.pageNumber || 1}</span>
+              <span>PDF · p. {atom.metadata?.pageNumber || 1}</span>
             </button>
           ) : (
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-semibold border ${
@@ -479,20 +534,19 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                   </p>
                 )}
 
-                {targetLink && (
+                {(targetLink || isDocAtom) && (
                   <div className="pt-2 flex items-center justify-between border-t border-[#D9E1EC]/60 dark:border-[#27272A] text-[11px]">
                     <span className="text-slate-400 dark:text-zinc-500 font-mono text-[10px]">
                       Source: {getSourceHostname(atom.metadata?.sourceUrl)}
                     </span>
-                    <a
-                      href={targetLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[#325FEC] dark:text-[#518FFF] hover:underline font-medium"
+                    <button
+                      type="button"
+                      onClick={handleOpenLink}
+                      className="inline-flex items-center gap-1 text-[#325FEC] dark:text-[#518FFF] hover:underline font-medium cursor-pointer"
                     >
-                      <span>Jump to exact paragraph in source</span>
+                      <span>{isDocAtom ? 'Jump to exact passage in Reader' : 'Jump to exact paragraph in source'}</span>
                       <ArrowSquareOut size={11} />
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
@@ -616,10 +670,11 @@ export const AtomCard: React.FC<AtomCardProps> = ({
 
           {/* Actions on Right */}
           <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
-            {(atom.metadata?.documentType === 'pdf' || typeof atom.metadata?.pageNumber === 'number' || atom.metadata?.documentId) && (
+            {isDocAtom && (
               <button
                 type="button"
-                onClick={() => onOpenPdfReader?.(atom.metadata?.documentId, atom.metadata?.pageNumber, rawQuote)}
+                data-testid="timeline-source-link"
+                onClick={handleOpenLink}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium text-[#325FEC] dark:text-[#518FFF] bg-[#518FFF]/10 hover:bg-[#518FFF]/20 border border-[#518FFF]/30 transition-colors cursor-pointer"
                 title={`Open page ${atom.metadata?.pageNumber || 1} in PDF Reader`}
               >
@@ -628,17 +683,16 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               </button>
             )}
 
-            {targetLink && (
-              <a
-                href={targetLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono text-slate-700 dark:text-zinc-200 bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] border border-[#D9E1EC] dark:border-[#27272A] transition-colors"
-                title={hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open source page'}
+            {(targetLink || isDocAtom) && (
+              <button
+                type="button"
+                onClick={handleOpenLink}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono text-slate-700 dark:text-zinc-200 bg-[#EEF3F8] dark:bg-[#18181B] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] border border-[#D9E1EC] dark:border-[#27272A] transition-colors cursor-pointer"
+                title={isDocAtom ? `Jump to page ${atom.metadata?.pageNumber || 1} in PDF Reader` : (hasTextFragment ? 'Jump directly to highlighted quote on webpage' : 'Open source page')}
               >
                 <ArrowSquareOut size={13} className={hasTextFragment ? 'text-[#325FEC] dark:text-[#518FFF]' : 'text-slate-400'} />
-                <span>{hasTextFragment ? 'Jump to Quote' : 'Open Link'}</span>
-              </a>
+                <span>{isDocAtom ? 'Jump to Page' : (hasTextFragment ? 'Jump to Quote' : 'Open Link')}</span>
+              </button>
             )}
 
             <button

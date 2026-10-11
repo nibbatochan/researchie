@@ -27,11 +27,13 @@ import {
   Funnel,
   Trash,
   ShieldCheck,
-  ShareNetwork
+  ShareNetwork,
+  Compass
 } from '@phosphor-icons/react';
 import { ResearchAtom, ResearchProject, AtomType } from '@/lib/types/research';
 import { AtomCard } from './AtomCard';
 import { ExportProjectModal } from './ExportProjectModal';
+import { CanvasExportModal } from './CanvasExportModal';
 import { ResearchieAISidebar, AISidebarTab } from './ResearchieAISidebar';
 import { ResearchieAIFAB } from './ResearchieAIFAB';
 import { ResearchCanvas } from './ResearchCanvas';
@@ -69,6 +71,8 @@ interface ProjectTimelineProps {
   onOpenTrashModal?: () => void;
   trashCount?: number;
   onOpenShareModal?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 // ─── Timeline Empty State Vector Illustration ────────────────────────
@@ -141,6 +145,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   onOpenTrashModal,
   trashCount = 0,
   onOpenShareModal,
+  isSidebarCollapsed,
+  onToggleSidebar,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -165,6 +171,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCanvasExportOpen, setIsCanvasExportOpen] = useState(false);
   // AI Assistant Sidebar & FAB State
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(false);
   const [aiSidebarTab, setAiSidebarTab] = useState<AISidebarTab>('ask');
@@ -276,6 +283,12 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
     return atoms.filter((a) => selectedIds.has(a.id));
   }, [atoms, selectedIds]);
 
+  const atomsMap = useMemo(() => {
+    const map = new Map<string, ResearchAtom>();
+    atoms.forEach((a) => map.set(a.id, a));
+    return map;
+  }, [atoms]);
+
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -322,10 +335,13 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
     );
   }
 
+  // State for canvas minimap toggle
+  const [showCanvasMinimap, setShowCanvasMinimap] = useState(false);
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#EAEEF4] dark:bg-[#09090B] transition-colors">
       {/* Sticky Toolbar */}
-      <div className="px-3 py-2.5 md:px-5 md:py-2.5 border-b border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD]/95 dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+      <div className="px-3 py-1.5 md:px-5 md:py-2 border-b border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD]/95 dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         {/* Project Title and Round Tags Button at the Left */}
         <div className="min-w-0 flex items-center gap-2">
           {project.parentId && (
@@ -357,8 +373,34 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
 
         {/* Search, Filter, View & Export Controls */}
         <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
-          {/* Normal Keyword Search Input & Type Filter (Hidden in Doc/Reader mode) */}
-          {workspaceMode !== 'reader' && (
+          {/* In Canvas Mode: Single Minimap Toggle and Single Export (Figma-style) */}
+          {workspaceMode === 'canvas' ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCanvasMinimap((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium border transition-all ${
+                  showCanvasMinimap
+                    ? 'bg-[#325FEC] text-white border-[#325FEC]'
+                    : 'bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 border-[#D9E1EC] dark:border-[#27272A]'
+                }`}
+                title="Toggle Canvas Minimap"
+              >
+                <Compass size={13} weight="bold" />
+                <span>Minimap</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCanvasExportOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 border border-[#D9E1EC] dark:border-[#27272A] transition-all"
+                title="Export Canvas (PNG, JPEG, SVG)"
+              >
+                <Export size={13} className="text-slate-500 dark:text-zinc-400" />
+                <span>Export</span>
+              </button>
+            </div>
+          ) : workspaceMode !== 'reader' && (
             <>
               <div className="relative flex-1 sm:w-64 md:w-72 max-w-md flex items-center">
                 <MagnifyingGlass size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -545,15 +587,17 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             </button>
           )}
 
-          {/* Export Project Button */}
-          <button
-            onClick={() => setIsExportModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D9E1EC] dark:border-[#27272A] transition-all shadow-xs flex-shrink-0"
-            title="Export to Markdown, citations, or JSON"
-          >
-            <Export size={13} className="text-slate-500 dark:text-zinc-400" />
-            <span>Export</span>
-          </button>
+          {/* Export Project Button (Only in Feed Mode, hidden in Canvas Mode) */}
+          {workspaceMode !== 'canvas' && (
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D9E1EC] dark:border-[#27272A] transition-all shadow-xs flex-shrink-0"
+              title="Export to Markdown, citations, or JSON"
+            >
+              <Export size={13} className="text-slate-500 dark:text-zinc-400" />
+              <span>Export</span>
+            </button>
+          )}
 
           {/* Share & Multi-seat Collaboration Button */}
           {onOpenShareModal && project?.id !== 'all' && (
@@ -701,9 +745,15 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
           <div className="flex-1 min-w-0 h-full overflow-hidden relative">
             <ResearchCanvas
               project={project}
-              atoms={filteredAtoms}
+              atoms={atoms}
               onDeleteAtom={onDeleteAtom}
               onCreateAtom={onCreateAtom}
+              onOpenPdfReader={onOpenPdfReader}
+              showMinimap={showCanvasMinimap}
+              onToggleMinimap={() => setShowCanvasMinimap((prev) => !prev)}
+              onExportTrigger={() => setIsCanvasExportOpen(true)}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onToggleSidebar={onToggleSidebar}
               onOpenAISidebar={(tab, initialSelection) => {
                 if (initialSelection && initialSelection.length > 0) {
                   setSelectedIds(new Set(initialSelection.map((a) => a.id)));
@@ -790,8 +840,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
         )}
       </div>
 
-      {/* Floating Action Button (Bottom Right) - Hidden in Doc Mode and hidden when sidebar is open */}
-      {workspaceMode !== 'reader' && !isAISidebarOpen && (
+      {/* Floating Action Button (Bottom Right) - Hidden in Doc Mode & Canvas Mode and hidden when sidebar is open */}
+      {workspaceMode !== 'reader' && workspaceMode !== 'canvas' && !isAISidebarOpen && (
         <ResearchieAIFAB
           isOpen={isAISidebarOpen}
           clipCount={atoms.length}
@@ -803,13 +853,26 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
         />
       )}
 
-      {/* Export Project & Citations Modal */}
+      {/* Export Project & Citations Modal (Feed Mode) */}
       <ExportProjectModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         project={project}
         atoms={atoms}
         selectedAtoms={selectedAtomsList}
+      />
+
+      {/* Figma-Style Canvas Image Export Modal (PNG, JPEG, SVG across scales & scopes) */}
+      <CanvasExportModal
+        isOpen={isCanvasExportOpen}
+        onClose={() => setIsCanvasExportOpen(false)}
+        project={project}
+        nodes={[]}
+        folders={[]}
+        shapes={[]}
+        drawings={[]}
+        selectedIds={selectedIds}
+        atomsById={atomsMap}
       />
     </div>
   );
