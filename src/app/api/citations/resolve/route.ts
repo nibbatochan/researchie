@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createResolver, LOOKUP_CAP, LookupBudget } from '@/lib/citations/lookup.ts';
+import { LOOKUP_CAP, LookupBudget } from '@/lib/citations/lookup.ts';
 import { normalizeDoi } from '@/lib/citations/identify.ts';
+import { citationResolver } from '@/lib/citations/server.ts';
 
 // Resolves a clip's identifiers into a citation record (Decision 7).
-// Keys and contact details stay on the server: CROSSREF_MAILTO, NCBI_TOOL,
-// NCBI_EMAIL, NCBI_API_KEY. Without NCBI_* the PubMed lookups still run,
-// at the unkeyed rate.
-
-const resolver = createResolver({
-  fetcher: (url, init) => fetch(url, init),
-  crossrefMailto: process.env.CROSSREF_MAILTO,
-  ncbi: process.env.NCBI_EMAIL
-    ? { tool: process.env.NCBI_TOOL ?? 'researchie', email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }
-    : undefined,
-});
 
 export async function POST(request: Request) {
   let body: { doi?: unknown; pmid?: unknown };
@@ -30,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   const budget = new LookupBudget(LOOKUP_CAP);
-  const outcome = await resolver.resolveIdentifiers({ doi, pmid }, budget);
+  const outcome = await citationResolver.resolveIdentifiers({ doi, pmid }, budget);
   return NextResponse.json({
     record: outcome.record,
     reason: outcome.reason ?? null,

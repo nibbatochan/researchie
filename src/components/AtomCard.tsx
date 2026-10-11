@@ -22,6 +22,17 @@ import { buildDeepLink } from '@/lib/utils/textFragments';
 import { BlockAtomCard } from './BlockAtomCard';
 import { ImageAtomCard } from './ImageAtomCard';
 import { FormattedAIMessage } from './FormattedAIMessage';
+import type { CitationRecord } from '@/lib/citations/types.ts';
+import { buildWebCitation } from '@/lib/citations/webCitation.ts';
+import {
+  candidateLabel,
+  formatCitationLine,
+  parseIdentifier,
+  reasonMessage,
+  resolveCitation,
+  saveCitation,
+  searchCitations,
+} from '@/lib/citations/client.ts';
 
 interface AtomCardProps {
   atom: ResearchAtom;
@@ -82,6 +93,12 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [isContextExpanded, setIsContextExpanded] = useState(false);
+  const [citation, setCitation] = useState<CitationRecord | undefined>(atom.metadata?.citation);
+  const [citationInput, setCitationInput] = useState<string | null>(null); // null = input closed
+  const [citationBusy, setCitationBusy] = useState(false);
+  const [citationError, setCitationError] = useState<string | null>(null);
+  const [citationCandidates, setCitationCandidates] = useState<CitationRecord[] | null>(null);
+  const [citationCopied, setCitationCopied] = useState(false);
 
   const handleAddTag = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -197,6 +214,77 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const runCitationLookup = async (ids: { doi?: string; pmid?: string }) => {
+    setCitationBusy(true);
+    setCitationError(null);
+    try {
+      const out = await resolveCitation(ids);
+      if (!out.record) {
+        setCitationError(reasonMessage(out.reason));
+        return;
+      }
+      await saveCitation(atom.id, out.record);
+      setCitation(out.record);
+      setCitationInput(null);
+    } catch (err) {
+      setCitationError(err instanceof Error ? err.message : 'Citation lookup failed.');
+    } finally {
+      setCitationBusy(false);
+    }
+  };
+
+  // Order: identifier from an existing citation, then the page's own identifier
+  // read at clip time, then ask the user for one.
+  const handleGetCitation = () => {
+    const page = atom.metadata?.pageIdentifiers;
+    if (citation?.doi) return runCitationLookup({ doi: citation.doi });
+    if (citation?.pmid) return runCitationLookup({ pmid: citation.pmid });
+    if (page?.doi) return runCitationLookup({ doi: page.doi });
+    if (page?.pmid) return runCitationLookup({ pmid: page.pmid });
+    setCitationInput('');
+  };
+
+  // A DOI or PMID is looked up directly; anything else is searched as a title.
+  const handleCitationSubmit = async () => {
+    const text = (citationInput ?? '').trim();
+    const ids = parseIdentifier(text);
+    if (ids) return runCitationLookup(ids);
+    if (text.length < 5) {
+      setCitationError('Enter a DOI, a PMID or a paper title.');
+      return;
+    }
+    setCitationBusy(true);
+    setCitationError(null);
+    try {
+      const out = await searchCitations(text);
+      setCitationCandidates(out.candidates);
+      if (out.candidates.length === 0) setCitationError(reasonMessage(out.reason));
+    } catch (err) {
+      setCitationError(err instanceof Error ? err.message : 'Title search failed.');
+    } finally {
+      setCitationBusy(false);
+    }
+  };
+
+  // Saves a record the user chose, or one built from the page itself.
+  const saveCitationRecord = async (record: CitationRecord) => {
+    try {
+      await saveCitation(atom.id, record);
+      setCitation(record);
+      setCitationCandidates(null);
+      setCitationInput(null);
+    } catch (err) {
+      setCitationError(err instanceof Error ? err.message : 'Could not save the citation.');
+    }
+  };
+
+  const handleCopyFormattedCitation = () => {
+    if (!citation) return;
+    navigator.clipboard.writeText(formatCitationLine(citation));
+    setCitationCopied(true);
+    setTimeout(() => setCitationCopied(false), 2000);
+  };
+
   const handleConfirmDelete = async () => {
     if (!onDelete) return;
     setDeleting(true);
@@ -275,6 +363,15 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               </button>
             )}
             <button
+              type="button"
+              onClick={handleGetCitation}
+              disabled={citationBusy}
+              className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer disabled:opacity-50"
+              title={citation ? 'Refresh citation' : 'Get citation'}
+            >
+              <BookOpen size={13} />
+            </button>
+            <button
               onClick={handleCopyCitation}
               className="p-1 rounded text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
               title="Copy citation"
@@ -292,6 +389,86 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             )}
           </div>
         </div>
+
+        {(citation || citationInput !== null || citationCandidates || citationError || citationBusy) && (
+          <div
+            className="mt-2 mb-1 rounded-md border border-[#E4ECF6] dark:border-[#27272A] p-2.5 text-[12px] text-slate-700 dark:text-zinc-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {citation && (
+              <>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-zinc-500">
+                    Citation · {citation.status.replace(/_/g, ' ')}
+                  </span>
+                  <button type="button" onClick={handleCopyFormattedCitation} className="text-[11px] text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer">
+                    {citationCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
+                {citation.missingFields.length > 0 && (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">Incomplete: {citation.missingFields.join(', ')}</p>
+                )}
+                {citation.retracted && (
+                  <p className="mt-1 text-[11px] text-red-500">Retracted. Check before citing.</p>
+                )}
+              </>
+            )}
+            {citationInput !== null && (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  value={citationInput}
+                  onChange={(e) => setCitationInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCitationSubmit();
+                  }}
+                  placeholder="DOI, PMID or paper title"
+                  className="flex-1 min-w-0 bg-transparent border-b border-[#E4ECF6] dark:border-[#27272A] text-[12px] focus:outline-none focus:border-[#325FEC] py-0.5"
+                />
+                <button type="button" disabled={citationBusy} onClick={handleCitationSubmit} className="text-[11px] text-[#325FEC] dark:text-[#518FFF] cursor-pointer disabled:opacity-50">
+                  {citationBusy ? 'Looking up…' : 'Look up'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitationInput(null);
+                    setCitationError(null);
+                    setCitationCandidates(null);
+                  }}
+                  className="text-[11px] text-slate-400 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+            {citationInput !== null && atom.metadata?.pageInfo?.url && (
+              <button
+                type="button"
+                onClick={() => saveCitationRecord(buildWebCitation(atom.metadata.pageInfo!, new Date().toISOString()))}
+                className="mt-2 text-left text-[11px] text-[#325FEC] dark:text-[#518FFF] cursor-pointer"
+              >
+                Cite this web page instead
+              </button>
+            )}
+            {citationCandidates && citationCandidates.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1">
+                <p className="text-[11px] text-slate-400">Pick the match:</p>
+                {citationCandidates.map((candidate) => (
+                  <button
+                    key={candidate.doi}
+                    type="button"
+                    onClick={() => saveCitationRecord(candidate)}
+                    className="text-left text-[12px] leading-snug p-1.5 rounded hover:bg-[#E4ECF6] dark:hover:bg-[#222226] cursor-pointer"
+                  >
+                    {candidateLabel(candidate)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {citationBusy && citationInput === null && <p className="text-[11px] text-slate-400">Looking up…</p>}
+            {citationError && <p className="mt-1 text-[11px] text-red-500">{citationError}</p>}
+          </div>
+        )}
 
         {/* Compact Content */}
         <div>

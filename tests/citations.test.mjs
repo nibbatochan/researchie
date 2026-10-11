@@ -142,3 +142,25 @@ test('findPdfDoi falls back to the first page text', () => {
 test('findPdfDoi returns nothing when no DOI is present, so the user confirms', () => {
   assert.deepEqual(findPdfDoi({ title: 'Untitled' }, 'No identifier on this page.'), {});
 });
+
+import { buildWebCitation } from '../src/lib/citations/webCitation.ts';
+
+test('a web page with title, author and date is a page-tags record', () => {
+  const record = buildWebCitation(
+    { url: 'https://example.org/report', title: 'Heat report', siteName: 'Example Org', author: 'Jane Doe', published: '2024-05-01T10:00:00Z' },
+    '2026-10-12T00:00:00Z',
+  );
+  assert.equal(record.status, 'page_tags');
+  assert.equal(record.sourceType, 'web_page');
+  assert.equal(record.year, 2024);
+  assert.equal(record.url, 'https://example.org/report');
+  assert.deepEqual(record.missingFields, []);
+});
+
+test('a web page missing author and date is incomplete, not guessed', () => {
+  const record = buildWebCitation({ url: 'https://example.org/x', title: 'Untitled piece' }, '2026-10-12T00:00:00Z');
+  assert.equal(record.status, 'incomplete');
+  assert.deepEqual(record.missingFields, ['author', 'date']);
+  assert.equal(record.year, undefined);
+  assert.deepEqual(record.authors, []);
+});

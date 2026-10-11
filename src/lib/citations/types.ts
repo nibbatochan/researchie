@@ -18,8 +18,6 @@ export type SourceType =
   | 'book_chapter'
   | 'unknown';
 
-export type CitationStyle = 'vancouver' | 'ama' | 'apa';
-
 export interface CitationAuthor {
   family: string;
   given?: string;

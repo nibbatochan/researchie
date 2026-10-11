@@ -357,6 +357,50 @@
       .replace(/\)/g, '%29');
   }
 
+  // Reads the page's own DOI and PMID from its citation meta tags.
+  // Bibliography tags (citation_reference) are skipped: they are secondary sources.
+  // Matches src/lib/citations/identify.ts; plain JS here, so no import.
+  function readPageIdentifiers() {
+    const DOI_PATTERN = /10\.\d{4,9}\/[^\s"'<>]+/;
+    const metas = Array.from(document.querySelectorAll('meta[name]'));
+    const valueOf = (names) => {
+      for (const meta of metas) {
+        const name = (meta.getAttribute('name') || '').trim().toLowerCase();
+        if (!names.includes(name)) continue;
+        const content = (meta.getAttribute('content') || '').trim();
+        if (content) return content;
+      }
+      return '';
+    };
+
+    let doi = '';
+    for (const raw of [valueOf(['citation_doi']), valueOf(['dc.identifier', 'dc.identifier.doi'])]) {
+      const match = raw.match(DOI_PATTERN);
+      if (match) {
+        doi = match[0].replace(/[.,;:]+$/, '');
+        break;
+      }
+    }
+
+    const pmid = valueOf(['citation_pmid']);
+    return {
+      doi: doi || undefined,
+      pmid: /^\d+$/.test(pmid) ? pmid : undefined,
+    };
+  }
+
+  // Page facts for a web-source citation. Used only when the page has no DOI or PMID.
+  function readPageInfo() {
+    const meta = (selector) => (document.querySelector(selector)?.getAttribute('content') || '').trim() || undefined;
+    return {
+      url: window.location.href,
+      title: meta('meta[property="og:title"]') || document.title || undefined,
+      siteName: meta('meta[property="og:site_name"]'),
+      author: meta('meta[name="author"]') || meta('meta[property="article:author"]'),
+      published: meta('meta[property="article:published_time"]') || meta('meta[name="date"]') || meta('meta[name="citation_publication_date"]'),
+    };
+  }
+
   function buildTextFragment(text) {
     const clean = normalizeTextForMatching(text);
     if (!clean) return '';
@@ -554,6 +598,8 @@
         contextPrefix: context.contextPrefix,
         contextSuffix: context.contextSuffix,
         surroundingParagraphs: context.surroundingParagraphs,
+        pageIdentifiers: readPageIdentifiers(),
+        pageInfo: readPageInfo(),
       },
       tags: tags.length > 0 ? tags : undefined,
     };
@@ -878,6 +924,8 @@
         sourceUrl: window.location.href,
         pageTitle: document.title,
         domainFavicon: `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=64`,
+        pageIdentifiers: readPageIdentifiers(),
+        pageInfo: readPageInfo(),
       },
       tags: ['web-link', window.location.hostname.replace(/\..+$/, '')],
     };

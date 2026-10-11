@@ -5,7 +5,7 @@
 // Retries: at most two, with backoff, on 429 and 503.
 
 import type { CitationRecord } from './types.ts';
-import { parseCrossrefResponse } from './crossref.ts';
+import { mapCrossrefWork, parseCrossrefResponse } from './crossref.ts';
 import { mapDataCiteDoi } from './datacite.ts';
 import { detectRetraction, mapPubmedSummary } from './pubmed.ts';
 
@@ -210,5 +210,19 @@ export function createResolver(config: ResolverConfig) {
     return last;
   }
 
-  return { resolveIdentifiers, resolveDoi, resolvePmid };
+  // Title search: Crossref returns several matches, often a preprint and the
+  // journal version. Nothing is chosen here; the user picks one.
+  async function searchTitle(query: string, budget: LookupBudget): Promise<{ candidates: CitationRecord[]; reason?: Resolution['reason'] }> {
+    if (!budget.take()) return { candidates: [], reason: 'budget_exhausted' };
+    const mailto = config.crossrefMailto ? `&mailto=${encodeURIComponent(config.crossrefMailto)}` : '';
+    const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=5${mailto}`;
+    const res = await get(url, { 'User-Agent': userAgent }, config, limiters.crossref, clock);
+    if (!res || !res.ok) return { candidates: [], reason: 'unreachable' };
+
+    const body = (await res.json()) as { message?: { items?: Parameters<typeof mapCrossrefWork>[0][] } };
+    const candidates = (body.message?.items ?? []).map(mapCrossrefWork).filter((record) => record.doi);
+    return candidates.length > 0 ? { candidates } : { candidates, reason: 'not_found' };
+  }
+
+  return { resolveIdentifiers, searchTitle };
 }

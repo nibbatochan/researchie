@@ -4,6 +4,8 @@ import type { CitationRecord } from '../citations/types';
 
 export interface ProvenanceMetadata {
   citation?: CitationRecord; // resolved on demand; see src/lib/citations/metadata.ts
+  pageIdentifiers?: { doi?: string; pmid?: string }; // read from the page's citation meta tags at clip time
+  pageInfo?: { url: string; title?: string; siteName?: string; author?: string; published?: string }; // web-source fallback
   sourceUrl: string;
   pageTitle: string;
   domainFavicon?: string;

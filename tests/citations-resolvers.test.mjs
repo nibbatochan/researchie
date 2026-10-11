@@ -187,3 +187,29 @@ test('the rate limiter spaces calls at least the interval apart', async () => {
   await limit();
   assert.equal(clock.time, 200);
 });
+
+test('title search returns candidates that have a DOI and drops the rest', async () => {
+  const body = {
+    message: {
+      items: [
+        { DOI: '10.1101/2025.11.24.690121', type: 'posted-content', title: ['Different stabilizing mechanisms'], author: [{ family: 'Geng', given: 'Y.' }], issued: { 'date-parts': [[2025]] } },
+        { title: ['No DOI here'], author: [{ family: 'Nobody' }] },
+        { DOI: '10.1371/journal.pone.0355849', type: 'journal-article', title: ['Different stabilizing mechanisms'], author: [{ family: 'Geng', given: 'Y.' }], 'container-title': ['PLOS One'], issued: { 'date-parts': [[2026]] } },
+      ],
+    },
+  };
+  const { fetcher, calls } = routedFetcher([['api.crossref.org/works?query.bibliographic', respond(200, body)]]);
+  const out = await createResolver({ fetcher, clock: fakeClock(), crossrefMailto: 'dev@example.com' })
+    .searchTitle('Different stabilizing mechanisms standing walking', new LookupBudget());
+  assert.deepEqual(out.candidates.map((c) => c.doi), ['10.1101/2025.11.24.690121', '10.1371/journal.pone.0355849']);
+  assert.equal(out.candidates[0].sourceType, 'preprint');
+  assert.equal(out.candidates[1].sourceType, 'journal_article');
+  assert.match(calls[0], /query\.bibliographic=Different%20stabilizing/);
+  assert.equal(out.reason, undefined);
+});
+
+test('title search with no matches reports not_found', async () => {
+  const { fetcher } = routedFetcher([['api.crossref.org/works?query.bibliographic', respond(200, { message: { items: [] } })]]);
+  const out = await createResolver({ fetcher, clock: fakeClock() }).searchTitle('zzzz nothing matches this', new LookupBudget());
+  assert.deepEqual(out, { candidates: [], reason: 'not_found' });
+});
