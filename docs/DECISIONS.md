@@ -30,6 +30,12 @@
 - **Decision**: Atoms use optimistic deletion paired with an 8-second animated Undo Toast and a session Trash drawer. Project deletion employs a strict safeguard modal with data retention choices (moving clips to Global stream vs hard purge).
 - **Rationale**: Zero unintended research data loss with instant 1-click recovery.
 
+### Decision 7: Citation Resolution on Demand, Cached on the Atom
+- **Context**: The Research Clipper plan (Claude Docs, tab d31d0b0b-6195) needs every source resolved to a verified citation record. Lookups hit external APIs with strict rate limits (Crossref polite pool 10 req/s, PubMed 3 req/s without a key). Source pages list their own bibliography in `citation_reference` tags, which are secondary sources.
+- **Decision**: Citations are stored on the atom as an optional `citation` field, not as a new atom type. The extension captures page metadata only and makes no network calls. Resolution runs in a server route (`/api/citations/resolve`) when the user asks for a citation, and the result is cached on the atom. Identifier lookup order: Crossref, DOI agency, DataCite, then PubMed for PMIDs. `citation_reference` tags are never read as sources. Default style is Vancouver. Lookups cap at 10 per request. Missing fields are marked `incomplete`, never guessed.
+- **Rationale**: Keeps API keys and the Crossref `mailto` on the server, uses one shared rate limiter, avoids repeat lookups, and keeps the clip and its verified record together. Each lookup step is verified in `docs/CITATION_API_RESEARCH.md` before code relies on it.
+- **Open**: APA 7 and AMA 11 formatting (not verified against primary sources); retraction check (not yet tested); whether `citation_pmid` and `citation_arxiv_id` exist on the pages we need.
+
 ---
 
 ## Molecule Build System Log
