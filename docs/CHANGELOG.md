@@ -1,5 +1,50 @@
 # Version Changelog
 
+## [v1.7.0] — 2026-10-12 (Citation Engine, Verified Document Q&A & PDF Extraction Fix)
+### Added & Enhanced
+- **Citation engine (`src/lib/citations/`):**
+  - **Lookups:** DOI goes to Crossref, then the DOI agency (`doi.org/doiRA`), then DataCite. PMID goes to PubMed `esummary`, then `efetch` for a retraction check. One rate limiter per host, two retries with backoff on 429 and 503, and a cap of 10 lookups per request. Routes: `POST /api/citations/resolve` and `POST /api/citations/search`.
+  - **Title search:** Crossref bibliographic search returns up to five matches, labelled journal article or preprint. The user picks one.
+  - **Formatter:** Vancouver (ICMJE) for journal articles, six authors then "et al.". Web pages and unknown sources get a plain line. Preprints, datasets and book chapters show "style not yet supported".
+  - **Records:** status, source type, `warnings`, `notes` and `enteredByUser`, stored as `metadata.citation` on atoms (`PATCH /api/atoms`) and as `citation` on documents (`POST /api/documents`). No schema migration.
+  - **Page facts line:** every citation shows `Page · Author · Date`, with "not shown" for anything missing (`facts.ts`).
+- **Extension (`extension/content.js`):** text clips and page links store `metadata.pageIdentifiers` (DOI and PMID from `citation_*` and Dublin Core tags, bibliography tags ignored) and `metadata.pageInfo` (title, site, author, date, URL).
+- **Clip citation box (`AtomCard.tsx`):**
+  - Book icon opens the citation. A refresh and close pill appears in the icon row.
+  - One box takes a DOI, a PMID or a paper title. "Cite this web page instead" builds a web citation with no lookup.
+  - Back appears only inside sub-views. A DOI, PMID or title the user entered that points to a different title is a failed verify: it is not saved, and the warning screen offers Back to the saved citation. Refresh reopens the search box.
+  - Web pages from a known URL show "Web page", never "Incomplete". Older web citations are rebuilt for display.
+- **PDF citations (`PDFReaderView.tsx`):** DOIs are read from the PDF metadata and first page and checked against the PDF title. With no DOI, a compact form asks for title, author, year and type, and saves only on "Save citation". A citation icon next to Upload PDF opens a panel with the citation and a Copy button.
+- **Document Q&A:**
+  - Passage chunking with offsets, relevance retrieval of about 14,000 characters, and an abstract and explicit-page mode (`src/lib/ai/passages.ts`).
+  - Quotes are verified against their page and returned with page and offsets. Link icons come only from verified citations. The model's own page markers are removed.
+  - Empty state is one sentence. The chat scrolls to each new question and answer.
+  - Saving an answer to the project keeps the clean text, the first verified page and quote, and the PDF's citation.
+  - The "Jump to Page" button and "Related" chips are gone.
+- **Tests:** 92 unit tests across `tests/citations*.test.mjs`, `claim-support`, `passages` and `answer-links`. New Playwright spec `e2e/09-citation-links.spec.ts` (5 tests, mocked answers). `e2e/07` Req 8 and 9 now uses the link icon.
+- **Docs:** `docs/CITATION_API_RESEARCH.md` (API and style-guide notes, with live checks) and `docs/manual-test/citation-test-data.md`.
+
+### Fixed
+- **PDF extraction:** `/api/documents/parse` crashed on every request, so uploads saved a placeholder page. Fixed with `serverExternalPackages: ['pdf-parse']`.
+- **Wrong "not found" answers:** the route attached the best-scoring sentence as a citation, the model received the whole paper, and Groq's per-request limit rejected it before a local engine answered "not found". Now only verified citations are returned, and a failure returns a "busy" message.
+- **False "This might not be the source" warnings:** correct answers were flagged for four matching reasons (quote stitched with "...", a quietly skipped sentence, a hidden accent in "K̂n", a word hyphenated across a line break). One rule now covers all four.
+- **Retry dropped the page asked about:** the size retry cut the end of the context. It now re-selects half as many of the most relevant passages. A "not found" from a fallback model is reported as busy. The small 7B model is skipped.
+- **Library delete:** the confirmation window was drawn only in the reader screen, so the trash button in the library did nothing and the window appeared after opening a document. It is now drawn in both screens.
+- **Upload PDF** opens the file picker first. The upload window appears after a file is chosen and no longer shows the previous document's details.
+- **Atom card crash** on citations saved before the warnings and notes split.
+
+### Known Issues & Open Work
+- Preprint, dataset and book chapter citations have no formatted line. APA and AMA rules are unverified.
+- The PubMed retraction check has not been tested on a real retracted paper.
+- The extension capture was checked on real pages in the browser pane, not as a live Chrome clip.
+- Document Assistant: link icons are not placed per sentence, the PDF can scroll more than once per click, a highlight is not cleared by clicking elsewhere, a saved highlight cannot be selected one at a time, and the panel cannot be resized. Not started.
+- Groq's free tier (200,000 tokens per day and about 8,000 per minute per model) was used up by testing, so the latest Q&A settings were checked by unit tests only.
+- `e2e/08` has six failures that probably come from the "most recently viewed" document no longer being the 163-page fixture. `e2e/07` Req 6 failed before this work. `e2e/06` test 2A asserts the model's exact wording.
+- `.documents-store.json` is a tracked local data store and is modified by test uploads. It is not committed.
+- A stale `package.json` version (1.2.0) is not aligned with this log.
+
+---
+
 ## [v1.6.0] — 2026-09-30 (Direct Notion & Obsidian Sync Engine)
 ### Added & Enhanced
 - **Obsidian Knowledge Graph & Vault Engine (`obsidian.ts` & `ExportProjectModal.tsx`):**

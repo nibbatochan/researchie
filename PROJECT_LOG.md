@@ -58,3 +58,29 @@
 
 ### 3. Readiness for Next Phase
 - Verified clean build (`npm run build`) with 0 errors across all 13 routes and components.
+
+## Session Record: Phase 6 Citation Engine, Verified Document Q&A & PDF Extraction Fix
+
+### 1. Architectural Decisions
+- **Citations resolve on demand and are cached on the atom (`metadata.citation`):** no schema migration. Lookups run on the server with a shared rate limiter. See `docs/DECISIONS.md`, Decisions 7 to 9.
+- **Warnings only for a mismatch the user caused:** everything else is a gray note. A mismatch is a failed verify that is not saved. Decision 8.
+- **Four ways to a citation without asking for a DOI:** page tags read by the extension, title search with a pick list, a web citation from page facts, and a manual form for PDFs. Decision 9.
+- **Document Q&A answers from passages with offsets, and shows links only for verified citations.** The model's own page text is never trusted. Decisions 10 and 11.
+- **"Busy" beats a wrong answer:** no mock fallback with a key, size retry by relevance, weak model skipped. Decision 12.
+- **PDF extraction runs outside the server bundle** (`serverExternalPackages: ['pdf-parse']`). Decision 13.
+- **How the work was run:** the backend (passage retrieval and Groq limits) and the UI (link icons and the empty state) were each delegated to a separate agent, one at a time because they share files. Each result was re-checked independently (type check, unit tests, live runs) before it was accepted.
+
+### 2. State of Key Files
+- `src/lib/citations/*`: lookups, verification, formatting, web, manual and PDF helpers.
+- `src/app/api/citations/{resolve,search}/route.ts`: citation endpoints.
+- `src/lib/ai/passages.ts`: passages, retrieval and tolerant quote location. `src/lib/ai/claimSupport.ts`: quote check. `src/lib/ai/adapters/groq.ts`: passage-id citations, size and fallback handling.
+- `src/lib/qa/answerLinks.ts`: answer paragraphs with link icons, marker cleaning, quote check in the viewer.
+- `src/components/AtomCard.tsx`: citation box. `src/components/PDFReaderView.tsx`: upload citation, manual form, assistant, delete window.
+- `extension/content.js`: `readPageIdentifiers` and `readPageInfo`.
+- `next.config.mjs`: `serverExternalPackages`.
+- Tests: `tests/*.test.mjs` (92 unit tests), `e2e/09-citation-links.spec.ts`.
+
+### 3. Readiness for Next Phase
+- `npx tsc --noEmit` is clean and 92 unit tests pass. `e2e/09` passes 5 of 5.
+- **Live Q&A result before the last tuning:** 18 test questions on a real paper all passed with no warnings, and 12 repeat questions produced 29 citations with none unsupported. After that, testing used up Groq's daily allowance, so the final settings are unverified live.
+- **Next:** document assistant UI fixes (per-sentence icons, one scroll per click, outside-click clear, single saved highlight, resizable panel), formatted lines for the remaining source types, APA and AMA, and a live Chrome clip test. Commit the uncommitted work.

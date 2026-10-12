@@ -1,8 +1,8 @@
 # Current Project Context
 
-> **Active Version:** `v1.6.0` (Direct Notion & Obsidian Sync Engine, Document Vault, PDF Reader, Auto-OCR & Spatial Canvas)  
-> **Last Synced:** 2026-09-30  
-> **Status:** All core modules (Extension, Web Workbench, PDF Reader & Vault, Auto-OCR, AI Assistant, Spatial Canvas, Notion & Obsidian Sync Engine) verified and active.
+> **Active Version:** `v1.7.0` (Citation Engine, Verified Document Q&A & PDF Extraction Fix, on top of v1.6.0)  
+> **Last Synced:** 2026-10-12  
+> **Status:** All core modules active. The Citation Engine and Document Assistant Q&A are new and verified except where section 4 says otherwise. Document Assistant UI fixes are open.
 
 ---
 
@@ -17,6 +17,8 @@
 
 | Module | Status | Key Capabilities |
 | :--- | :---: | :--- |
+| **Citation Engine** | ✅ Active | Crossref, DOI agency, DataCite and PubMed lookups with rate limits; title search with a pick list; Vancouver formatting; web-page and manual citations; verified DOI read from the page (extension) or the PDF. Warnings only for a DOI, PMID or title the user entered that does not match the clip. Stored as `metadata.citation`. Preprint, dataset and book chapter lines, APA and AMA are open. |
+| **Document Assistant Q&A** | ✅ Active, rate limited | Passage retrieval with page numbers and offsets, verified quotes, link icons from verified citations only, honest "busy" message when Groq refuses. Depends on Groq's free tier (see section 4). |
 | **Notion & Obsidian Sync Engine** | ✅ Active | **Obsidian**: Multi-file ZIP Vault bundle with `[[wikilinks]]`, YAML frontmatter, Obsidian callouts (`[!quote]`, `[!note]`, `[!abstract]`), and direct `obsidian://new` URI launch. **Notion**: Direct 1-Click push to Notion pages/databases via Notion API (`/api/export/notion`), and Notion-optimized Markdown clipboard block copy. |
 | **Chrome Extension (MV3)** | ✅ Active | Side Panel (`Alt+P`), Text Capture (`Alt+S`), DOM Block Picker (`Alt+B`), Screen Cropper (`Alt+C`), Image Picker (`Alt+I`), Link Capture (`Alt+L`), In-Browser Tab AI Briefs & Q&A. |
 | **PDF Reader & Document Vault** | ✅ Active | Document Library Vault, High-DPI page canvas, PDF.js Official textLayer with `--scale-factor` glyph bounding, multi-column precision selection, static saved highlights, instant citation jumping, sub-project loading skeletons. |
@@ -36,3 +38,18 @@
 - **OCR Engine**: [`src/lib/ocr/ocrService.ts`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/src/lib/ocr/ocrService.ts) & [`src/components/ImageAtomCard.tsx`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/src/components/ImageAtomCard.tsx)
 - **Chrome Extension Source**: [`extension/sidepanel.js`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/extension/sidepanel.js), [`extension/content.js`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/extension/content.js), [`extension/manifest.json`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/extension/manifest.json)
 - **AI Endpoints**: [`src/app/api/ai/qna/route.ts`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/src/app/api/ai/qna/route.ts) & [`src/app/api/ai/synthesize/route.ts`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/src/app/api/ai/synthesize/route.ts)
+- **Citation Engine**: [`src/lib/citations/`](file:///d:/product%20anatomy%20-%20molecule%20community/projects/research%20tool/src/lib/citations) (`lookup.ts`, `verify.ts`, `vancouver.ts`, `webCitation.ts`, `manual.ts`, `pdf.ts`, `pdfReader.ts`, `facts.ts`, `client.ts`, `server.ts`) with routes `src/app/api/citations/resolve/route.ts` and `src/app/api/citations/search/route.ts`. Research notes: `docs/CITATION_API_RESEARCH.md`.
+- **Q&A retrieval and verification**: `src/lib/ai/passages.ts` (passages, retrieval, `locateQuote`), `src/lib/ai/claimSupport.ts`, `src/lib/ai/adapters/groq.ts`, `src/lib/qa/answerLinks.ts` (link icons and quote check in the viewer), route `src/app/api/ai/qna/route.ts`.
+- **Clip citation box**: `src/components/AtomCard.tsx`. **PDF citation, upload form and assistant**: `src/components/PDFReaderView.tsx`.
+- **PDF parse route**: `src/app/api/documents/parse/route.ts` (needs `serverExternalPackages: ['pdf-parse']` in `next.config.mjs`).
+
+---
+
+## 4. Known Limits & Open Work (as of 2026-10-12)
+
+- **Groq free tier:** about 8,000 tokens per minute and 200,000 tokens per day per model. One question costs about 4,000 to 6,000 tokens. When the allowance is used up, the Q&A returns "The AI service is busy or the request was too large. Try again in a minute." That is expected, not a bug. The latest Q&A settings (smaller answer allowance, retry with half the budget, skipping the 7B model) were verified by unit tests only.
+- **Re-upload old PDFs:** documents uploaded before the extraction fix hold placeholder text and need to be uploaded again.
+- **Not built:** per-sentence link icon placement, a single scroll per click, clearing a highlight on outside click, selecting one saved highlight at a time, a resizable assistant panel; formatted lines for preprints, datasets and book chapters; APA and AMA; BibTeX and RIS copy; citations in Notion and Obsidian exports.
+- **Not verified:** the extension capture as a live Chrome clip; the PubMed retraction check on a real retracted paper.
+- **Tests:** `node --test --no-warnings tests/citations.test.mjs tests/citations-resolvers.test.mjs tests/citations-verify.test.mjs tests/citations-manual.test.mjs tests/claim-support.test.mjs tests/passages.test.mjs tests/answer-links.test.mjs` (92 tests). Playwright: `BASE_URL=http://localhost:3001 npx playwright test e2e/09-citation-links.spec.ts`. The default Playwright base URL is port 3000 but the dev server runs on 3001, so set `BASE_URL`.
+- **Branch:** `feat/canvas-pdf-ui-and-citation-core`. Work after commit `f0bd60f` is not committed. `.documents-store.json` is a tracked local data store and is deliberately left out of commits.
