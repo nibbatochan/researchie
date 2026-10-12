@@ -28,3 +28,21 @@ export function findPdfDois(info: PdfInfo, firstPageText: string): string[] {
   }
   return found;
 }
+
+// PDF metadata titles are often leftovers from the tool that made the file: "Microsoft Word - draft.docx",
+// "untitled", a file name, or a publisher code like "PII: S0140-6736(97)11096-0". Comparing one of those with
+// a paper's real title would raise a false "might not be the source" warning, so they count as no title.
+const JUNK_TITLE = [
+  /^(microsoft\s+)?(word|powerpoint|excel)\b/i,
+  /^(untitled|title|document|presentation|slide|page)\s*\d*$/i,
+  /\.(docx?|pdf|tex|pptx?|xlsx?|indd|rtf|txt|odt|qxd)\s*$/i,
+  /^(pii|doi|isbn|issn)\s*[:.]/i,
+  /^[\w.-]+$/, // one word with no spaces, such as a file name or an id
+];
+
+/** True when a metadata title looks like a real paper title, so it is safe to compare. */
+export function isUsablePdfTitle(title: string | undefined): title is string {
+  const t = (title ?? '').trim();
+  if (t.length < 12) return false;
+  return !JUNK_TITLE.some((re) => re.test(t));
+}

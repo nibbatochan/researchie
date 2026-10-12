@@ -563,7 +563,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       const pick = matched ?? records[0];
       if (pick) {
         // Count only DOIs that resolved, so a broken fragment does not raise the warning.
-        const checked = assessCitation(pick, title);
+        // If no DOI matched the PDF's title, the pick still gets saved, with the verify warning.
+        const checked = assessCitation(pick, title, { userEntered: false, warnOnMismatch: true });
         // Count only DOIs that resolved, so a broken fragment does not trigger this note.
         if (records.length > 1) checked.confidence!.notes.push('More than one resolvable DOI was found on the first page.');
         setUploadCitation(checked);

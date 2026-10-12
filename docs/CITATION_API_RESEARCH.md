@@ -244,6 +244,8 @@ Items marked required in the journal row are my synthesis from the examples. The
 
 ### 5.2 AMA 11th edition
 
+**Update 2026-10-13:** the JAMA Network "Instructions for Authors" page (https://jamanetwork.com/journals/jama/pages/instructions-for-authors), References section, was read and gives worked examples. **Verified (primary, AMA's journal):** the author rule (all authors up to 6; if more than 6, the first 3 then "et al"), a journal article with DOI, a six-author journal article without DOI, and a web page with an "Accessed" date. Implemented in `src/lib/citations/ama.ts` with those examples as unit tests. Still **unverified** for AMA: preprint, dataset, book chapter, report, and the online-first form. The older notes below were written before this.
+
 Primary AMA Manual pages (amamanualofstyle.com) were **not loaded**. Findings below are from secondary library guides in search snippets.
 
 - Journal article core elements: authors, article title, journal abbreviation, year, volume and issue, page range. DOI preferred when one exists. **Verified (snippet)**, JCU library guide (https://libguides.jcu.edu.au/ama).

@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { titlesMatch, assessCitation, isRetracted } from '../src/lib/citations/verify.ts';
-import { findPdfDois } from '../src/lib/citations/pdf.ts';
+import { findPdfDois, isUsablePdfTitle } from '../src/lib/citations/pdf.ts';
 
 const journal = (title, extra = {}) => ({
   status: 'verified_doi',
@@ -94,4 +94,23 @@ test('facts show page, author and date, with "not shown" for anything missing', 
 test('facts for a DOI record use the DOI page, the first author and the year', () => {
   const doi = { status: 'verified_doi', sourceType: 'journal_article', resolvedFrom: 'crossref', doi: '10.1038/nature12373', authors: [{ family: 'Kucsko' }, { family: 'Maurer' }], year: 2013, missingFields: [] };
   assert.deepEqual(citationFacts(doi), { page: 'doi.org/10.1038/nature12373', author: 'Kucsko et al.', date: '2013' });
+});
+
+test('a DOI read from an uploaded PDF with a different title is a warning, and a matching one is clean', () => {
+  const opts = { userEntered: false, warnOnMismatch: true };
+  const bad = assessCitation(journal('Sleep-Dependent Learning'), 'Heat wave', opts);
+  assert.equal(bad.confidence.warnings.length, 1);
+  assert.match(bad.confidence.warnings[0], /found in this PDF/);
+  assert.equal(bad.enteredByUser, false);
+  const ok = assessCitation(journal('Heat wave'), 'Heat wave', opts);
+  assert.deepEqual(ok.confidence, { warnings: [], notes: [] });
+});
+
+test('PDF metadata titles that are tool leftovers are not compared (no false warnings)', () => {
+  for (const junk of ['Microsoft Word - paper_final.docx', 'untitled', 'Untitled 1', 'draft_v3.pdf', 'PII: S0140-6736(97)11096-0', 'doi:10.1000/xyz123', 'manuscript', 'PowerPoint Presentation', '', undefined]) {
+    assert.equal(isUsablePdfTitle(junk), false, String(junk));
+  }
+  for (const real of ['Sleep-Dependent Learning and Memory', 'Nanometre-scale thermometry in a living cell', 'Standing balance: a model of feedback delay']) {
+    assert.equal(isUsablePdfTitle(real), true, real);
+  }
 });

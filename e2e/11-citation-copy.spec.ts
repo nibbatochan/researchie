@@ -85,6 +85,13 @@ test.describe('11. Copy a citation as a line, BibTeX or RIS', () => {
     await expect(page.getByTestId('citation-style-line')).toHaveAttribute('aria-pressed', 'false');
     await expect(preview).toHaveText(APA);
 
+    // AMA is a fifth style: surname and initials, journal, year;volume(issue):pages, doi.
+    await page.getByTestId('citation-style-ama').click();
+    await expect(page.getByTestId('citation-style-ama')).toHaveAttribute('aria-pressed', 'true');
+    await expect(preview).toHaveText('Lee A, Park B. Cats & dogs: a study. J Pets. 2020;5(2):10-20. doi:10.1000/e2e.copy');
+    await page.getByTestId('citation-style-apa').click();
+    await expect(preview).toHaveText(APA);
+
     // Copy puts exactly the previewed text on the clipboard and says so.
     await expect(copy).toContainText('Copy');
     await copy.click();

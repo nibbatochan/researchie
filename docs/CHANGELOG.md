@@ -1,5 +1,22 @@
 # Version Changelog
 
+## [v1.7.7] — 2026-10-13 (AMA style, PDF mismatch warning)
+### Added & Enhanced
+- **AMA 11th edition** (`ama.ts`) with an AMA tab beside Vancouver and APA. Verified against the JAMA "Instructions for Authors" reference section (JAMA is AMA's journal): journal article (`Authors. Title. Journal. 2026;335(3):255–266. doi:...`), web page (`Organisation. Title. URL. Accessed January 30, 2012.`), and the author rule (all authors up to 6; if more than 6, the first 3 then "et al"). Preprints, datasets, book chapters and reports have no example on that page, so they return nothing and fall back to the plain line. Plain text, no italics. The online-first "[published online ...]" form is not done.
+- **PDF DOI mismatch is now a warning.** When a DOI found in an uploaded PDF points to a different paper than the PDF's own title, the document citation is still saved but shows "This might not be the source. Please verify." (reason: "The DOI found in this PDF points to a different title than the PDF."). A DOI that matches is chosen first and shows no warning. No "Save anyway" step for PDFs.
+- **Junk PDF titles are ignored:** metadata titles that are tool leftovers ("Microsoft Word - draft.docx", "untitled", file names, "PII: S0140-...", ids) count as no title, so they cannot cause a false warning (`isUsablePdfTitle`).
+- Tests: 123 unit tests (new `tests/citations-ama.test.mjs`), new `e2e/12-pdf-doi-mismatch.spec.ts`, AMA check added to `e2e/11`.
+
+### Fixed
+- **PDF title was never read.** The upload read `info.title`, but pdf.js names the field `Title`, so the PDF's title was always empty and no mismatch check (not even a note) ever ran. It now reads `Title`.
+
+### Known Issues & Open Work
+- The mismatch check uses the PDF's metadata title only, not the file name. A PDF with no usable metadata title gets no mismatch check.
+- AMA has no preprint, dataset, chapter or report form (no primary example found).
+- Not tested: an upload with 2 or 3 DOIs where one matches (unchanged code), and the header tooltip in the browser.
+
+---
+
 ## [v1.7.6] — 2026-10-13 (Save anyway)
 ### Added & Enhanced
 - **Save anyway on the mismatch screen.** When a DOI, PMID or title the user entered points to a different paper than the clip, the warning screen now has "Save anyway" beside Back. Nothing is saved until the user chooses it. The record is then saved with its warning, so the citation box keeps saying "This might not be the source. Please verify." Back still returns to the saved citation without changing it.

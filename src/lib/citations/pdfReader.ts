@@ -2,7 +2,7 @@
 // metadata and first page, plus the PDF's title for checking them.
 // Same loading pattern as CustomPDFViewer.tsx.
 
-import { findPdfDois, type PdfInfo } from './pdf.ts';
+import { findPdfDois, isUsablePdfTitle, type PdfInfo } from './pdf.ts';
 
 export interface PdfReadResult {
   dois: string[];
@@ -25,9 +25,11 @@ export async function readPdfDois(file: File): Promise<PdfReadResult> {
     const firstPageText = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
 
     const pdfInfo = (info ?? {}) as PdfInfo;
+    // pdf.js names the field "Title" (capital T), as in the PDF info dictionary.
+    const rawTitle = pdfInfo.Title ?? pdfInfo.title;
     return {
       dois: findPdfDois(pdfInfo, firstPageText),
-      title: typeof pdfInfo.title === 'string' ? pdfInfo.title : undefined,
+      title: typeof rawTitle === 'string' && isUsablePdfTitle(rawTitle) ? rawTitle.trim() : undefined,
     };
   } finally {
     await task.destroy();

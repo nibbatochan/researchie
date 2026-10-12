@@ -33,13 +33,15 @@ export function isRetracted(record: CitationRecord | null | undefined): boolean 
 export function assessCitation(
   record: CitationRecord,
   expectedTitle?: string,
-  options: { userEntered: boolean } = { userEntered: false },
+  options: { userEntered: boolean; warnOnMismatch?: boolean } = { userEntered: false },
 ): CitationRecord {
   const warnings: string[] = [];
   const notes: string[] = [];
 
   if (expectedTitle && record.title && record.resolvedFrom !== 'page_tags' && !titlesMatch(expectedTitle, record.title)) {
     if (options.userEntered) warnings.push('The identifier you entered points to a different title than the clip.');
+    // A DOI read from an uploaded PDF that points to another paper: warn, but still save.
+    else if (options.warnOnMismatch) warnings.push('The DOI found in this PDF points to a different title than the PDF.');
     else notes.push('The title on the source differs from the clip.');
   }
 
