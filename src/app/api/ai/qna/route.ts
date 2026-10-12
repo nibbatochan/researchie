@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { aiService } from '@/lib/ai/service';
 import { retrieveRelevantDocumentContext, PDFDocumentPage } from '@/lib/ai/pdfRetriever';
 import { getDocumentById } from '@/lib/data/sampleDocuments';
+import { checkQuoteAgainstPages } from '@/lib/ai/claimSupport';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -119,21 +120,24 @@ INSTRUCTIONS:
 
     const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(result.answer || '');
 
-    const citations = Array.isArray(result.citations) && result.citations.length > 0 && !isNotFound
-      ? result.citations.map((c: any) => ({
-          ...c,
-          pageNumber: c.pageNumber || bestPageNum,
-          quote: c.quote || retrieval.topCitationSnippet || '',
-        }))
-      : retrieval.topCitationSnippet
-      ? [
-          {
-            quote: retrieval.topCitationSnippet,
-            pageNumber: bestPageNum,
-            textFragment: `#:~:text=${encodeURIComponent(retrieval.topCitationSnippet.slice(0, 32))}`,
-          },
-        ]
-      : [];
+    // A "not found" answer gets no citations at all. Citations come only from the
+    // model's own quotes; the retriever's top snippet is never attached as a citation.
+    // Each quote is checked against the document: a quote that is not in the text
+    // is kept but marked unsupported, and the answer then carries a warning.
+    const rawCitations: any[] = !isNotFound && Array.isArray(result.citations) ? result.citations : [];
+    const citations = rawCitations.map((c: any) => {
+      const quote = typeof c?.quote === 'string' ? c.quote : '';
+      const check = checkQuoteAgainstPages(quote, resolvedPages);
+      const pageNumber = check.pageNumber ?? c?.pageNumber ?? bestPageNum;
+      return {
+        ...c,
+        quote,
+        pageNumber,
+        supported: check.supported,
+        textFragment: quote ? `#:~:text=${encodeURIComponent(quote.slice(0, 32))}` : c?.textFragment,
+      };
+    });
+    const hasUnsupportedClaims = !isNotFound && (citations.length === 0 || citations.some((c) => !c.supported));
 
     return NextResponse.json(
       {
@@ -142,6 +146,7 @@ INSTRUCTIONS:
           answer: result.answer,
           sourcePageNumber: bestPageNum,
           citations,
+          hasUnsupportedClaims,
           retrievedPagesCount: retrieval.retrievedPages.length,
           totalPagesAnalyzed: resolvedPages.length,
         },

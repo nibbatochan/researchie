@@ -354,6 +354,17 @@ export class MockAIAdapter implements AIServiceAdapter {
       bestSentence: pageText.slice(0, 200),
     };
 
+    // Grounding: if the best page shares too few question terms, the answer is not in the document.
+    // Answer "not found" with no citation rather than citing an unrelated sentence.
+    const winningText = winningBlock.cleanContent.toLowerCase();
+    const matchedTerms = keywords.filter((kw) => winningText.includes(kw)).length;
+    if (keywords.length > 0 && matchedTerms / keywords.length < 0.4) {
+      return {
+        answer: 'This information is not found in the provided document.',
+        citations: [],
+      };
+    }
+
     const bestPageNum = winningBlock.pageNum;
     const bestQuote = winningBlock.bestSentence.replace(/\s+/g, ' ').trim();
 
