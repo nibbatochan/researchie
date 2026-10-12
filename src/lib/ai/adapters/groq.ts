@@ -1,4 +1,4 @@
-import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult } from '../types';
+import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult, AIServiceBusyError } from '../types';
 import { MockAIAdapter } from './mock';
 
 export class GroqAIAdapter implements AIServiceAdapter {
@@ -31,8 +31,12 @@ export class GroqAIAdapter implements AIServiceAdapter {
   }
 
   private async callChatCompletion(payload: any) {
-    const modelsToTry = [this.model, ...this.fallbackModels.filter((m) => m !== this.model)];
+    // skipModels lets a caller leave out models too weak for its task.
+    const { skipModels = [], ...requestBody } = payload as { skipModels?: string[] };
+    const modelsToTry = [this.model, ...this.fallbackModels.filter((m) => m !== this.model)].filter((m) => !skipModels.includes(m));
     let lastError: any = null;
+    let sawTooLarge = false;
+    let sawRateLimit = false;
 
     for (const modelName of modelsToTry) {
       try {
@@ -44,17 +48,20 @@ export class GroqAIAdapter implements AIServiceAdapter {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify({
-            ...payload,
+            ...requestBody,
             model: modelName,
           }),
         });
 
         if (res.ok) {
-          return await res.json();
+          const json = await res.json();
+          return { ...json, __model: modelName };
         }
 
         const errText = await res.text();
         lastError = new Error(`Groq [${modelName}] error ${res.status}: ${errText}`);
+        if (res.status === 413 || (res.status === 400 && /length|large|token|context/i.test(errText))) sawTooLarge = true;
+        if (res.status === 429) sawRateLimit = true;
         // If 401 Unauthorized, no need to cycle further
         if (res.status === 401) break;
       } catch (err) {
@@ -62,7 +69,10 @@ export class GroqAIAdapter implements AIServiceAdapter {
       }
     }
 
-    throw lastError || new Error('All Groq model attempts failed');
+    const finalError: any = lastError || new Error('All Groq model attempts failed');
+    finalError.sawTooLarge = sawTooLarge;
+    finalError.sawRateLimit = sawRateLimit;
+    throw finalError;
   }
 
   async summarizePage(pageText: string, pageTitle: string): Promise<AISummaryResult> {
@@ -125,63 +135,81 @@ ${pageText.slice(0, 15000)}`;
     }
   }
 
-  async askPageQuestion(pageText: string, question: string): Promise<AIQnAResult> {
-    try {
-      const prompt = `You are an expert grounded research assistant. Answer the question using ONLY the provided document pages and excerpts.
+  private async askOnce(context: string, question: string): Promise<AIQnAResult> {
+    const prompt = `You are an expert grounded research assistant. Answer the question using ONLY the document passages below.
+
+Each passage starts with a label such as [P3-2 | page 3]. The passage id is P3-2.
 
 CRITICAL INSTRUCTIONS:
-1. Strict Grounding: Answer accurately and directly using ONLY facts from the provided document excerpts.
-2. Missing Information: If the question asks about something not mentioned in the document, or if the document does not contain the answer, your "answer" MUST state: "This information is not found in the provided document." DO NOT extrapolate, guess, or use external internet knowledge.
-3. Citations: When an answer is found, every main point must cite its source page in brackets, e.g. [Page X] or [p. X].
-4. Verbatim Quote: Provide an exact sentence or phrase quote from the text that proves your answer in "citationQuote". If the information is not found in the document, "citationQuote" MUST be an empty string "".
-5. Page Mentions: If the question asks about a specific page or table (e.g. Page 2), directly examine and explain the excerpt labeled [PAGE 2].
-6. Formatting: Use bold formatting (**like this**) for key terms, metrics, numbers, and definitions.
+1. Strict Grounding: use ONLY facts stated in the passages. Do not guess or use outside knowledge.
+2. Missing Information: if the passages do not contain the answer, "answer" MUST be: "This information is not found in the provided document." and "citations" MUST be [].
+3. Page references: mention the page in brackets in the answer, e.g. [Page X].
+4. Citations: for each main point give the passage id and a quote copied VERBATIM (same words, same order) from that passage. Keep each quote under 300 characters. Quote the whole sentence or clause that states the fact, including any technical term the question names (for example a protocol, product or metric).
+5. Formatting: use bold (**like this**) for key terms, metrics and numbers.
 
 Question:
 ${question}
 
-Document Content:
-${pageText.slice(0, 85000)}
+Document Passages:
+${context}
 
 Return a strict JSON object with:
-1. "answer": Comprehensive, well-structured Markdown response with bullet points, bold key findings, and page citations in brackets (or a clear statement that information is not found).
-2. "citationQuote": Exact direct quote from the document text that supports this answer (or empty string "" if not found).
-3. "sourcePageNumber": The primary page number (integer) where this information was found.`;
+1. "answer": Markdown answer with page references in brackets (or the not-found statement).
+2. "citations": array of { "passageId": "P3-2", "quote": "exact words from that passage" } ([] if not found).`;
 
-      const data = await this.callChatCompletion({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an analytical research AI assistant. You answer user questions strictly based on the provided document excerpts. Output valid JSON only.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1,
-      });
+    const data = await this.callChatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an analytical research AI assistant. You answer strictly from the provided document passages. Output valid JSON only.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      // The reserved answer tokens count against the per-minute limit, so keep it modest.
+      max_tokens: 1000,
+      // The 7B model follows the grounding rules poorly: "busy" is better than a bad answer.
+      skipModels: ['allam-2-7b'],
+    });
 
-      const rawContent = data.choices?.[0]?.message?.content || '';
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(this.cleanJsonString(rawContent));
-      } catch {
-        parsed = { answer: rawContent };
-      }
+    const rawContent = data.choices?.[0]?.message?.content || '';
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(this.cleanJsonString(rawContent));
+    } catch {
+      parsed = { answer: rawContent };
+    }
 
-      const answer = parsed.answer || rawContent || 'No direct answer found in document.';
-      const quote = parsed.citationQuote || parsed.quote || '';
+    const answer = parsed.answer || rawContent || 'No direct answer found in document.';
+    const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(answer);
 
-      const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(answer);
+    const rawCitations: any[] = Array.isArray(parsed.citations) ? parsed.citations : [];
+    if (rawCitations.length === 0 && typeof parsed.citationQuote === 'string' && parsed.citationQuote) {
+      rawCitations.push({ quote: parsed.citationQuote });
+    }
+    const citations = isNotFound
+      ? []
+      : rawCitations
+          .filter((c) => c && typeof c.quote === 'string' && c.quote.trim())
+          .map((c) => ({
+            quote: c.quote,
+            passageId: typeof c.passageId === 'string' ? c.passageId.trim().toLowerCase() : undefined,
+            textFragment: `#:~:text=${encodeURIComponent(c.quote.slice(0, 32))}`,
+          }));
+    return { answer, citations, fromFallbackModel: data.__model !== this.model };
+  }
 
-      return {
-        answer,
-        citations: quote && !isNotFound
-          ? [{ quote, textFragment: `#:~:text=${encodeURIComponent(quote.slice(0, 32))}` }]
-          : [],
-      };
-    } catch (error) {
-      console.warn('Groq askPageQuestion error, falling back to local deterministic engine:', error);
-      return this.mockFallback.askPageQuestion(pageText, question);
+  async askPageQuestion(pageText: string, question: string): Promise<AIQnAResult> {
+    try {
+      return await this.askOnce(pageText, question);
+    } catch (error: any) {
+      // A size error goes back to the route, which retries with fewer of the most relevant
+      // passages. Cutting the end here would drop later pages, such as the one asked about.
+      if (error?.sawTooLarge) throw new AIServiceBusyError(undefined, true);
+      console.warn('Groq askPageQuestion failed:', error);
+      // A configured key must not turn into a fake "not found" answer from the mock.
+      throw new AIServiceBusyError();
     }
   }
 

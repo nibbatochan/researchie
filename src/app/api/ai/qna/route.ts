@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { aiService } from '@/lib/ai/service';
-import { retrieveRelevantDocumentContext, PDFDocumentPage } from '@/lib/ai/pdfRetriever';
+import type { PDFDocumentPage } from '@/lib/ai/pdfRetriever';
+import { retrievePassages, locateQuote, CONTEXT_BUDGET_CHARS } from '@/lib/ai/passages';
+import { AIServiceBusyError } from '@/lib/ai/types';
 import { getDocumentById } from '@/lib/data/sampleDocuments';
-import { checkQuoteAgainstPages } from '@/lib/ai/claimSupport';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -85,59 +86,105 @@ export async function POST(request: Request) {
       );
     }
 
-    // Run Intelligent Multi-Page Document Retrieval
-    const retrieval = retrieveRelevantDocumentContext(
-      resolvedPages,
-      question.trim(),
-      currentPage
-    );
-
+    // Passage-level retrieval: the model sees a few thousand characters of the most
+    // relevant passages, each labelled with an id it can cite.
+    let retrieval = retrievePassages(resolvedPages, question.trim(), { activeCurrentPage: currentPage });
     const docTitle = title || (documentId ? getDocumentById(documentId)?.title : undefined) || 'Uploaded Document';
+    const retrievedPagesCount = new Set(retrieval.passages.map((p) => p.pageNumber)).size;
+    const notFoundAnswer = 'This information is not found in the provided document.';
+
+    // When the document is too large to send whole and no passage matches the
+    // question, say so without asking the model.
+    if (!retrieval.relevant && !retrieval.wholeDocument) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            answer: notFoundAnswer,
+            sourcePageNumber: retrieval.bestPageNumber,
+            citations: [],
+            hasUnsupportedClaims: false,
+            retrievedPagesCount,
+            totalPagesAnalyzed: resolvedPages.length,
+          },
+        },
+        { headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
 
     const enhancedQuestion = `Document: "${docTitle}"
 User Question: ${question.trim()}
-${retrieval.targetPageMentioned ? `Target Page Indicated by User: Page ${retrieval.targetPageMentioned}` : ''}
+${retrieval.targetPage ? `Target Page Indicated by User: Page ${retrieval.targetPage}` : ''}
 
-INSTRUCTIONS:
-1. Answer the question thoroughly, accurately, and directly based ONLY on the provided document excerpts.
-2. If the user asked about a specific page or table, explain the exact content from that page excerpt.
-3. Every factual claim MUST include a page citation in brackets, e.g. [Page X] or [p. X].
-4. Quote the exact verbatim phrase or key metrics in your answer.
-5. Provide clean structured Markdown with bold key findings (**bold concepts**).`;
+Answer directly from the passages. Cite passage ids and copy quotes verbatim.`;
 
-    const result = await aiService.askPageQuestion(retrieval.formattedContext, enhancedQuestion);
-
-    // Ensure citations and source page number are accurately grounded
-    let bestPageNum = retrieval.targetPageMentioned || retrieval.bestMatchingPageNumber;
-    if (!bestPageNum || bestPageNum < 1) {
-      const pageMatch = (result.answer || '').match(/\[(?:Page|p\.?)\s*(\d+)\]/i);
-      if (pageMatch && pageMatch[1]) {
-        bestPageNum = parseInt(pageMatch[1], 10);
-      } else {
-        bestPageNum = currentPage || 1;
-      }
+    let result;
+    try {
+      result = await aiService.askPageQuestion(retrieval.context, enhancedQuestion);
+    } catch (error) {
+      if (!(error instanceof AIServiceBusyError && error.tooLarge)) throw error;
+      // Too large for the model's limit: ask once more with half as many passages, chosen
+      // by relevance again so the page the user asked about stays in.
+      retrieval = retrievePassages(resolvedPages, question.trim(), {
+        activeCurrentPage: currentPage,
+        budget: Math.floor(CONTEXT_BUDGET_CHARS / 2),
+      });
+      result = await aiService.askPageQuestion(retrieval.context, enhancedQuestion);
     }
 
     const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(result.answer || '');
+    // A fallback model (used when the main one is rate limited) must not turn a question the
+    // retrieval found relevant passages for into a false "not found". Ask the user to retry.
+    if (isNotFound && retrieval.relevant && result.fromFallbackModel) throw new AIServiceBusyError();
+    const pageContent = new Map(resolvedPages.map((p) => [p.pageNumber, p.content || '']));
+    const passageById = new Map(retrieval.allPassages.map((p) => [p.id, p]));
 
-    // A "not found" answer gets no citations at all. Citations come only from the
-    // model's own quotes; the retriever's top snippet is never attached as a citation.
-    // Each quote is checked against the document: a quote that is not in the text
-    // is kept but marked unsupported, and the answer then carries a warning.
+    // A "not found" answer gets no citations. Every other citation is located in the
+    // document: quote -> page + exact [start, end) offsets. A quote that cannot be
+    // found in its passage or page is kept but marked unsupported.
     const rawCitations: any[] = !isNotFound && Array.isArray(result.citations) ? result.citations : [];
     const citations = rawCitations.map((c: any) => {
       const quote = typeof c?.quote === 'string' ? c.quote : '';
-      const check = checkQuoteAgainstPages(quote, resolvedPages);
-      const pageNumber = check.pageNumber ?? c?.pageNumber ?? bestPageNum;
+      const passage = c?.passageId ? passageById.get(String(c.passageId).trim().toLowerCase()) : undefined;
+      let found: { pageNumber: number; start: number; end: number } | null = null;
+      let passageId = passage?.id;
+      if (passage) {
+        const inPassage = locateQuote(quote, passage.text);
+        if (inPassage) {
+          found = { pageNumber: passage.pageNumber, start: passage.start + inPassage.start, end: passage.start + inPassage.end };
+        } else {
+          const inPage = locateQuote(quote, pageContent.get(passage.pageNumber) || '');
+          if (inPage) found = { pageNumber: passage.pageNumber, ...inPage };
+        }
+      }
+      if (!found) {
+        // No (valid) passage id: look for the quote on every page.
+        for (const page of resolvedPages) {
+          const loc = locateQuote(quote, page.content || '');
+          if (loc) {
+            found = { pageNumber: page.pageNumber, ...loc };
+            const inside = retrieval.allPassages.find((p) => p.pageNumber === page.pageNumber && loc.start >= p.start && loc.start < p.end);
+            passageId = inside?.id ?? passageId;
+            break;
+          }
+        }
+      }
       return {
-        ...c,
+        passageId,
+        pageNumber: found?.pageNumber ?? passage?.pageNumber ?? c?.pageNumber ?? retrieval.bestPageNumber,
+        start: found?.start,
+        end: found?.end,
         quote,
-        pageNumber,
-        supported: check.supported,
+        supported: found !== null,
         textFragment: quote ? `#:~:text=${encodeURIComponent(quote.slice(0, 32))}` : c?.textFragment,
       };
     });
-    const hasUnsupportedClaims = !isNotFound && (citations.length === 0 || citations.some((c) => !c.supported));
+    // Warn only when a claim cites a passage that does not support it. An answer with no
+    // citation at all is not flagged: nothing was claimed to be sourced.
+    const hasUnsupportedClaims = !isNotFound && citations.some((c) => !c.supported);
+
+    const firstSupported = citations.find((c) => c.supported);
+    const bestPageNum = retrieval.targetPage || firstSupported?.pageNumber || retrieval.bestPageNumber;
 
     return NextResponse.json(
       {
@@ -147,7 +194,7 @@ INSTRUCTIONS:
           sourcePageNumber: bestPageNum,
           citations,
           hasUnsupportedClaims,
-          retrievedPagesCount: retrieval.retrievedPages.length,
+          retrievedPagesCount,
           totalPagesAnalyzed: resolvedPages.length,
         },
       },
@@ -158,6 +205,12 @@ INSTRUCTIONS:
       }
     );
   } catch (error: any) {
+    if (error instanceof AIServiceBusyError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 503, headers: { 'Access-Control-Allow-Origin': '*' } }
+      );
+    }
     console.error('Failed to process page Q&A:', error);
     return NextResponse.json(
       { success: false, error: error?.message || 'Failed to process page Q&A' },

@@ -65,3 +65,10 @@ test('a word-for-word match must respect word boundaries', () => {
 test('no pages means nothing is supported', () => {
   assert.equal(checkQuoteAgainstPages('OAuth 2.1 protocols', []).supported, false);
 });
+
+test('a quote whose word is split across a PDF line break is still supported', () => {
+  const pages = [{ pageNumber: 3, content: 'Fifteen healthy young participants (21 ± 4 yrs) participated in the experi-\nment. The experimental procedure' }];
+  const out = checkQuoteAgainstPages('Fifteen healthy young participants (21 ± 4 yrs) participated in the experiment.', pages);
+  assert.equal(out.supported, true);
+  assert.equal(out.pageNumber, 3);
+});

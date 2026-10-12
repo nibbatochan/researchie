@@ -21,6 +21,10 @@ const MIN_TOKENS_FOR_OVERLAP = 4;
 
 export function normalizeForMatch(text: string): string {
   return (text || '')
+    // A word split across a line break ("experi-\nment") is one word in the PDF.
+    .replace(/-\s*\n\s*/g, '')
+    // A combining mark (the accent in "K̂n") is part of the letter before it.
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();

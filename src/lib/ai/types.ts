@@ -17,11 +17,26 @@ export interface AICitation {
   quote: string;
   context?: string;
   textFragment?: string;
+  passageId?: string;
+  pageNumber?: number;
+}
+
+export class AIServiceBusyError extends Error {
+  // True when the model refused the request for its size, so the caller can retry with less context.
+  readonly tooLarge: boolean;
+
+  constructor(message = 'The AI service is busy or the request was too large. Try again in a minute.', tooLarge = false) {
+    super(message);
+    this.name = 'AIServiceBusyError';
+    this.tooLarge = tooLarge;
+  }
 }
 
 export interface AIQnAResult {
   answer: string;
   citations: AICitation[];
+  // True when the main model was unavailable (rate limit) and a fallback model answered.
+  fromFallbackModel?: boolean;
 }
 
 export interface AISynthesisResult {
