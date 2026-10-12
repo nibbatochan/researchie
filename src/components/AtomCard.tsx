@@ -29,11 +29,10 @@ import type { CitationRecord } from '@/lib/citations/types.ts';
 import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
 import { assessCitation, readConfidence, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
 import { formatCitationFacts } from '@/lib/citations/facts.ts';
+import { CitationStyleBar, CitationPreview, useCitationStyle } from './CitationStyleBar';
 import {
   candidateLabel,
   formatCitationLine,
-  citationText,
-  type CitationCopyKind,
   parseIdentifier,
   reasonMessage,
   resolveCitation,
@@ -106,7 +105,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const [citationError, setCitationError] = useState<string | null>(null);
   const [citationCandidates, setCitationCandidates] = useState<CitationRecord[] | null>(null);
   const [citationOpen, setCitationOpen] = useState(false); // the citation panel stays open until closed
-  const [citationCopied, setCitationCopied] = useState<CitationCopyKind | null>(null);
+  const [citationStyle, setCitationStyle] = useCitationStyle();
   const [citationMismatch, setCitationMismatch] = useState<CitationRecord | null>(null); // a typed or picked source that does not match the clip
 
   const handleAddTag = async (e?: React.FormEvent) => {
@@ -333,13 +332,6 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     }
   };
 
-  const handleCopyFormattedCitation = (kind: CitationCopyKind = 'line') => {
-    if (!citation) return;
-    navigator.clipboard.writeText(citationText(citation, kind));
-    setCitationCopied(kind);
-    setTimeout(() => setCitationCopied(null), 2000);
-  };
-
   const handleConfirmDelete = async () => {
     if (!onDelete) return;
     setDeleting(true);
@@ -485,6 +477,9 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                   {citationMismatch ? 'Verify source' : citationCandidates ? 'Choose a match' : 'Find a source'}
                 </span>
               )}
+              {citation && citationInput === null && !citationCandidates && !citationMismatch && !citationBusy && (
+                <CitationStyleBar record={citation} style={citationStyle} onStyleChange={setCitationStyle} />
+              )}
             </div>
 
             {citationMismatch && (
@@ -506,22 +501,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
 
             {citation && citationInput === null && !citationCandidates && !citationMismatch && (
               <div className="mt-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
-                  <div className="shrink-0 flex items-center gap-2 text-[11px]">
-                    {([['line', 'Copy'], ['apa', 'APA'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        data-testid={`copy-citation-${kind}`}
-                        onClick={() => handleCopyFormattedCitation(kind)}
-                        className="text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer"
-                      >
-                        {citationCopied === kind ? 'Copied' : label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <CitationPreview record={citation} style={citationStyle} />
                 {isRetracted(citation) ? (
                   <div data-testid="retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
                     <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>

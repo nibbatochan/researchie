@@ -37,7 +37,8 @@ import {
 } from '@phosphor-icons/react';
 import { ResearchDocument, AtomType } from '@/lib/types/research';
 import type { CitationRecord } from '@/lib/citations/types.ts';
-import { formatCitationLine, resolveCitation, citationText, type CitationCopyKind } from '@/lib/citations/client.ts';
+import { formatCitationLine, resolveCitation } from '@/lib/citations/client.ts';
+import { CitationStyleBar, CitationPreview, useCitationStyle } from './CitationStyleBar';
 import { readPdfDois } from '@/lib/citations/pdfReader.ts';
 import { assessCitation, readConfidence, titlesMatch, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
 import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
@@ -249,7 +250,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [uploadFileUrl, setUploadFileUrl] = useState<string | null>(null);
   const [uploadCitation, setUploadCitation] = useState<CitationRecord | undefined>(undefined);
   const [docCitationOpen, setDocCitationOpen] = useState(false);
-  const [docCitationCopied, setDocCitationCopied] = useState<CitationCopyKind | null>(null);
+  const [docCitationStyle, setDocCitationStyle] = useCitationStyle();
   const [showAdvancedUploadMeta, setShowAdvancedUploadMeta] = useState(false);
   // Shown after parsing when no DOI citation was found. Nothing is saved until "Save citation".
   const [citationPromptOpen, setCitationPromptOpen] = useState(false);
@@ -1592,7 +1593,14 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               </button>
               {docCitationOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-lg border border-[#E4ECF6] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-3 shadow-lg text-xs text-slate-700 dark:text-zinc-300">
-                  <p className="leading-relaxed break-words">{formatCitationLine(activeDocument.citation!)}</p>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${readConfidence(activeDocument.citation!).warnings.length || isRetracted(activeDocument.citation) ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                      {activeDocument.citation!.status === 'page_tags' ? 'Web page' : activeDocument.citation!.status.replace(/_/g, ' ')}
+                    </span>
+                    <CitationStyleBar record={activeDocument.citation!} style={docCitationStyle} onStyleChange={setDocCitationStyle} testIdPrefix="doc-citation" />
+                  </div>
+                  <CitationPreview record={activeDocument.citation!} style={docCitationStyle} testIdPrefix="doc-citation" />
                   {isRetracted(activeDocument.citation) ? (
                     <div data-testid="doc-retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
                       <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>
@@ -1607,24 +1615,6 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   {readConfidence(activeDocument.citation!).notes.length ? (
                     <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(activeDocument.citation!).notes.join(' ')}</p>
                   ) : null}
-                  <div className="mt-2 flex justify-end gap-2">
-                    {([['line', 'Copy'], ['apa', 'APA'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        data-testid={`copy-doc-citation-${kind}`}
-                        onClick={() => {
-                          navigator.clipboard.writeText(citationText(activeDocument.citation!, kind));
-                          setDocCitationCopied(kind);
-                          setTimeout(() => setDocCitationCopied(null), 2000);
-                        }}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#E4ECF6] dark:bg-[#222226] hover:bg-[#D4DFF0] cursor-pointer"
-                      >
-                        {docCitationCopied === kind ? <Check size={12} /> : kind === 'line' ? <Copy size={12} /> : null}
-                        <span>{docCitationCopied === kind ? 'Copied' : label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>

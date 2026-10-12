@@ -44,7 +44,7 @@ test.describe('11. Copy a citation as a line, BibTeX or RIS', () => {
     if (atomId) await request.delete(`/api/atoms?id=${atomId}`);
   });
 
-  test('the three copy buttons put the right text on the clipboard', async ({ page, context }) => {
+  test('the style tabs show what Copy will copy, and Copy confirms it', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1200);
@@ -60,31 +60,64 @@ test.describe('11. Copy a citation as a line, BibTeX or RIS', () => {
     const cardRoot = page.locator('div', { has: card }).filter({ has: page.locator('button[title="Show citation"]') }).last();
     await cardRoot.locator('button[title="Show citation"]').first().click();
 
-    const line = page.getByTestId('copy-citation-line');
-    await expect(line).toBeVisible();
-    await expect(page.getByTestId('copy-citation-bibtex')).toBeVisible();
-    await expect(page.getByTestId('copy-citation-ris')).toBeVisible();
-
-    await page.getByTestId('copy-citation-bibtex').click();
     // Windows turns line breaks into CRLF on the clipboard; compare with plain LF.
     const readClipboard = async () => (await page.evaluate(() => navigator.clipboard.readText())).split('\r\n').join('\n');
-    const bib = await readClipboard();
-    expect(bib).toMatch(/^@article\{lee2020cats,/);
-    expect(bib).toContain('pages = {10--20}');
-    expect(bib).toContain('title = {{Cats \\& dogs: a study}}');
+    const preview = page.getByTestId('citation-preview');
+    const copy = page.getByTestId('citation-copy');
+    const VANCOUVER = 'Lee A, Park B. Cats & dogs: a study. J Pets. 2020;5(2):10-20. doi:10.1000/e2e.copy';
+    const APA = 'Lee, A., & Park, B. (2020). Cats & dogs: a study. J Pets, 5(2), 10–20. https://doi.org/10.1000/e2e.copy';
 
-    await page.getByTestId('copy-citation-ris').click();
+    // The style tabs and Copy sit on the same line as the status badge.
+    const badge = page.getByText('verified doi', { exact: false }).first();
+    await expect(badge).toBeVisible();
+    const badgeBox = (await badge.boundingBox())!;
+    const copyBox = (await copy.boundingBox())!;
+    expect(Math.abs(copyBox.y - badgeBox.y)).toBeLessThan(30);
+
+    // Vancouver is selected first and the preview shows the exact line.
+    await expect(page.getByTestId('citation-style-line')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('citation-style-apa')).toHaveAttribute('aria-pressed', 'false');
+    await expect(preview).toHaveText(VANCOUVER);
+
+    // Choosing APA changes the selection and the preview.
+    await page.getByTestId('citation-style-apa').click();
+    await expect(page.getByTestId('citation-style-apa')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('citation-style-line')).toHaveAttribute('aria-pressed', 'false');
+    await expect(preview).toHaveText(APA);
+
+    // Copy puts exactly the previewed text on the clipboard and says so.
+    await expect(copy).toContainText('Copy');
+    await copy.click();
+    await expect(copy).toContainText('Copied');
+    expect(await readClipboard()).toBe(APA);
+
+    // Switching style clears the "Copied" state, because it was for the old text.
+    await page.getByTestId('citation-style-bibtex').click();
+    await expect(copy).not.toContainText('Copied');
+    const bibText = (await preview.textContent())!;
+    expect(bibText).toMatch(/^@article\{lee2020cats,/);
+    expect(bibText).toContain('pages = {10--20}');
+    expect(bibText).toContain('title = {{Cats \\& dogs: a study}}');
+    await copy.click();
+    await expect(copy).toContainText('Copied');
+    expect(await readClipboard()).toBe(bibText);
+
+    await page.getByTestId('citation-style-ris').click();
+    const risText = (await preview.textContent())!;
+    expect(risText.split('\n')[0].trimEnd()).toBe('TY  - JOUR');
+    await copy.click();
     const ris = await readClipboard();
-    expect(ris.split('\n')[0]).toBe('TY  - JOUR');
     expect(ris).toContain('AU  - Lee, Ann');
     expect(ris.trimEnd().endsWith('ER  -')).toBeTruthy();
 
-    await page.getByTestId('copy-citation-apa').click();
-    expect(await readClipboard()).toBe('Lee, A., & Park, B. (2020). Cats & dogs: a study. J Pets, 5(2), 10–20. https://doi.org/10.1000/e2e.copy');
-
-    await page.getByTestId('copy-citation-line').click();
-    const text = await page.evaluate(() => navigator.clipboard.readText());
-    expect(text).toBe('Lee A, Park B. Cats & dogs: a study. J Pets. 2020;5(2):10-20. doi:10.1000/e2e.copy');
+    // The chosen style is remembered for the next card.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    await page.getByText(project.title, { exact: false }).first().click();
+    await page.waitForTimeout(800);
+    const again = page.locator('div', { has: page.locator(`text=${title}`).first() }).filter({ has: page.locator('button[title="Show citation"]') }).last();
+    await again.locator('button[title="Show citation"]').first().click();
+    await expect(page.getByTestId('citation-style-ris')).toHaveAttribute('aria-pressed', 'true');
   });
 });
 

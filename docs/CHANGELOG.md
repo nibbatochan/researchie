@@ -1,5 +1,15 @@
 # Version Changelog
 
+## [v1.7.4] — 2026-10-13 (Clearer citation copy controls)
+### Fixed & Enhanced
+- **Copy controls moved to the status line.** The row of "Copy / APA / BibTeX / RIS" text links sat beside the citation with no sign of which was chosen or what would be copied. Now the style tabs (Vancouver, APA, BibTeX, RIS) and one Copy button sit on the "verified doi" line in the clip citation box and the PDF citation popover.
+- **The chosen style is clear:** the selected tab is filled blue and marked `aria-pressed`. The choice is kept in the browser for the next card.
+- **The citation box shows what Copy copies:** the text in the chosen style appears in the box (monospace for BibTeX and RIS), with a note that Copy puts exactly this text on the clipboard.
+- **Copied is obvious:** the button turns green with a check and says "Copied" for 2.5 seconds, and resets if the style changes. If the browser blocks the clipboard, a hidden-textarea fallback is tried first; if that fails the button turns amber and says "Couldn't copy".
+- New shared component `CitationStyleBar.tsx`; `e2e/11` checks the tabs, the preview, the Copied state, the clipboard text and that the style is remembered.
+
+---
+
 ## [v1.7.3] — 2026-10-12 (Retraction warning, APA 7)
 ### Added & Enhanced
 - **Retraction is an amber warning.** A retracted paper shows its own amber box, "This paper has been retracted. Do not cite it as valid evidence.", in the clip citation box and the PDF citation popover. It is separate from the "might not be the source" warning, and the old gray note is gone.
