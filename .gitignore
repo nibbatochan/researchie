@@ -38,3 +38,5 @@ next-env.d.ts
 
 # local persistent store cache
 .research-store.json
+.documents-store.json
+.cognee-graph-*.json

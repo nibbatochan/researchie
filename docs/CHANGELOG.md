@@ -1,5 +1,14 @@
 # Version Changelog
 
+## [v1.7.6] — 2026-10-13 (Save anyway)
+### Added & Enhanced
+- **Save anyway on the mismatch screen.** When a DOI, PMID or title the user entered points to a different paper than the clip, the warning screen now has "Save anyway" beside Back. Nothing is saved until the user chooses it. The record is then saved with its warning, so the citation box keeps saying "This might not be the source. Please verify." Back still returns to the saved citation without changing it.
+- Decision recorded: the user chose to allow saving a mismatched source on purpose. The decision about showing the warning for an automatic PDF DOI mismatch is still open.
+- `e2e/11` covers it (lookup mocked): not saved before the click, saved with the warning after.
+- `.gitignore` now lists `.documents-store.json` and `.cognee-graph-*.json`, as CLAUDE.md asks. `.documents-store.json` is already tracked, so Git still shows it as modified until it is removed from the index (`git rm --cached`).
+
+---
+
 ## [v1.7.5] — 2026-10-13 (NLM web page format)
 ### Added & Enhanced
 - **Web pages in Vancouver:** a web page now gets the NLM "part of a Web site" line: `Site [Internet]. Page title; year [cited 2026 Oct 13]. Available from: URL`. The site name is the page's site, or its host name when none is known. The plain fallback line is kept only for unknown source types.

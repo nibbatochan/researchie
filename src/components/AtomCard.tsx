@@ -332,6 +332,20 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     }
   };
 
+  // The user chose to keep a source that does not match the clip. It is saved with its
+  // warning, so the box keeps saying "This might not be the source" after the save.
+  const saveMismatchAnyway = async () => {
+    if (!citationMismatch) return;
+    try {
+      await saveCitation(atom.id, citationMismatch);
+      setCitation(citationMismatch);
+      setCitationMismatch(null);
+      setCitationError(null);
+    } catch (err) {
+      setCitationError(err instanceof Error ? err.message : 'Could not save the citation.');
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (!onDelete) return;
     setDeleting(true);
@@ -486,7 +500,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               <div className="mt-1.5 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
                 <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>
                 <p className="mt-0.5">The source found is "{citationMismatch.title ?? 'untitled'}". {citationMismatch.confidence?.warnings.join(' ')}</p>
-                <div className="mt-2">
+                <div className="mt-2 flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={goBack}
@@ -494,6 +508,14 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                   >
                     <ArrowLeft size={12} />
                     <span>{citation ? 'Back to saved citation' : 'Back'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="save-anyway"
+                    onClick={saveMismatchAnyway}
+                    className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                  >
+                    Save anyway
                   </button>
                 </div>
               </div>

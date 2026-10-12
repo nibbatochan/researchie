@@ -169,3 +169,73 @@ test.describe('11b. A retracted paper shows an amber warning', () => {
     await expect(page.getByText('This might not be the source. Please verify.')).toHaveCount(0);
   });
 });
+
+test.describe('11c. Save anyway on the mismatch screen', () => {
+  let atomId = '';
+  const title = `E2E mismatch ${Date.now()}`;
+
+  test.beforeAll(async ({ request }) => {
+    const res = await request.post('/api/atoms', {
+      data: {
+        projectId: PROJECT_ID,
+        type: 'text',
+        title,
+        content: { rawText: title, text: title },
+        metadata: { sourceUrl: 'https://example.org/mismatch', pageTitle: 'Example', pageInfo: { url: 'https://example.org/mismatch', title: 'Cats and dogs: a study of household pets' } },
+        tags: [],
+      },
+    });
+    expect(res.ok()).toBeTruthy();
+    const json = await res.json();
+    atomId = json.data?.id || json.atom?.id || json.id;
+  });
+
+  test.afterAll(async ({ request }) => {
+    if (atomId) await request.delete(`/api/atoms?id=${atomId}`);
+  });
+
+  test('a mismatched source is not saved until the user chooses Save anyway, and then keeps its warning', async ({ page }) => {
+    await page.route('**/api/citations/resolve', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          record: { ...citation, doi: '10.1000/other', title: 'Quantum dots in photovoltaic cells', retracted: undefined },
+          reason: null,
+          lookupsUsed: 1,
+          lookupCap: 10,
+        }),
+      });
+    });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    const projects = await (await page.request.get('/api/projects')).json();
+    const project = (projects.data || projects.projects || []).find((p: any) => p.id === PROJECT_ID);
+    await page.getByText(project.title, { exact: false }).first().click();
+    await page.waitForTimeout(800);
+
+    const card = page.locator(`text=${title}`).first();
+    await expect(card).toBeVisible({ timeout: 15000 });
+    const root = page.locator('div', { has: card }).filter({ has: page.locator('button[title="Get citation"]') }).last();
+    await root.locator('button[title="Get citation"]').first().click();
+
+    await page.getByPlaceholder('DOI, PMID or paper title').fill('10.1000/other');
+    await page.getByRole('button', { name: /Look up/ }).click();
+
+    // The warning screen shows, and nothing is saved yet.
+    await expect(page.getByText('This might not be the source. Please verify.')).toBeVisible();
+    const before = await (await page.request.get(`/api/atoms?projectId=${PROJECT_ID}`)).json();
+    const stored = (before.data || before.atoms || []).find((a: any) => a.id === atomId);
+    expect(stored?.metadata?.citation).toBeUndefined();
+
+    // Save anyway keeps it, with the warning still showing.
+    await page.getByTestId('save-anyway').click();
+    await expect(page.getByTestId('citation-preview')).toContainText('Quantum dots in photovoltaic cells');
+    await expect(page.getByText('This might not be the source. Please verify.')).toBeVisible();
+    await expect.poll(async () => {
+      const after = await (await page.request.get(`/api/atoms?projectId=${PROJECT_ID}`)).json();
+      const a = (after.data || after.atoms || []).find((x: any) => x.id === atomId);
+      return a?.metadata?.citation?.doi;
+    }).toBe('10.1000/other');
+  });
+});
