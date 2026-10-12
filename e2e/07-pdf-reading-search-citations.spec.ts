@@ -107,7 +107,40 @@ test.describe('07. PDF Reading, Clipping, Search & Assistant Citations Suite', (
     }
   });
 
-  test('Req 8 & 9: Doc Assistant context retrieval and per-sentence citation jumping', async ({ page }) => {
+  test('Req 8 & 9: Doc Assistant citation link icon jumps to the verified page', async ({ page }) => {
+    // Fixed answer so the test never calls the live model. The quote is a real sentence on page 9 of the fixture.
+    const QUOTE = 'It was slower than a car and at least ten times the price of a decent commuter bicycle.';
+    await page.route('**/api/ai/qna', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            answer: 'The Segway was slower than a car and far more expensive than a bicycle. [Page 9]',
+            sourcePageNumber: 9,
+            citations: [{ passageId: 'p9-1', pageNumber: 9, start: 0, end: 0, quote: QUOTE, supported: true, textFragment: '#:~:text=It%20was%20slower' }],
+            hasUnsupportedClaims: false,
+            retrievedPagesCount: 1,
+            totalPagesAnalyzed: 163,
+          },
+        }),
+      });
+    });
+
+    // Open the fixture explicitly: the "most recently viewed" document changes as other
+    // documents are uploaded, and this quote is on page 9 of Just Enough Research.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    await page.getByText('Artificial Intelligence & RAG', { exact: false }).first().click();
+    await page.waitForTimeout(600);
+    await page.locator('button[title="Docs"], button:has-text("Docs")').first().click();
+    await page.waitForTimeout(800);
+    await expect(page.getByRole('heading', { name: /Just Enough Research/ })).toBeVisible({ timeout: 10000 });
+    await page.locator('button:has-text("Resume Reading")').first().click();
+    await page.waitForTimeout(800);
+
     // Open Doc Assistant drawer
     const docAssistantBtn = page.locator('button:has-text("Doc Assistant")').first();
     await expect(docAssistantBtn).toBeVisible();
@@ -117,21 +150,19 @@ test.describe('07. PDF Reading, Clipping, Search & Assistant Citations Suite', (
     // Ask a document question
     const chatInput = page.locator('input[placeholder="Ask about this document..."]').first();
     await expect(chatInput).toBeVisible();
-    await chatInput.fill('What are the findings on page 1?');
+    await chatInput.fill('Why did the Segway fail?');
     await chatInput.press('Enter');
 
-    // Wait for response with jump button
-    const jumpBtn = page.locator('button:has-text("Jump to Page")').first();
-    await expect(jumpBtn).toBeVisible({ timeout: 15000 });
+    // The answer ends with a link icon. There is no Jump button and no raw page marker.
+    const link = page.locator('[data-testid="answer-citation-link"]').first();
+    await expect(link).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('button:has-text("Jump to Page")')).toHaveCount(0);
 
-    // Click Jump to Page
-    await jumpBtn.click();
-    await page.waitForTimeout(500);
-
-    // Verify page canvas or indicator
+    await link.click();
+    await page.waitForTimeout(600);
     const pageInput = page.locator('input[type="number"][value]').first();
     if (await pageInput.isVisible()) {
-      await expect(pageInput).toHaveValue('1');
+      await expect(pageInput).toHaveValue('9');
     }
   });
 });

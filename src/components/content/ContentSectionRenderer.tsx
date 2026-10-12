@@ -9,14 +9,16 @@ interface ContentSectionRendererProps {
   section: ContentSection;
   onCitationClick?: (href: string) => void;
   onChipClick?: (chip: InlineChip) => void;
+  hideHeader?: boolean;
 }
 
 export const ContentSectionRenderer: React.FC<ContentSectionRendererProps> = ({
   section,
   onCitationClick,
   onChipClick,
+  hideHeader = false,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(section.defaultCollapsed ?? false);
+  const [isCollapsed, setIsCollapsed] = useState(hideHeader ? false : section.defaultCollapsed ?? false);
 
   const getSectionIcon = () => {
     switch (section.kind) {
@@ -40,7 +42,7 @@ export const ContentSectionRenderer: React.FC<ContentSectionRendererProps> = ({
   return (
     <div className="border-t border-[#E2E8F0] dark:border-[#27272A] first:border-t-0 pt-2.5 first:pt-0">
       {/* Section Header */}
-      <div 
+      {!hideHeader && <div 
         onClick={() => section.isCollapsible && setIsCollapsed(!isCollapsed)}
         className={`flex items-center justify-between py-1 select-none ${section.isCollapsible ? 'cursor-pointer group' : ''}`}
       >
@@ -61,7 +63,7 @@ export const ContentSectionRenderer: React.FC<ContentSectionRendererProps> = ({
             {isCollapsed ? <CaretRight size={12} /> : <CaretDown size={12} />}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Section Blocks */}
       {!isCollapsed && (

@@ -28,6 +28,7 @@ import { FormattedAIMessage } from './FormattedAIMessage';
 import type { CitationRecord } from '@/lib/citations/types.ts';
 import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
 import { assessCitation, readConfidence } from '@/lib/citations/verify.ts';
+import { formatCitationFacts } from '@/lib/citations/facts.ts';
 import {
   candidateLabel,
   formatCitationLine,
@@ -515,9 +516,10 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                     <p className="mt-0.5">{readConfidence(citation).warnings.join(' ')}</p>
                   </div>
                 ) : null}
-                {readConfidence(citation).notes.length ? (
-                  <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(citation).notes.join(' ')}</p>
-                ) : null}
+                <div className="mt-1.5 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <p>{formatCitationFacts(citation)}</p>
+                  {readConfidence(citation).notes.length ? <p className="mt-0.5">{readConfidence(citation).notes.join(' ')}</p> : null}
+                </div>
               </div>
             )}
 

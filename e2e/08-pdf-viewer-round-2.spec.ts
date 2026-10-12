@@ -188,7 +188,7 @@ test.describe('PDF Viewer Round 2 - Bugs 1 to 7 Test Suite', () => {
     await expect(assistantDrawer).toBeVisible();
 
     // Check for citations or ask a question if needed
-    const citationLink = page.locator('[data-testid="gemini-citation-link"], button:has-text("Jump to Page"), button:has-text("p.")').first();
+    const citationLink = page.locator('[data-testid="answer-citation-link"]').first();
     if (await citationLink.isVisible()) {
       const pageInput = page.locator('input[type="number"][value]').first();
       

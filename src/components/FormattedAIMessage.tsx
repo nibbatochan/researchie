@@ -9,12 +9,14 @@ interface FormattedAIMessageProps {
   className?: string;
   searchQuery?: string;
   onCitationClick?: (citation: string) => void;
+  hideSectionHeaders?: boolean;
 }
 
 export const FormattedAIMessage: React.FC<FormattedAIMessageProps> = ({ 
   content, 
   className = '', 
-  onCitationClick 
+  onCitationClick,
+  hideSectionHeaders = false,
 }) => {
   const sections = useMemo(() => {
     return parseMarkdownToSections(content);
@@ -28,6 +30,7 @@ export const FormattedAIMessage: React.FC<FormattedAIMessageProps> = ({
             key={sec.id}
             section={sec}
             onCitationClick={onCitationClick}
+            hideHeader={hideSectionHeaders}
           />
         ))}
       </div>

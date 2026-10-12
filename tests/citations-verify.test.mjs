@@ -80,3 +80,15 @@ test('findPdfDois returns every distinct DOI, metadata first', () => {
 test('findPdfDois returns an empty list when there is no DOI', () => {
   assert.deepEqual(findPdfDois({ title: 'Untitled' }, 'No identifier here.'), []);
 });
+
+import { citationFacts, formatCitationFacts } from '../src/lib/citations/facts.ts';
+
+test('facts show page, author and date, with "not shown" for anything missing', () => {
+  const web = { status: 'page_tags', sourceType: 'web_page', resolvedFrom: 'page_tags', authors: [], missingFields: [], url: 'https://www.example.org/report' };
+  assert.equal(formatCitationFacts(web), 'Page: example.org · Author: not shown · Date: not shown');
+});
+
+test('facts for a DOI record use the DOI page, the first author and the year', () => {
+  const doi = { status: 'verified_doi', sourceType: 'journal_article', resolvedFrom: 'crossref', doi: '10.1038/nature12373', authors: [{ family: 'Kucsko' }, { family: 'Maurer' }], year: 2013, missingFields: [] };
+  assert.deepEqual(citationFacts(doi), { page: 'doi.org/10.1038/nature12373', author: 'Kucsko et al.', date: '2013' });
+});

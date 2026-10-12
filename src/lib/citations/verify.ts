@@ -38,7 +38,6 @@ export function assessCitation(
 
   if (record.sourceType === 'web_page') {
     notes.push('Web page source, verified by its address.');
-    if (record.missingFields.length > 0) notes.push(`Not shown on the page: ${record.missingFields.join(', ')}.`);
   }
   if (record.status === 'incomplete') notes.push(`Missing: ${record.missingFields.join(', ')}.`);
   else if (record.status === 'manual' && record.missingFields.length > 0) notes.push(`Missing: ${record.missingFields.join(', ')}.`);

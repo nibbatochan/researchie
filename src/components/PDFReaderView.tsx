@@ -40,6 +40,7 @@ import type { CitationRecord } from '@/lib/citations/types.ts';
 import { formatCitationLine, resolveCitation } from '@/lib/citations/client.ts';
 import { readPdfDois } from '@/lib/citations/pdfReader.ts';
 import { assessCitation, readConfidence, titlesMatch } from '@/lib/citations/verify.ts';
+import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
 import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
 import { FormattedAIMessage } from './FormattedAIMessage';
@@ -169,13 +170,18 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     text: string;
     sourcePageNumber?: number;
     citationQuote?: string;
-    citations?: Array<{ quote: string; pageNumber?: number; textFragment?: string; supported?: boolean }>;
+    citations?: Array<{ quote: string; pageNumber?: number; start?: number; end?: number; textFragment?: string; supported?: boolean }>;
     hasUnsupportedClaims?: boolean;
-  }>>([
-    { role: 'assistant', text: "Ask me anything about this PDF. I'll analyze the entire document text and cite the exact page." },
-  ]);
+  }>>([]);
+  // Set when a clicked citation's quote cannot be found on its page.
+  const [citeNotice, setCiteNotice] = useState<{ msgIndex: number; page: number } | null>(null);
   const [aiInput, setAiInput] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  // Keeps the newest question or answer in view as the chat grows.
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [aiMessages.length, isAiLoading]);
   const [savedAiMessages, setSavedAiMessages] = useState<Set<number>>(new Set());
 
   // ─── Document Manager & Deletion state ─────────────────────────
@@ -899,6 +905,22 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     }, 80);
   };
 
+  // Open a verified citation: check its quote is really on the page, then jump and highlight it.
+  const openCitation = (c: AnswerCitation, msgIndex: number) => {
+    const page = c.pageNumber;
+    if (!page) return;
+    const pageText = activeDocument?.pages?.find((p) => p.pageNumber === page)?.content;
+    if (!quoteIsOnPage(c, pageText)) {
+      setCiteNotice({ msgIndex, page });
+      return;
+    }
+    setCiteNotice(null);
+    // Re-set the highlight so clicking the same quote twice re-applies it.
+    setActiveHighlightText('');
+    // The whole quote is highlighted when it is all on the page, else its first verified sentence.
+    setTimeout(() => jumpToPage(page, quoteHighlightText(c, pageText)), 0);
+  };
+
   const jumpToHighlight = (hl: SavedHighlight) => {
     if (hl.docId !== activeDocId) setActiveDocId(hl.docId);
     jumpToPage(hl.pageNumber, hl.text);
@@ -929,11 +951,12 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         const json = await res.json();
         if (json.success && json.data) {
           const answer = json.data.answer || json.data.text || 'No response found.';
-          let sourcePage = json.data.sourcePageNumber || currentPage;
-          const pageMatch = answer.match(/\[(?:page|p\.?)\s*(\d+)\]/i);
-          if (pageMatch) sourcePage = parseInt(pageMatch[1], 10);
-
-          const primaryCitationQuote = json.data.citations?.[0]?.quote || '';
+          // Page numbers written in the answer text are not trusted. Only a
+          // supported (verified) citation gives a source page.
+          const citationList: any[] = Array.isArray(json.data.citations) ? json.data.citations : [];
+          const firstSupported = citationList.find((c) => c?.supported === true && typeof c.pageNumber === 'number');
+          const sourcePage: number | undefined = firstSupported?.pageNumber;
+          const primaryCitationQuote = firstSupported?.quote || '';
 
           setAiMessages((prev) => [
             ...prev,
@@ -976,22 +999,30 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       questionTitle = aiMessages[index - 1].text;
     }
 
+    // Save the clean answer (no raw page markers) and the PDF's own citation. The page comes
+    // from the first verified citation, never from the model's page text.
+    const cleanText = buildAnswerLinks(msg.text, msg.citations).map((p) => p.text).join('\n\n');
+    const firstCite = (msg.citations || []).find((c: any) => c.supported === true && c.pageNumber);
+    const savedPage = firstCite?.pageNumber || currentPage;
+
     const payload = {
       projectId,
       type: 'note' as AtomType,
       title: questionTitle,
       content: {
-        text: msg.text,
-        markdownContent: msg.text,
+        text: cleanText,
+        markdownContent: cleanText,
       },
       metadata: {
-        sourceUrl: activeDocument.sourceUrl || `/reader?doc=${activeDocument.id}&page=${msg.sourcePageNumber || currentPage}`,
-        pageTitle: `${activeDocument.title} (Page ${msg.sourcePageNumber || currentPage})`,
+        sourceUrl: activeDocument.sourceUrl || `/reader?doc=${activeDocument.id}&page=${savedPage}`,
+        pageTitle: `${activeDocument.title} (Page ${savedPage})`,
         documentType: 'pdf' as const,
         documentName: activeDocument.filename,
         documentId: activeDocument.id,
-        pageNumber: msg.sourcePageNumber || currentPage,
+        pageNumber: savedPage,
         totalDocumentPages: activeDocument.totalPages,
+        ...(firstCite?.quote ? { citationQuote: firstCite.quote } : {}),
+        ...(activeDocument.citation ? { citation: activeDocument.citation } : {}),
       },
       tags: ['ai-generated', 'doc-assistant'],
     };
@@ -1699,9 +1730,15 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-2.5 space-y-2 select-text">
+              {aiMessages.length === 0 && !isAiLoading && (
+                <p data-testid="doc-assistant-empty" className="px-1 py-1 text-xs leading-relaxed text-slate-500 dark:text-zinc-400">
+                  Ask a question about this paper. Answers use only its text.
+                </p>
+              )}
               {aiMessages.map((msg, i) => (
                 <div
                   key={i}
+                  data-testid={msg.role === 'assistant' ? 'assistant-answer' : 'user-message'}
                   className={`p-2.5 rounded-lg text-xs leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-[#F1F4F9] dark:bg-[#18181B] text-[#0F172A] dark:text-[#FAFAFA] ml-3 font-medium'
@@ -1710,16 +1747,34 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 >
                   {msg.role === 'assistant' ? (
                     <>
-                      <FormattedAIMessage
-                        content={msg.text}
-                        onCitationClick={(href) => {
-                          const pageMatch = href.match(/#cite-page-(\d+)/);
-                          if (pageMatch) {
-                            const pNum = parseInt(pageMatch[1], 10);
-                            jumpToPage(pNum, msg.citationQuote);
-                          }
-                        }}
-                      />
+                      <div className="space-y-2">
+                        {buildAnswerLinks(msg.text, msg.citations || []).map((para, pi) => (
+                          <div key={pi}>
+                            {para.text && <FormattedAIMessage content={para.text} hideSectionHeaders />}
+                            {para.citationIndexes.length > 0 && (
+                              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+                                {para.citationIndexes.map((ci) => {
+                                  const c = msg.citations![ci];
+                                  return (
+                                    <button
+                                      key={ci}
+                                      type="button"
+                                      data-testid="answer-citation-link"
+                                      data-page={c.pageNumber}
+                                      title={linkTitle(c)}
+                                      aria-label={linkTitle(c)}
+                                      onClick={() => openCitation(c, i)}
+                                      className="inline-flex items-center p-0.5 rounded text-slate-400 dark:text-zinc-500 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer"
+                                    >
+                                      <LinkSimple size={12} weight="bold" />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/aimsg:opacity-100 transition-opacity">
                         <button
                           type="button"
@@ -1750,44 +1805,9 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   )}
 
                   {/* Grounded Page Citations and 1-Click Jumping */}
-                  {msg.role === 'assistant' && (msg.sourcePageNumber || (msg.citations && msg.citations.length > 0)) && (
-                    <div className="mt-2 pt-2 border-t border-[#E2E5EB] dark:border-[#27272A] flex flex-col gap-1.5">
-                      {msg.sourcePageNumber && (
-                        <button
-                          type="button"
-                          onClick={() => jumpToPage(msg.sourcePageNumber!, msg.citationQuote)}
-                          className="inline-flex items-center justify-between w-full p-1.5 rounded-lg text-[10.5px] font-mono font-semibold bg-blue-50/80 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950/70 text-[#325FEC] dark:text-[#518FFF] border border-blue-200 dark:border-blue-900/60 shadow-2xs transition-all cursor-pointer text-left"
-                          title="Jump directly to page and highlight source quote"
-                        >
-                          <span className="flex items-center gap-1.5 truncate">
-                            <BookOpen size={12} weight="bold" className="flex-shrink-0" />
-                            <span>Jump to Page {msg.sourcePageNumber}</span>
-                          </span>
-                          <ArrowSquareOut size={11} className="flex-shrink-0" />
-                        </button>
-                      )}
-
-                      {/* Multiple Citations List */}
-                      {msg.citations && msg.citations.length > 1 && (
-                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                          <span className="text-[9.5px] font-mono text-slate-400 dark:text-zinc-500">Related:</span>
-                          {msg.citations.map((c, cIdx) => {
-                            const pNum = c.pageNumber || msg.sourcePageNumber || 1;
-                            return (
-                              <button
-                                key={cIdx}
-                                type="button"
-                                onClick={() => jumpToPage(pNum, c.quote)}
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9.5px] font-mono bg-[#F1F4F9] dark:bg-[#18181B] hover:bg-blue-50 text-slate-600 dark:text-zinc-400 hover:text-[#325FEC] border border-[#E2E5EB] dark:border-[#27272A] transition-colors cursor-pointer"
-                                title={c.quote}
-                              >
-                                <span>p.{pNum}</span>
-                                <ArrowSquareOut size={9} />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                  {msg.role === 'assistant' && citeNotice?.msgIndex === i && (
+                    <div data-testid="citation-not-located" className="mt-2 p-2 rounded-md bg-[#F8F9FB] dark:bg-[#18181B] border border-[#E2E5EB] dark:border-[#27272A] text-[10.5px] text-slate-500 dark:text-zinc-400">
+                      Source passage could not be located on page {citeNotice.page}.
                     </div>
                   )}
 
@@ -1805,6 +1825,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   <span>Reading uploaded PDF context...</span>
                 </div>
               )}
+              <div ref={chatEndRef} />
             </div>
 
             <div className="p-2 border-t border-[#E2E5EB] dark:border-[#27272A] flex items-center gap-1 select-none">
@@ -1953,6 +1974,9 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         </div>
       )}
 
+      </div>
+    )}
+
       {/* ───── 2. DEDICATED DOCUMENT DELETION CONFIRMATION MODAL (High Z-Index, Clean Styling) ───── */}
       {docToDelete && (
         <div
@@ -2043,8 +2067,6 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
           </div>
         </div>
       )}
-      </div>
-    )}
 
       {/* ───── 3. CLEAN SINGLE-FIELD PRE-UPLOAD MODAL (WITH LIVE PERCENTAGE LOADING BAR & DROPZONE) ───── */}
       {isUploadModalOpen && (

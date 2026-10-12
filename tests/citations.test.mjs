@@ -157,5 +157,5 @@ test('an older web citation marked incomplete is shown as a web page with notes'
   old.status = 'incomplete';
   const fresh = refreshWebCitation(old);
   assert.equal(fresh.status, 'page_tags');
-  assert.match(fresh.confidence.notes.join(' '), /Not shown on the page: author, date/);
+  assert.match(fresh.confidence.notes.join(' '), /verified by its address/);
 });
