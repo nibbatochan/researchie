@@ -1,5 +1,21 @@
 # Version Changelog
 
+## [v1.7.1] — 2026-10-12 (Document Assistant UI fixes)
+### Fixed & Enhanced
+- **Link icons per sentence:** each icon now ends the sentence it supports. Sentences before a cited one stay in its block; sentences with no support have no icon. Page markers and abbreviations ("et al.", "Fig.") never split a sentence (`buildAnswerLinks` returns `segments`).
+- **One scroll per click:** the old code scrolled from three places. A citation click now jumps to the page at once and makes a single smooth scroll to the quote. The page observer no longer scrolls back after a scroll it caused, and the quote scroll runs once per quote.
+- **Click away clears:** a click anywhere except a citation icon or a saved-clip row clears the highlight.
+- **One saved highlight at a time:** only the selected saved clip is drawn on the pages; the sidebar list still shows all. A new clip is selected when saved. The sidebar buttons no longer scroll twice.
+- **Resizable assistant panel:** drag the left edge (260 to 720 px). The width is kept in the browser.
+- **Optional local model:** `AI_PROVIDER=ollama` (with `OLLAMA_MODEL`, default `qwen2.5:7b`) sends Q&A to a local Ollama server. Off by default.
+- **Tests:** 95 unit tests; new `e2e/10-assistant-ui.spec.ts` (6 tests, mocked answers); `e2e/09` still passes 5 of 5.
+
+### Known Issues
+- `e2e/07` and `e2e/08` depend on which document was opened last and fail in different numbers from run to run (4 to 11 of 14), also on the previous commit.
+- Local models are weaker: `qwen2.5:7b` passed 11 of 18 test questions and `deepseek-r1` 1 of 18. Groq remains the model to use. The final Groq settings still need a live re-run once the daily allowance returns.
+
+---
+
 ## [v1.7.0] — 2026-10-12 (Citation Engine, Verified Document Q&A & PDF Extraction Fix)
 ### Added & Enhanced
 - **Citation engine (`src/lib/citations/`):**

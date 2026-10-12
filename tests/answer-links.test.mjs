@@ -107,3 +107,34 @@ test('quoteHighlightText highlights the whole quote when it is all on the page, 
   assert.equal(quoteHighlightText({ quote: 'First verified piece of text here... A different last sentence is here.' }, page), 'First verified piece of text here');
   assert.equal(quoteHighlightText({ quote: '1.25 m/s' }, '1.25 m/s'), '1.25 m/s');
 });
+
+test('each icon sits at the end of the sentence it supports', () => {
+  const answer = 'Participants walked at 1.25 m/s. The study was funded by the China Scholarship Council. Data are on Zenodo.';
+  const out = buildAnswerLinks(answer, [
+    cite('The study was funded by the China Scholarship Council', 2),
+    cite('walked at 1.25 m/s', 3),
+  ]);
+  assert.equal(out.length, 1);
+  const segs = out[0].segments;
+  assert.equal(segs.length, 3);
+  assert.equal(segs[0].text, 'Participants walked at 1.25 m/s.');
+  assert.deepEqual(segs[0].citationIndexes, [1]);
+  assert.equal(segs[1].text, 'The study was funded by the China Scholarship Council.');
+  assert.deepEqual(segs[1].citationIndexes, [0]);
+  assert.equal(segs[2].text, 'Data are on Zenodo.');
+  assert.deepEqual(segs[2].citationIndexes, []);
+});
+
+test('sentences before a cited one stay in its segment; abbreviations and page markers do not split', () => {
+  const out = buildAnswerLinks('Smith et al. found a gain. It was large [Page 4]. Fig. 2 shows it.', [cite('zzz', 4)]);
+  const segs = out[0].segments;
+  assert.equal(segs[0].text, 'Smith et al. found a gain. It was large.');
+  assert.deepEqual(segs[0].citationIndexes, [0]);
+  assert.equal(segs[1].text, 'Fig. 2 shows it.');
+});
+
+test('an unsupported citation gives no icon in any segment', () => {
+  const out = buildAnswerLinks('One claim. Another claim.', [cite('one claim', 1, false)]);
+  assert.ok(out[0].segments.every((s) => s.citationIndexes.length === 0));
+  assert.equal(out[0].text, 'One claim. Another claim.');
+});

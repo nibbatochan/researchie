@@ -160,6 +160,38 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   // ─── Saved highlights ──────────────────────────────────────────
   const [savedHighlights, setSavedHighlights] = useState<SavedHighlight[]>([]);
+  // Only the selected saved highlight is drawn on the pages; null when none is selected.
+  const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
+  // Assistant panel width in px. Dragged by its left edge, kept for next time.
+  const [assistantWidth, setAssistantWidth] = useState<number>(() => {
+    try {
+      const saved = Number(window.localStorage.getItem('researchie.assistantWidth'));
+      return saved >= 260 && saved <= 720 ? saved : 320;
+    } catch {
+      return 320;
+    }
+  });
+
+  const startAssistantResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = assistantWidth;
+    let latest = startWidth;
+    const onMove = (ev: PointerEvent) => {
+      // The panel is on the right, so dragging left makes it wider.
+      latest = Math.min(720, Math.max(260, startWidth + (startX - ev.clientX)));
+      setAssistantWidth(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      try {
+        window.localStorage.setItem('researchie.assistantWidth', String(latest));
+      } catch {}
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
   const [highlightToDelete, setHighlightToDelete] = useState<string | null>(null);
 
   // ─── AI Assistant drawer ───────────────────────────────────────
@@ -842,6 +874,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       savedAt: new Date().toISOString(),
     };
     setSavedHighlights((prev) => [highlight, ...prev]);
+    setSelectedHighlightId(highlight.id);
 
     // Send citation directly to project stream feed if callback provided
     if (onCreateAtom) {
@@ -880,16 +913,34 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   const handleDeleteHighlight = (id: string) => {
     setSavedHighlights((prev) => prev.filter((h) => h.id !== id));
+    setSelectedHighlightId((cur) => (cur === id ? null : cur));
     setHighlightToDelete(null);
   };
 
+  // A click anywhere except a citation link or a saved-highlight row clears what is highlighted.
+  useEffect(() => {
+    if (!activeHighlightText && !selectedHighlightId) return;
+    const clearOnOutsideClick = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target?.closest?.('[data-keep-highlight]')) return;
+      setActiveHighlightText('');
+      setSelectedHighlightId(null);
+    };
+    document.addEventListener('mousedown', clearOnOutsideClick);
+    return () => document.removeEventListener('mousedown', clearOnOutsideClick);
+  }, [activeHighlightText, selectedHighlightId]);
+
   const jumpToPage = (pageNum: number, highlightQuote?: string) => {
+    const hasQuote = !!highlightQuote && !!highlightQuote.trim();
+    const alreadyThere = pageNum === currentPage;
     setCurrentPage(pageNum);
     setQuickClipPage(pageNum);
-    if (highlightQuote && highlightQuote.trim()) {
-      setActiveHighlightText(highlightQuote.trim());
+    if (hasQuote) {
+      setActiveHighlightText(highlightQuote!.trim());
     }
-    // Smooth scroll to target page element with immediate + retry fallback
+    // The viewer scrolls when the page changes and again to a quote. Scroll here only for a
+    // repeat jump to the same page with no quote, which neither of those would move.
+    if (!alreadyThere || hasQuote) return;
     setTimeout(() => {
       const pageEl = document.getElementById(`pdf-page-${pageNum}`) || pageRefs.current.get(pageNum);
       if (pageEl) {
@@ -923,6 +974,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   const jumpToHighlight = (hl: SavedHighlight) => {
     if (hl.docId !== activeDocId) setActiveDocId(hl.docId);
+    setSelectedHighlightId(hl.id);
     jumpToPage(hl.pageNumber, hl.text);
   };
 
@@ -1655,13 +1707,19 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               isSidebarOpen={isHighlightsSidebarOpen}
               onToggleSidebar={() => setIsHighlightsSidebarOpen(!isHighlightsSidebarOpen)}
               savedHighlights={savedHighlights}
+              selectedHighlightId={selectedHighlightId}
               activeDocId={activeDocument.id}
               onDeleteHighlight={handleDeleteHighlight}
               onSaveHighlightManually={(text, page) => handleSaveHighlight(text, page)}
               onJumpToHighlight={(text, page) => {
+                const hl = savedHighlights.find((h) => h.docId === activeDocument.id && h.pageNumber === page && h.text === text);
+                setSelectedHighlightId(hl ? hl.id : null);
                 jumpToPage(page, text);
               }}
-              onClearActiveHighlight={() => setActiveHighlightText('')}
+              onClearActiveHighlight={() => {
+                setActiveHighlightText('');
+                setSelectedHighlightId(null);
+              }}
               filename={activeDocument.filename}
               pages={activeDocument.pages}
             />
@@ -1718,7 +1776,19 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
         {/* ── Doc Assistant Drawer (Grounded in Active Uploaded PDF) ── */}
         {isAiOpen && (
-          <aside className="w-72 md:w-80 border-l border-[#E2E5EB] dark:border-[#27272A] bg-white dark:bg-[#121214] flex flex-col flex-shrink-0 z-20 shadow-xl select-none">
+          <aside
+            style={{ width: assistantWidth }}
+            data-testid="assistant-panel"
+            className="relative border-l border-[#E2E5EB] dark:border-[#27272A] bg-white dark:bg-[#121214] flex flex-col flex-shrink-0 z-20 shadow-xl select-none"
+          >
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize assistant panel"
+              data-testid="assistant-resize-handle"
+              onPointerDown={startAssistantResize}
+              className="absolute left-0 top-0 bottom-0 w-1.5 -ml-0.5 cursor-col-resize z-30 hover:bg-[#325FEC]/40 active:bg-[#325FEC]/60 transition-colors"
+            />
             <div className="px-3 py-2 border-b border-[#E2E5EB] dark:border-[#27272A] flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Sparkle size={14} className="text-[#325FEC] dark:text-[#518FFF]" weight="fill" />
@@ -1747,31 +1817,39 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 >
                   {msg.role === 'assistant' ? (
                     <>
-                      <div className="space-y-2">
+                      {/* Right padding keeps the hover toolbar from covering the link icons. */}
+                      <div className="space-y-2 pr-9">
                         {buildAnswerLinks(msg.text, msg.citations || []).map((para, pi) => (
-                          <div key={pi}>
-                            {para.text && <FormattedAIMessage content={para.text} hideSectionHeaders />}
-                            {para.citationIndexes.length > 0 && (
-                              <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-                                {para.citationIndexes.map((ci) => {
-                                  const c = msg.citations![ci];
-                                  return (
-                                    <button
-                                      key={ci}
-                                      type="button"
-                                      data-testid="answer-citation-link"
-                                      data-page={c.pageNumber}
-                                      title={linkTitle(c)}
-                                      aria-label={linkTitle(c)}
-                                      onClick={() => openCitation(c, i)}
-                                      className="inline-flex items-center p-0.5 rounded text-slate-400 dark:text-zinc-500 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer"
-                                    >
-                                      <LinkSimple size={12} weight="bold" />
-                                    </button>
-                                  );
-                                })}
+                          <div key={pi} className="space-y-1">
+                            {para.segments.map((seg, si) => (
+                              <div key={si} className="flex items-end gap-1">
+                                <div className="min-w-0">
+                                  {seg.text && <FormattedAIMessage content={seg.text} hideSectionHeaders />}
+                                </div>
+                                {seg.citationIndexes.length > 0 && (
+                                  <div className="flex items-center gap-0.5 flex-shrink-0 pb-0.5">
+                                    {seg.citationIndexes.map((ci) => {
+                                      const c = msg.citations![ci];
+                                      return (
+                                        <button
+                                          key={ci}
+                                          type="button"
+                                          data-testid="answer-citation-link"
+                                          data-keep-highlight
+                                          data-page={c.pageNumber}
+                                          title={linkTitle(c)}
+                                          aria-label={linkTitle(c)}
+                                          onClick={() => openCitation(c, i)}
+                                          className="inline-flex items-center p-0.5 rounded text-slate-400 dark:text-zinc-500 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer"
+                                        >
+                                          <LinkSimple size={12} weight="bold" />
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            ))}
                           </div>
                         ))}
                       </div>

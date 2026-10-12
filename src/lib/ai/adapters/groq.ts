@@ -8,10 +8,18 @@ export class GroqAIAdapter implements AIServiceAdapter {
   private baseUrl: string;
   private mockFallback = new MockAIAdapter();
 
-  constructor(apiKey: string, model = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b', baseUrl = 'https://api.groq.com/openai/v1') {
+  private timeoutMs: number;
+
+  constructor(
+    apiKey: string,
+    model = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
+    baseUrl = 'https://api.groq.com/openai/v1',
+    options: { fallbackModels?: string[]; timeoutMs?: number } = {},
+  ) {
     this.apiKey = apiKey;
     this.model = model;
-    this.fallbackModels = [
+    this.timeoutMs = options.timeoutMs ?? 25000;
+    this.fallbackModels = options.fallbackModels ?? [
       'qwen/qwen3.8-27b',
       'openai/gpt-oss-120b',
       'openai/gpt-oss-20b',
@@ -42,7 +50,7 @@ export class GroqAIAdapter implements AIServiceAdapter {
       try {
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
           method: 'POST',
-          signal: AbortSignal.timeout(25000),
+          signal: AbortSignal.timeout(this.timeoutMs),
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${this.apiKey}`,

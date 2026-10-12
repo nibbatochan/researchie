@@ -8,6 +8,13 @@ function createAIService(): AIServiceAdapter {
   const customBaseUrl = process.env.CUSTOM_AI_BASE_URL;
   const customModel = process.env.GROQ_MODEL || process.env.CUSTOM_AI_MODEL || 'openai/gpt-oss-120b';
 
+  // 0. Local Ollama (opt-in): AI_PROVIDER=ollama. No key, no daily quota; slower, so a longer timeout.
+  if (process.env.AI_PROVIDER === 'ollama') {
+    const model = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
+    const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1';
+    return new GroqAIAdapter('ollama', model, baseUrl, { fallbackModels: [model], timeoutMs: 180000 });
+  }
+
   // 1. If Groq API Key or Custom Endpoint is provided
   if (groqKey && groqKey.trim().length > 0) {
     return new GroqAIAdapter(groqKey, customModel, customBaseUrl || 'https://api.groq.com/openai/v1');

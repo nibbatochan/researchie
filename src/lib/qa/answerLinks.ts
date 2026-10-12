@@ -9,10 +9,19 @@ export interface AnswerCitation {
   supported?: boolean;
 }
 
-export interface AnswerParagraph {
+export interface AnswerSegment {
   text: string;
-  /** Indexes into the citations array, in display order. */
+  /** Indexes into the citations array, in display order. Icons go at the end of this text. */
   citationIndexes: number[];
+}
+
+export interface AnswerParagraph {
+  /** The whole paragraph with page markers removed. */
+  text: string;
+  /** Every citation index attached anywhere in the paragraph. */
+  citationIndexes: number[];
+  /** The paragraph cut so each icon sits at the end of the sentence it supports. */
+  segments: AnswerSegment[];
 }
 
 // "[Page 5]", "[p. 5]", "(p.5)", "[Pages 3, 5]", "[pp. 3-5]", and the full-width
@@ -50,12 +59,45 @@ function pagesInMarker(raw: string): number[] {
   return (raw.match(/\d+/g) || []).map((n) => parseInt(n, 10));
 }
 
+const ABBREVIATION = /(?:\b(?:al|fig|figs|eq|eqs|vs|etc|dr|no|approx|ca|cf)|\be\.g|\bi\.e)\.$/i;
+
+interface Piece {
+  text: string;
+  /** Whitespace that followed this piece in the original. */
+  after: string;
+  indexes: number[];
+}
+
+/** Cut text after a sentence end that is followed by the start of a new sentence. */
+function splitSentences(raw: string): Array<{ text: string; after: string }> {
+  const breaks = /[.!?]["')\]]*\s+(?=[A-Z0-9("“*])|\n+/g;
+  const out: Array<{ text: string; after: string }> = [];
+  // Page markers like "[p. 3]" hold a full stop; hide them so they are never cut.
+  const masked = raw.replace(MARKER, (mk) => 'x'.repeat(mk.length));
+  let from = 0;
+  let m: RegExpExecArray | null;
+  while ((m = breaks.exec(masked)) !== null) {
+    const whole = m[0];
+    const sepMatch = whole.match(/\s+$/);
+    const sep = sepMatch ? sepMatch[0] : '';
+    const text = raw.slice(from, m.index + whole.length - sep.length);
+    if (ABBREVIATION.test(text)) continue;
+    out.push({ text, after: sep });
+    from = m.index + whole.length;
+  }
+  out.push({ text: raw.slice(from), after: '' });
+  return out.filter((p) => p.text.trim().length > 0);
+}
+
+const tidy = (t: string) => t.replace(/[ \t]+\n/g, '\n').replace(/ {2,}/g, ' ').trim();
+
 /**
- * Split the answer into paragraphs, drop every raw page marker, and attach
- * supported citations. A marker whose page equals the page of a supported
- * citation attaches that citation to the paragraph holding the marker. Other
- * supported citations go to the paragraph with the best token overlap with
- * the quote, or the last paragraph when nothing matches. Unsupported
+ * Split the answer into paragraphs and sentences, drop every raw page marker, and
+ * attach supported citations. A marker whose page equals the page of a supported
+ * citation attaches that citation to the sentence holding the marker. Other supported
+ * citations go to the sentence with the best token overlap with the quote, or the
+ * last sentence when nothing matches. Each icon ends the sentence it supports; the
+ * sentences before it with no icon of their own stay in the same segment. Unsupported
  * citations never get an icon.
  */
 export function buildAnswerLinks(answer: string, citations: AnswerCitation[] = []): AnswerParagraph[] {
@@ -67,10 +109,10 @@ export function buildAnswerLinks(answer: string, citations: AnswerCitation[] = [
     .filter(({ c }) => c && c.supported === true && typeof c.pageNumber === 'number');
 
   const assigned = new Set<number>();
-  const paragraphs: AnswerParagraph[] = rawParagraphs.map((raw) => {
-    const indexes: number[] = [];
-    const text = raw
-      .replace(MARKER, (_m, nums: string) => {
+  const pieceLists: Piece[][] = rawParagraphs.map((rawPara) =>
+    splitSentences(rawPara).map((p) => {
+      const indexes: number[] = [];
+      const text = p.text.replace(MARKER, (_m, nums: string) => {
         for (const page of pagesInMarker(nums)) {
           const hit = supported.find(({ c, i }) => c.pageNumber === page && !assigned.has(i));
           if (hit) {
@@ -79,27 +121,46 @@ export function buildAnswerLinks(answer: string, citations: AnswerCitation[] = [
           }
         }
         return '';
-      })
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/ {2,}/g, ' ')
-      .trim();
-    return { text, citationIndexes: indexes };
-  });
+      });
+      return { text, after: p.after, indexes };
+    }),
+  );
+
+  const all: Array<{ piece: Piece; para: number }> = [];
+  pieceLists.forEach((list, para) => list.forEach((piece) => all.push({ piece, para })));
 
   for (const { c, i } of supported) {
     if (assigned.has(i)) continue;
     let best = -1;
     let bestScore = 0;
-    paragraphs.forEach((p, pi) => {
-      const s = overlapScore(c.quote, p.text);
-      if (s > bestScore) { bestScore = s; best = pi; }
+    all.forEach(({ piece }, k) => {
+      const score = overlapScore(c.quote, piece.text);
+      if (score > bestScore) { bestScore = score; best = k; }
     });
-    const target = best >= 0 && bestScore >= MIN_OVERLAP ? best : paragraphs.length - 1;
-    paragraphs[target].citationIndexes.push(i);
+    const target = best >= 0 && bestScore >= MIN_OVERLAP ? best : all.length - 1;
+    if (target >= 0) all[target].piece.indexes.push(i);
     assigned.add(i);
   }
 
-  for (const p of paragraphs) p.citationIndexes.sort((a, b) => a - b);
+  const paragraphs: AnswerParagraph[] = pieceLists.map((pieces) => {
+    const segments: AnswerSegment[] = [];
+    let buffer = '';
+    for (const piece of pieces) {
+      buffer += piece.text + piece.after;
+      if (piece.indexes.length > 0) {
+        segments.push({ text: tidy(buffer), citationIndexes: [...piece.indexes].sort((a, b) => a - b) });
+        buffer = '';
+      }
+    }
+    if (tidy(buffer)) segments.push({ text: tidy(buffer), citationIndexes: [] });
+    const cleaned = segments.filter((seg) => seg.text.length > 0 || seg.citationIndexes.length > 0);
+    return {
+      text: tidy(pieces.map((p) => p.text + p.after).join('')),
+      citationIndexes: cleaned.flatMap((seg) => seg.citationIndexes).sort((a, b) => a - b),
+      segments: cleaned,
+    };
+  });
+
   return paragraphs.filter((p) => p.text.length > 0 || p.citationIndexes.length > 0);
 }
 

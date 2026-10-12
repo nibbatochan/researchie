@@ -38,6 +38,8 @@ interface CustomPDFViewerProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   savedHighlights: SavedHighlight[];
+  /** Only this saved highlight is drawn on the pages; the sidebar list still shows all. */
+  selectedHighlightId?: string | null;
   activeDocId?: string;
   onDeleteHighlight?: (id: string) => void;
   onSaveHighlightManually?: (text: string, page: number) => void;
@@ -60,6 +62,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   savedHighlights = [],
+  selectedHighlightId = null,
   activeDocId = '',
   onDeleteHighlight,
   onSaveHighlightManually,
@@ -81,6 +84,11 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
 
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const isProgrammaticScroll = useRef<boolean>(false);
+  // Latest quote to highlight, read by scrollToPage so a citation jump moves the view only once.
+  const targetTextRef = useRef<string>('');
+  // Page the scroll observer last reported. A page change that came from scrolling must not scroll again.
+  const observedPageRef = useRef<number | null>(null);
+  targetTextRef.current = targetHighlightText || '';
 
   // 1. Initialize PDF.js and Load Document
   useEffect(() => {
@@ -215,6 +223,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => {
             if (!isProgrammaticScroll.current) {
+              observedPageRef.current = activePageNum;
               onPageChange(activePageNum);
               setManualClipPage(activePageNum);
 
@@ -249,10 +258,12 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
   // Scroll to active page smoothly with retry if page elements are still mounting
   const scrollToPage = useCallback((pageNum: number) => {
     if (!pageNum || pageNum < 1) return;
+    // With a quote to show, jump to the page at once; the page then does the one smooth scroll to the quote.
+    const behavior: ScrollBehavior = targetTextRef.current.trim() ? 'auto' : 'smooth';
     const el = pageRefs.current.get(pageNum);
     if (el && scrollContainerRef.current) {
       isProgrammaticScroll.current = true;
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.scrollIntoView({ behavior, block: 'start' });
       onPageChange(pageNum);
       setManualClipPage(pageNum);
 
@@ -267,7 +278,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
         if (targetEl && scrollContainerRef.current) {
           clearInterval(retryInterval);
           isProgrammaticScroll.current = true;
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          targetEl.scrollIntoView({ behavior, block: 'start' });
           onPageChange(pageNum);
           setManualClipPage(pageNum);
           setTimeout(() => {
@@ -282,9 +293,10 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
 
   // External currentPage change handler (Always scrolls precisely without false skips)
   useEffect(() => {
-    if (currentPage && !isProgrammaticScroll.current) {
+    if (currentPage && !isProgrammaticScroll.current && observedPageRef.current !== currentPage) {
       scrollToPage(currentPage);
     }
+    observedPageRef.current = null;
   }, [currentPage, scrollToPage]);
 
   // Handle Precise Character/Line-Level Text Selection with word boundary snapping
@@ -504,12 +516,12 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                   docHighlights.map((hl) => (
                     <div
                       key={hl.id}
+                      data-keep-highlight
                       className="group relative flex flex-col p-1.5 rounded-md border border-[#E2E5EB] dark:border-[#27272A] bg-[#F8F9FB] dark:bg-[#18181B] hover:bg-white dark:hover:bg-[#222226] transition-colors"
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <button
                           onClick={() => {
-                            scrollToPage(hl.pageNumber);
                             if (onJumpToHighlight) onJumpToHighlight(hl.text, hl.pageNumber);
                           }}
                           className="text-[9px] font-mono text-[#325FEC] dark:text-[#518FFF] hover:underline font-semibold"
@@ -519,7 +531,6 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                         <div className="flex items-center gap-0.5">
                           <button
                             onClick={() => {
-                              scrollToPage(hl.pageNumber);
                               if (onJumpToHighlight) onJumpToHighlight(hl.text, hl.pageNumber);
                             }}
                             className="text-slate-400 hover:text-[#0F172A] dark:hover:text-white p-0.5"
@@ -542,7 +553,6 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
                       <p
                         data-testid="saved-clip-item"
                         onClick={() => {
-                          scrollToPage(hl.pageNumber);
                           if (onJumpToHighlight) onJumpToHighlight(hl.text, hl.pageNumber);
                         }}
                         className="text-[10.5px] text-slate-700 dark:text-zinc-300 line-clamp-2 leading-relaxed cursor-pointer"
@@ -649,7 +659,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
               scale={zoomLevel / 100}
               searchQuery={searchQuery}
               targetHighlightText={targetHighlightText}
-              savedHighlights={savedHighlights.filter((h) => h.pageNumber === pageNum && (!activeDocId || h.docId === activeDocId))}
+              savedHighlights={savedHighlights.filter((h) => h.id === selectedHighlightId && h.pageNumber === pageNum && (!activeDocId || h.docId === activeDocId))}
               onMouseUp={() => handleMouseUp(pageNum)}
               pageRef={(el) => {
                 if (el) pageRefs.current.set(pageNum, el);
@@ -664,7 +674,7 @@ export const CustomPDFViewer: React.FC<CustomPDFViewerProps> = ({
               scale={zoomLevel / 100}
               searchQuery={searchQuery}
               targetHighlightText={targetHighlightText}
-              savedHighlights={savedHighlights.filter((h) => h.pageNumber === pageNum && (!activeDocId || h.docId === activeDocId))}
+              savedHighlights={savedHighlights.filter((h) => h.id === selectedHighlightId && h.pageNumber === pageNum && (!activeDocId || h.docId === activeDocId))}
               onMouseUp={() => handleMouseUp(pageNum)}
               pageRef={(el) => {
                 if (el) pageRefs.current.set(pageNum, el);
@@ -791,6 +801,7 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
   const textLayerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 680, height: 880 });
   const [textLayerReady, setTextLayerReady] = useState<number>(0);
+  const scrolledQuoteRef = useRef<string>('');
   const renderTaskRef = useRef<any>(null);
 
   useEffect(() => {
@@ -1018,8 +1029,12 @@ const PDFPageCanvas: React.FC<PDFPageCanvasProps> = ({
       }
     }
 
-    // Scroll to citation target element if active
-    if (targetElementToScroll && targetHighlightText) {
+    // Scroll to the citation quote once per quote. This effect also re-runs on resize and
+    // text-layer renders, which must not move the view again.
+    if (!targetHighlightText) {
+      scrolledQuoteRef.current = '';
+    } else if (targetElementToScroll && scrolledQuoteRef.current !== targetHighlightText) {
+      scrolledQuoteRef.current = targetHighlightText;
       setTimeout(() => {
         targetElementToScroll?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 120);
