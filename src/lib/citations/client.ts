@@ -6,6 +6,7 @@ import { normalizeDoi } from './identify.ts';
 import { formatVancouver } from './vancouver.ts';
 import { toBibTeX, toRIS } from './export.ts';
 import { formatApa } from './apa.ts';
+import { formatAma } from './ama.ts';
 
 export interface ResolveResponse {
   record: CitationRecord | null;
@@ -73,13 +74,14 @@ export function formatCitationLine(record: CitationRecord): string {
   return `[${record.sourceType.replace('_', ' ')}: style not yet supported]`;
 }
 
-export type CitationCopyKind = 'line' | 'apa' | 'bibtex' | 'ris';
+export type CitationCopyKind = 'line' | 'apa' | 'ama' | 'bibtex' | 'ris';
 
 /** The text to put on the clipboard: the formatted line, or a BibTeX or RIS entry. */
 export function citationText(record: CitationRecord, kind: CitationCopyKind): string {
   if (kind === 'bibtex') return toBibTeX(record);
   if (kind === 'ris') return toRIS(record);
   if (kind === 'apa') return formatApa(record) ?? formatCitationLine(record);
+  if (kind === 'ama') return formatAma(record) ?? formatCitationLine(record);
   return formatCitationLine(record);
 }
 

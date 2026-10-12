@@ -8,6 +8,7 @@ import { citationText, type CitationCopyKind } from '@/lib/citations/client.ts';
 export const CITATION_STYLES: ReadonlyArray<{ kind: CitationCopyKind; label: string; hint: string }> = [
   { kind: 'line', label: 'Vancouver', hint: 'Medical journals (ICMJE / NLM)' },
   { kind: 'apa', label: 'APA', hint: 'APA 7th edition' },
+  { kind: 'ama', label: 'AMA', hint: 'AMA 11th edition' },
   { kind: 'bibtex', label: 'BibTeX', hint: 'For LaTeX and reference managers' },
   { kind: 'ris', label: 'RIS', hint: 'For Zotero, Mendeley and EndNote' },
 ];
