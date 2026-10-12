@@ -19,10 +19,15 @@ interface CrossrefWork {
   issue?: string;
   page?: string;
   publisher?: string;
+  'publisher-location'?: string;
+  editor?: { given?: string; family?: string; name?: string }[];
+  institution?: { name?: string }[];
   issued?: CrossrefDate;
   'published-print'?: CrossrefDate;
   'published-online'?: CrossrefDate;
   'update-to'?: { DOI?: string; type?: string }[];
+  // Set on the original paper when a notice (retraction, correction, ...) updates it.
+  'updated-by'?: { DOI?: string; type?: string }[];
 }
 
 const SOURCE_TYPES: Record<string, SourceType> = {
@@ -42,15 +47,18 @@ function yearOf(work: CrossrefWork): number | undefined {
   return undefined;
 }
 
-function authorsOf(work: CrossrefWork): CitationAuthor[] {
-  return (work.author ?? [])
+function people(list: CrossrefWork['author']): CitationAuthor[] {
+  return (list ?? [])
     .filter((a) => a.family || a.name)
     .map((a) => (a.family ? { family: a.family, given: a.given } : { family: a.name! }));
 }
 
+const authorsOf = (work: CrossrefWork) => people(work.author);
+
 export function mapCrossrefWork(work: CrossrefWork): CitationRecord {
   const sourceType = SOURCE_TYPES[work.type ?? ''] ?? 'unknown';
-  const journal = work['container-title']?.[0];
+  // A preprint has no journal; the server (bioRxiv, arXiv) is named in institution.
+  const journal = work['container-title']?.[0] ?? (sourceType === 'preprint' ? work.institution?.[0]?.name : undefined);
 
   const record: CitationRecord = {
     status: 'verified_doi',
@@ -68,10 +76,18 @@ export function mapCrossrefWork(work: CrossrefWork): CitationRecord {
     publisher: work.publisher,
     missingFields: [],
   };
+  if (work['publisher-location']) record.publisherPlace = work['publisher-location'];
+  if (work.editor?.length) record.editors = people(work.editor);
 
   // Retraction notices point at the retracted work via update-to.
   const retracted = (work['update-to'] ?? []).some((u) => u.type === 'retraction');
   if (work['update-to']) record.retracted = retracted;
+
+  // The original paper lists its notices in updated-by. Verified live on the retracted
+  // Lancet 1998 paper (10.1016/S0140-6736(97)11096-0): type "retraction".
+  if (work['updated-by']) {
+    record.retracted = record.retracted === true || work['updated-by'].some((u) => u.type === 'retraction' || u.type === 'withdrawal');
+  }
 
   if (!record.title) record.missingFields.push('title');
   if (record.authors.length === 0) record.missingFields.push('authors');

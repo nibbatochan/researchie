@@ -37,7 +37,7 @@ import {
 } from '@phosphor-icons/react';
 import { ResearchDocument, AtomType } from '@/lib/types/research';
 import type { CitationRecord } from '@/lib/citations/types.ts';
-import { formatCitationLine, resolveCitation } from '@/lib/citations/client.ts';
+import { formatCitationLine, resolveCitation, citationText, type CitationCopyKind } from '@/lib/citations/client.ts';
 import { readPdfDois } from '@/lib/citations/pdfReader.ts';
 import { assessCitation, readConfidence, titlesMatch } from '@/lib/citations/verify.ts';
 import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
@@ -249,7 +249,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [uploadFileUrl, setUploadFileUrl] = useState<string | null>(null);
   const [uploadCitation, setUploadCitation] = useState<CitationRecord | undefined>(undefined);
   const [docCitationOpen, setDocCitationOpen] = useState(false);
-  const [docCitationCopied, setDocCitationCopied] = useState(false);
+  const [docCitationCopied, setDocCitationCopied] = useState<CitationCopyKind | null>(null);
   const [showAdvancedUploadMeta, setShowAdvancedUploadMeta] = useState(false);
   // Shown after parsing when no DOI citation was found. Nothing is saved until "Save citation".
   const [citationPromptOpen, setCitationPromptOpen] = useState(false);
@@ -1603,18 +1603,22 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                     <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(activeDocument.citation!).notes.join(' ')}</p>
                   ) : null}
                   <div className="mt-2 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(formatCitationLine(activeDocument.citation!));
-                        setDocCitationCopied(true);
-                        setTimeout(() => setDocCitationCopied(false), 2000);
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#E4ECF6] dark:bg-[#222226] hover:bg-[#D4DFF0] cursor-pointer"
-                    >
-                      {docCitationCopied ? <Check size={12} /> : <Copy size={12} />}
-                      <span>{docCitationCopied ? 'Copied' : 'Copy'}</span>
-                    </button>
+                    {([['line', 'Copy'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        data-testid={`copy-doc-citation-${kind}`}
+                        onClick={() => {
+                          navigator.clipboard.writeText(citationText(activeDocument.citation!, kind));
+                          setDocCitationCopied(kind);
+                          setTimeout(() => setDocCitationCopied(null), 2000);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#E4ECF6] dark:bg-[#222226] hover:bg-[#D4DFF0] cursor-pointer"
+                      >
+                        {docCitationCopied === kind ? <Check size={12} /> : kind === 'line' ? <Copy size={12} /> : null}
+                        <span>{docCitationCopied === kind ? 'Copied' : label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

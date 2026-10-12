@@ -4,6 +4,7 @@
 import type { CitationRecord } from './types.ts';
 import { normalizeDoi } from './identify.ts';
 import { formatVancouver } from './vancouver.ts';
+import { toBibTeX, toRIS } from './export.ts';
 
 export interface ResolveResponse {
   record: CitationRecord | null;
@@ -69,6 +70,15 @@ export function formatCitationLine(record: CitationRecord): string {
     return `${parts.filter(Boolean).join('. ')}. (Plain format, not a style-guide format yet.)`;
   }
   return `[${record.sourceType.replace('_', ' ')}: style not yet supported]`;
+}
+
+export type CitationCopyKind = 'line' | 'bibtex' | 'ris';
+
+/** The text to put on the clipboard: the formatted line, or a BibTeX or RIS entry. */
+export function citationText(record: CitationRecord, kind: CitationCopyKind): string {
+  if (kind === 'bibtex') return toBibTeX(record);
+  if (kind === 'ris') return toRIS(record);
+  return formatCitationLine(record);
 }
 
 export interface SearchResponse {

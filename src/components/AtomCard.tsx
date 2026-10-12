@@ -32,6 +32,8 @@ import { formatCitationFacts } from '@/lib/citations/facts.ts';
 import {
   candidateLabel,
   formatCitationLine,
+  citationText,
+  type CitationCopyKind,
   parseIdentifier,
   reasonMessage,
   resolveCitation,
@@ -104,7 +106,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const [citationError, setCitationError] = useState<string | null>(null);
   const [citationCandidates, setCitationCandidates] = useState<CitationRecord[] | null>(null);
   const [citationOpen, setCitationOpen] = useState(false); // the citation panel stays open until closed
-  const [citationCopied, setCitationCopied] = useState(false);
+  const [citationCopied, setCitationCopied] = useState<CitationCopyKind | null>(null);
   const [citationMismatch, setCitationMismatch] = useState<CitationRecord | null>(null); // a typed or picked source that does not match the clip
 
   const handleAddTag = async (e?: React.FormEvent) => {
@@ -331,11 +333,11 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     }
   };
 
-  const handleCopyFormattedCitation = () => {
+  const handleCopyFormattedCitation = (kind: CitationCopyKind = 'line') => {
     if (!citation) return;
-    navigator.clipboard.writeText(formatCitationLine(citation));
-    setCitationCopied(true);
-    setTimeout(() => setCitationCopied(false), 2000);
+    navigator.clipboard.writeText(citationText(citation, kind));
+    setCitationCopied(kind);
+    setTimeout(() => setCitationCopied(null), 2000);
   };
 
   const handleConfirmDelete = async () => {
@@ -506,9 +508,19 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               <div className="mt-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
-                  <button type="button" onClick={handleCopyFormattedCitation} className="shrink-0 text-[11px] text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer">
-                    {citationCopied ? 'Copied' : 'Copy'}
-                  </button>
+                  <div className="shrink-0 flex items-center gap-2 text-[11px]">
+                    {([['line', 'Copy'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        data-testid={`copy-citation-${kind}`}
+                        onClick={() => handleCopyFormattedCitation(kind)}
+                        className="text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer"
+                      >
+                        {citationCopied === kind ? 'Copied' : label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {readConfidence(citation).warnings.length ? (
                   <div className="mt-2 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">

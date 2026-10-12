@@ -38,6 +38,8 @@ export interface CitationRecord {
   issue?: string;
   pages?: string;
   publisher?: string;
+  publisherPlace?: string; // books and chapters, when the source gives it
+  editors?: CitationAuthor[]; // book chapters: the editors of the book
   url?: string;
   accessedAt?: string; // ISO 8601, web sources only
   missingFields: string[];

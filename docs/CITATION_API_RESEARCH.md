@@ -236,9 +236,9 @@ Source: https://schema.org/ScholarlyArticle (fetched).
 | Journal article | Authors, title, journal (abbreviated), year, volume, pages | Issue (omit if continuous pagination), DOI, PMID | First 6 authors then et al. (NLM now lists all) |
 | Preprint | Authors, title, server, `[Preprint]`, date, `[cited ...]`, Available from | DOI | Mark preprints clearly (ICMJE) |
 | Web page | **UNVERIFIED** | | Fetch NLM Samples page section for electronic material |
-| Report | **UNVERIFIED** | | |
-| Dataset | **UNVERIFIED** | | |
-| Book chapter | **UNVERIFIED** | | |
+| Report | Authors, title, place (agency): agency, date | Report type, report number, contract number | NLM item 26. Implemented in simplified form only. |
+| Dataset | Authors, title `[dataset]`, year, `[cited ...]`, repository, Available from | | NLM item 43 (simplified form), fetched 2026-10-12 |
+| Book chapter | Authors, title, `In:` editors, book title, place, publisher, year, pages | DOI | NLM item 23, fetched 2026-10-12 |
 
 Items marked required in the journal row are my synthesis from the examples. The NLM page does not give a formal required list, so treat them as implementation guesses.
 
@@ -303,3 +303,9 @@ Checked by direct requests. Test DOI/PMID: 10.1038/nature12373 / PMID 23903748.
 - PubMed retraction check: needs a test on a known retracted PMID before the logic is written.
 - Crossref lookup for a retracted paper (`update-to` with `update-type: retraction`): not tested.
 - Web page, report, dataset and book chapter formats for all three styles: not verified.
+
+## Live verification (2026-10-12, retraction)
+
+- Retracted paper: Wakefield et al., Lancet 1998, PMID 9500320, DOI 10.1016/S0140-6736(97)11096-0.
+- PubMed path (`efetch` publication types D016441 / D016440): returns `retracted = true`. A normal Nature paper (PMID 23903748) returns `false`.
+- Crossref path: the title starts with "RETRACTED:" and the retraction is listed on the original record under **`updated-by`** (`type: "retraction"`, `source: "retraction-watch"`), next to a `correction` entry. `update-to` is on the notice, not on the original. The mapper read only `update-to`, so the original looked normal. Fixed in `crossref.ts`.

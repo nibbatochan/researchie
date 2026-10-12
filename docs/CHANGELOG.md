@@ -1,5 +1,28 @@
 # Version Changelog
 
+## [v1.7.2] — 2026-10-12 (More citation styles, BibTeX/RIS, exports, retraction fix)
+### Added & Enhanced
+- **Vancouver for more source types** (`vancouver.ts`), following the NLM Samples of Formatted References:
+  - Preprint: `Authors. Title. Server [Preprint]. Year [cited 2026 Oct 12]. Available from: https://doi.org/...`
+  - Dataset: `Authors. Title [dataset]. Year [cited ...]. Repository. Available from: ...`
+  - Book chapter: `Authors. Title. In: Editors, editors. Book. Place: Publisher; Year. p. pages.` Place and editors are left out when the source gives none.
+  - Report: `Authors. Title. Place: Publisher; Year.` (simplified; NLM's agency and report-number elements are not captured yet).
+  - Web pages and unknown sources still use the plain format.
+  - The Crossref mapper now keeps editors, publisher place and a preprint's server name (`institution`).
+- **BibTeX and RIS** (`export.ts`): Copy, BibTeX and RIS buttons in the clip citation box and the PDF citation popover. Special characters are escaped, page ranges use `--`, missing fields are left out.
+- **Citations in exports:** Obsidian clip notes get a `doi` frontmatter line and a "Citation" section; Notion blocks and Notion Markdown get a "Citation:" line under quotes and captured blocks.
+- **Tests:** 108 unit tests (new `tests/citations-formats.test.mjs`), new `e2e/11-citation-copy.spec.ts`.
+
+### Fixed
+- **Retraction missed on the DOI path:** Crossref lists a retraction on the original paper under `updated-by`, but only `update-to` was read, so a retracted paper looked normal. Found by a live check on the retracted 1998 Lancet paper (PMID 9500320); the PMID path already worked. Both now report retracted.
+
+### Known Issues & Open Work
+- NLM rules for web pages, the full report form and datasets with versions are not verified. APA and AMA are still unverified (their primary pages did not load).
+- A retraction is shown as a gray note ("A retraction notice was found."), not a warning. Whether it should be louder is open.
+- The extension capture is not tested as a live Chrome clip. That needs the unpacked extension loaded in Chrome.
+
+---
+
 ## [v1.7.1] — 2026-10-12 (Document Assistant UI fixes)
 ### Fixed & Enhanced
 - **Link icons per sentence:** each icon now ends the sentence it supports. Sentences before a cited one stay in its block; sentences with no support have no icon. Page markers and abbreviations ("et al.", "Fig.") never split a sentence (`buildAnswerLinks` returns `segments`).

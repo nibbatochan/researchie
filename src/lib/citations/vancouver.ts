@@ -1,7 +1,7 @@
-// Vancouver (ICMJE) formatter. Journal articles only for now; other source
-// types return null until their field rules are verified (see
-// docs/CITATION_API_RESEARCH.md, section 5).
-// ICMJE: list up to six authors, then "et al.".
+// Vancouver (ICMJE / NLM) formatter for journal articles, preprints, datasets, book
+// chapters and reports. Web pages and unknown sources return null. Patterns follow the
+// NLM Samples of Formatted References (items 23, 34, 43; see docs/CITATION_API_RESEARCH.md,
+// section 5). ICMJE: list up to six authors, then "et al.".
 
 import type { CitationAuthor, CitationRecord } from './types';
 
@@ -34,9 +34,29 @@ function sentence(text: string): string {
   return /[.?!]$/.test(text) ? text : `${text}.`;
 }
 
-export function formatVancouver(record: CitationRecord): string | null {
-  if (record.sourceType !== 'journal_article') return null;
+export interface VancouverOptions {
+  /** Date used for "[cited ...]". Defaults to the record's accessedAt, then today. */
+  citedOn?: Date;
+}
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** NLM date form: "2017 Feb 9". */
+export function nlmDate(date: Date): string {
+  return `${date.getFullYear()} ${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+function citedDate(record: CitationRecord, options: VancouverOptions): string {
+  const when = options.citedOn ?? (record.accessedAt ? new Date(record.accessedAt) : new Date());
+  return nlmDate(Number.isNaN(when.getTime()) ? new Date() : when);
+}
+
+function availableFrom(record: CitationRecord): string {
+  const link = record.doi ? `https://doi.org/${record.doi}` : record.url;
+  return link ? `Available from: ${link}` : 'Available from: [incomplete: DOI or URL]';
+}
+
+function journalArticle(record: CitationRecord): string {
   const parts = [
     `${sentence(formatAuthors(record.authors))}`,
     `${sentence(field(record.title, 'title'))}`,
@@ -50,4 +70,69 @@ export function formatVancouver(record: CitationRecord): string | null {
 
   if (record.doi) parts.push(`doi:${record.doi}`);
   return parts.join(' ');
+}
+
+// Authors. Title. Server [Preprint]. Year [cited date]. Available from: link
+function preprint(record: CitationRecord, options: VancouverOptions): string {
+  return [
+    sentence(formatAuthors(record.authors)),
+    sentence(field(record.title, 'title')),
+    `${field(record.journal ?? record.publisher, 'server')} [Preprint].`,
+    `${field(record.year, 'year')} [cited ${citedDate(record, options)}].`,
+    availableFrom(record),
+  ].join(' ');
+}
+
+// Authors. Title [dataset]. Year [cited date]. Repository. Available from: link
+function dataset(record: CitationRecord, options: VancouverOptions): string {
+  return [
+    sentence(formatAuthors(record.authors)),
+    `${field(record.title, 'title').replace(/[.?!]$/, '')} [dataset].`,
+    `${field(record.year, 'year')} [cited ${citedDate(record, options)}].`,
+    sentence(field(record.publisher, 'repository')),
+    availableFrom(record),
+  ].join(' ');
+}
+
+// Chapter authors. Chapter title. In: Editors, editors. Book title. Place: Publisher; Year. p. pages.
+function bookChapter(record: CitationRecord): string {
+  const editors = record.editors?.length ? `${formatAuthors(record.editors)}, editor${record.editors.length > 1 ? 's' : ''}. ` : '';
+  const publisher = record.publisher
+    ? `${record.publisherPlace ? `${record.publisherPlace}: ` : ''}${record.publisher}; `
+    : '';
+  const pages = record.pages ? ` p. ${record.pages}.` : '';
+  const line = [
+    sentence(formatAuthors(record.authors)),
+    sentence(field(record.title, 'title')),
+    `In: ${editors}${sentence(field(record.journal, 'book title'))}`,
+    `${publisher}${field(record.year, 'year')}.${pages}`,
+  ].join(' ');
+  return record.doi ? `${line} doi:${record.doi}` : line;
+}
+
+// Authors. Title. Publisher; Year.
+function report(record: CitationRecord): string {
+  const line = [
+    sentence(formatAuthors(record.authors)),
+    sentence(field(record.title, 'title')),
+    `${record.publisher ? `${record.publisherPlace ? `${record.publisherPlace}: ` : ''}${record.publisher}; ` : ''}${field(record.year, 'year')}.`,
+  ].join(' ');
+  return record.doi ? `${line} doi:${record.doi}` : line;
+}
+
+export function formatVancouver(record: CitationRecord, options: VancouverOptions = {}): string | null {
+  switch (record.sourceType) {
+    case 'journal_article':
+      return journalArticle(record);
+    case 'preprint':
+      return preprint(record, options);
+    case 'dataset':
+      return dataset(record, options);
+    case 'book_chapter':
+      return bookChapter(record);
+    case 'report':
+      return report(record);
+    default:
+      return null;
+  }
 }

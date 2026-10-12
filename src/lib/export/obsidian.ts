@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { ResearchProject, ResearchAtom } from '../types/research';
+import { atomCitation } from './citation';
 
 /**
  * Sanitizes a string for use in wikilinks and filenames
@@ -246,6 +247,8 @@ export async function generateObsidianVaultZip(
     clipMd += `project: "[[${sanitizedProjectTitle}]]"\n`;
     clipMd += `researchie_atom_id: "${atom.id}"\n`;
     clipMd += `type: ${atom.type}\n`;
+    const clipCitation = atomCitation(atom);
+    if (clipCitation?.doi) clipMd += `doi: "${clipCitation.doi}"\n`;
     clipMd += `date: ${new Date(atom.capturedAt || atom.created_at || Date.now()).toISOString().split('T')[0]}\n`;
     if (atom.tags && atom.tags.length > 0) {
       clipMd += `tags:\n${atom.tags.map((t) => `  - ${t.replace(/^#/, '')}`).join('\n')}\n`;
@@ -282,6 +285,10 @@ export async function generateObsidianVaultZip(
       if (atom.metadata.pageNumber) {
         clipMd += `- **Page Number:** ${atom.metadata.pageNumber}\n`;
       }
+    }
+
+    if (clipCitation) {
+      clipMd += `\n## Citation\n${clipCitation.line}\n`;
     }
 
     if (clipsFolder) {

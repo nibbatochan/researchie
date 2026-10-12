@@ -1,4 +1,5 @@
 import { ResearchProject, ResearchAtom } from '../types/research';
+import { atomCitation } from './citation';
 
 export interface NotionRichTextItem {
   type: 'text';
@@ -603,6 +604,15 @@ export function formatProjectToNotionBlocks(
           rich_text: quoteDetails,
         },
       });
+
+      const quoteCitation = atomCitation(atom);
+      if (quoteCitation) {
+        rawBlocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: [richText('Citation: ', { italic: true }), richText(quoteCitation.line)] },
+        });
+      }
     });
 
     rawBlocks.push({ object: 'block', type: 'divider', divider: {} });
@@ -652,6 +662,15 @@ export function formatProjectToNotionBlocks(
               }),
             ],
           },
+        });
+      }
+
+      const blockCitation = atomCitation(atom);
+      if (blockCitation) {
+        rawBlocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: [richText('Citation: ', { italic: true }), richText(blockCitation.line)] },
         });
       }
     });
@@ -769,7 +788,10 @@ export function formatProjectToNotionMarkdown(
       const text = atom.content.rawText || atom.content.text || atom.content.description || '';
       const title = atom.metadata?.pageTitle || atom.title || 'Source';
       const url = atom.metadata?.sourceUrl || '';
-      md += `> "${text}"\n>\n> — [${title}](${url})\n\n`;
+      const quoteCite = atomCitation(atom);
+      md += `> "${text}"\n>\n> — [${title}](${url})\n`;
+      if (quoteCite) md += `>\n> *Citation: ${quoteCite.line}*\n`;
+      md += `\n`;
     });
   }
 
@@ -782,6 +804,8 @@ export function formatProjectToNotionMarkdown(
       if (atom.content.rawText) {
         md += `\`\`\`text\n${atom.content.rawText.trim()}\n\`\`\`\n\n`;
       }
+      const blockCite = atomCitation(atom);
+      if (blockCite) md += `*Citation: ${blockCite.line}*\n\n`;
     });
   }
 
