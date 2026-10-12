@@ -72,12 +72,12 @@ test('a book chapter with no editors or place still formats and flags nothing it
   );
 });
 
-test('missing fields show as incomplete and web pages stay unformatted', () => {
+test('missing fields show as incomplete and unknown sources stay unformatted', () => {
   const r = preprint();
   delete r.journal;
   delete r.publisher;
   assert.match(formatVancouver(r, { citedOn: CITED }), /\[incomplete: server\] \[Preprint\]/);
-  r.sourceType = 'web_page';
+  r.sourceType = 'unknown';
   assert.equal(formatVancouver(r), null);
 });
 
@@ -150,4 +150,22 @@ test('Crossref updated-by with a retraction marks the original paper retracted (
   assert.equal(mapCrossrefWork({ ...base, 'updated-by': [{ DOI: '10.1/c', type: 'correction' }, { DOI: '10.1/r', type: 'retraction' }] }).retracted, true);
   assert.equal(mapCrossrefWork({ ...base, 'updated-by': [{ DOI: '10.1/c', type: 'correction' }] }).retracted, false);
   assert.equal(mapCrossrefWork(base).retracted, undefined); // no notices: the check says nothing
+});
+
+test('Vancouver web page: Site [Internet]. Title; year [cited date]. Available from: URL (NLM part of a Web site)', () => {
+  const page = {
+    status: 'page_tags', sourceType: 'web_page', resolvedFrom: 'page_tags', authors: [{ family: 'Taras', given: 'Zach' }],
+    title: 'Situational irony can be funny, tragic or even terrifying', publisher: 'HowStuffWorks', year: 2024,
+    url: 'https://entertainment.howstuffworks.com/arts/literature/situational-irony.htm', missingFields: [],
+  };
+  assert.equal(
+    formatVancouver(page, { citedOn: CITED }),
+    'HowStuffWorks [Internet]. Situational irony can be funny, tragic or even terrifying; 2024 [cited 2026 Oct 12]. Available from: https://entertainment.howstuffworks.com/arts/literature/situational-irony.htm'
+  );
+  // No site name and no year: the host name stands in, and the date part is just the cited date.
+  const bare = { ...page, publisher: undefined, year: undefined, url: 'https://www.example.org/a' };
+  assert.equal(
+    formatVancouver(bare, { citedOn: CITED }),
+    'example.org [Internet]. Situational irony can be funny, tragic or even terrifying; [cited 2026 Oct 12]. Available from: https://www.example.org/a'
+  );
 });

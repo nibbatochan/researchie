@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.7.5] — 2026-10-13 (NLM web page format)
+### Added & Enhanced
+- **Web pages in Vancouver:** a web page now gets the NLM "part of a Web site" line: `Site [Internet]. Page title; year [cited 2026 Oct 13]. Available from: URL`. The site name is the page's site, or its host name when none is known. The plain fallback line is kept only for unknown source types.
+- The rule comes from NLM Citing Medicine, chapter 25 (Web Sites), read from the NCBI Bookshelf. The site's place of publication and the page's update date are not captured, so they are left out. The page author is not listed, because NLM puts an author only in the site element.
+- 116 unit tests.
+
+---
+
 ## [v1.7.4] — 2026-10-13 (Clearer citation copy controls)
 ### Fixed & Enhanced
 - **Copy controls moved to the status line.** The row of "Copy / APA / BibTeX / RIS" text links sat beside the citation with no sign of which was chosen or what would be copied. Now the style tabs (Vancouver, APA, BibTeX, RIS) and one Copy button sit on the "verified doi" line in the clip citation box and the PDF citation popover.

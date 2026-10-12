@@ -1,5 +1,5 @@
 // Vancouver (ICMJE / NLM) formatter for journal articles, preprints, datasets, book
-// chapters and reports. Web pages and unknown sources return null. Patterns follow the
+// chapters, reports and web pages. Unknown sources return null. Patterns follow the
 // NLM Samples of Formatted References (items 23, 34, 43; see docs/CITATION_API_RESEARCH.md,
 // section 5). ICMJE: list up to six authors, then "et al.".
 
@@ -120,6 +120,27 @@ function report(record: CitationRecord): string {
   return record.doi ? `${line} doi:${record.doi}` : line;
 }
 
+function siteName(record: CitationRecord): string | undefined {
+  if (record.publisher) return record.publisher;
+  try {
+    return record.url ? new URL(record.url).hostname.replace(/^www\./, '') : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Part of a Web site (NLM Citing Medicine, chapter 25): Site [Internet]. Part title; date [cited date]. Available from: URL
+// The site's place of publication and the page's update date are not captured, so they are left out.
+function webPage(record: CitationRecord, options: VancouverOptions): string {
+  const year = record.year ? `${record.year} ` : '';
+  return [
+    `${field(siteName(record), 'site name')} [Internet].`,
+    `${field(record.title, 'title')};`,
+    `${year}[cited ${citedDate(record, options)}].`,
+    availableFrom(record),
+  ].join(' ');
+}
+
 export function formatVancouver(record: CitationRecord, options: VancouverOptions = {}): string | null {
   switch (record.sourceType) {
     case 'journal_article':
@@ -132,6 +153,8 @@ export function formatVancouver(record: CitationRecord, options: VancouverOption
       return bookChapter(record);
     case 'report':
       return report(record);
+    case 'web_page':
+      return webPage(record, options);
     default:
       return null;
   }

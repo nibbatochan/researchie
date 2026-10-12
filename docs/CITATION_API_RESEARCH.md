@@ -235,7 +235,7 @@ Source: https://schema.org/ScholarlyArticle (fetched).
 |---|---|---|---|
 | Journal article | Authors, title, journal (abbreviated), year, volume, pages | Issue (omit if continuous pagination), DOI, PMID | First 6 authors then et al. (NLM now lists all) |
 | Preprint | Authors, title, server, `[Preprint]`, date, `[cited ...]`, Available from | DOI | Mark preprints clearly (ICMJE) |
-| Web page | **UNVERIFIED** | | Fetch NLM Samples page section for electronic material |
+| Web page | Site [Internet], part title, date of citation, Available from | Publication date, update date, place, publisher, extent ("[about N screens]") | NLM Citing Medicine ch. 25 (part of a Web site), read 2026-10-13. Implemented without place, update date and extent. |
 | Report | Authors, title, place (agency): agency, date | Report type, report number, contract number | NLM item 26. Implemented in simplified form only. |
 | Dataset | Authors, title `[dataset]`, year, `[cited ...]`, repository, Available from | | NLM item 43 (simplified form), fetched 2026-10-12 |
 | Book chapter | Authors, title, `In:` editors, book title, place, publisher, year, pages | DOI | NLM item 23, fetched 2026-10-12 |

@@ -104,7 +104,7 @@ test('Vancouver shows missing fields as incomplete', () => {
 
 test('Vancouver returns null for source types not yet verified', () => {
   const record = parseCrossrefResponse(fixture('crossref-nature12373.json'));
-  record.sourceType = 'web_page';
+  record.sourceType = 'unknown';
   assert.equal(formatVancouver(record), null);
 });
 
