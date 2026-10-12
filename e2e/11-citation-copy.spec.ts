@@ -79,6 +79,9 @@ test.describe('11. Copy a citation as a line, BibTeX or RIS', () => {
     expect(ris).toContain('AU  - Lee, Ann');
     expect(ris.trimEnd().endsWith('ER  -')).toBeTruthy();
 
+    await page.getByTestId('copy-citation-apa').click();
+    expect(await readClipboard()).toBe('Lee, A., & Park, B. (2020). Cats & dogs: a study. J Pets, 5(2), 10–20. https://doi.org/10.1000/e2e.copy');
+
     await page.getByTestId('copy-citation-line').click();
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toBe('Lee A, Park B. Cats & dogs: a study. J Pets. 2020;5(2):10-20. doi:10.1000/e2e.copy');

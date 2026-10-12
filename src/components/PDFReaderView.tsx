@@ -1608,7 +1608,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                     <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(activeDocument.citation!).notes.join(' ')}</p>
                   ) : null}
                   <div className="mt-2 flex justify-end gap-2">
-                    {([['line', 'Copy'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
+                    {([['line', 'Copy'], ['apa', 'APA'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
                       <button
                         key={kind}
                         type="button"

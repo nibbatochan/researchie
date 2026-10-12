@@ -1,5 +1,21 @@
 # Version Changelog
 
+## [v1.7.3] — 2026-10-12 (Retraction warning, APA 7)
+### Added & Enhanced
+- **Retraction is an amber warning.** A retracted paper shows its own amber box, "This paper has been retracted. Do not cite it as valid evidence.", in the clip citation box and the PDF citation popover. It is separate from the "might not be the source" warning, and the old gray note is gone.
+- **APA 7** (`apa.ts`): journal articles, edited book chapters, reports, preprints, data sets and web pages. Patterns come from the APA "Common Reference Examples" handout, and the unit tests use its worked examples. A new **APA** button sits beside Copy, BibTeX and RIS.
+  - No author: the title moves to the author position. No date: "(n.d.)" plus a "Retrieved ..." date when known.
+  - Plain text has no italics, so journal names and book titles are not italicised.
+  - Titles are not converted to sentence case; they keep the source's own case.
+  - More than 20 authors: first 19, ". . .", last. This rule is from the Publication Manual, not the handout.
+- **Tests:** 115 unit tests (new `tests/citations-apa.test.mjs`), `e2e/11` covers copy buttons and the retraction box.
+
+### Known Issues & Open Work
+- AMA is still unverified (its manual pages did not load). The NLM web page format is unverified, so web pages keep the plain format in Vancouver.
+- The Copy menu has no style picker for the main line yet; "Copy" is Vancouver, "APA" is APA.
+
+---
+
 ## [v1.7.2] — 2026-10-12 (More citation styles, BibTeX/RIS, exports, retraction fix)
 ### Added & Enhanced
 - **Vancouver for more source types** (`vancouver.ts`), following the NLM Samples of Formatted References:

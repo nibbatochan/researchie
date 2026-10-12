@@ -255,6 +255,8 @@ Primary AMA Manual pages (amamanualofstyle.com) were **not loaded**. Findings be
 
 ### 5.3 APA 7
 
+**Update 2026-10-12:** the APA "Common Reference Examples" handout (https://apastyle.apa.org/instructional-aids/reference-examples.pdf, last updated March 3, 2026) was downloaded and its text extracted. It gives worked examples for journal article (10.1), edited book chapter (10.3), report (10.4), preprint (10.8), data set (10.9) and webpage (10.16). Those are **verified (primary)** and are implemented in `src/lib/citations/apa.ts`, with the handout examples as unit tests. The older notes below were written before that and still apply to anything the handout does not cover (the 21+ author rule, sentence-case conversion).
+
 Primary APA pages (apastyle.apa.org) returned empty content in this session. The findings below are from search snippets and general knowledge, not fetched text.
 
 - Journal article: **Verified (snippet)** that the example is in Publication Manual section 10.1 (https://atlantictu.libguides.com/APA7/referencelist/examples). Element pattern and DOI form (`https://doi.org/`): **UNVERIFIED** on a primary page.

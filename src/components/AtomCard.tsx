@@ -509,7 +509,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
                   <div className="shrink-0 flex items-center gap-2 text-[11px]">
-                    {([['line', 'Copy'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
+                    {([['line', 'Copy'], ['apa', 'APA'], ['bibtex', 'BibTeX'], ['ris', 'RIS']] as const).map(([kind, label]) => (
                       <button
                         key={kind}
                         type="button"
