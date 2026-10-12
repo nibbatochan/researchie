@@ -32,9 +32,15 @@ import {
   BookOpen,
   ArrowRight,
   Copy,
-  FolderPlus
+  FolderPlus,
+  ArrowLeft
 } from '@phosphor-icons/react';
 import { ResearchDocument, AtomType } from '@/lib/types/research';
+import type { CitationRecord } from '@/lib/citations/types.ts';
+import { formatCitationLine, resolveCitation } from '@/lib/citations/client.ts';
+import { readPdfDois } from '@/lib/citations/pdfReader.ts';
+import { assessCitation, readConfidence, titlesMatch } from '@/lib/citations/verify.ts';
+import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
 import { FormattedAIMessage } from './FormattedAIMessage';
 
@@ -163,7 +169,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     text: string;
     sourcePageNumber?: number;
     citationQuote?: string;
-    citations?: Array<{ quote: string; pageNumber?: number; textFragment?: string }>;
+    citations?: Array<{ quote: string; pageNumber?: number; textFragment?: string; supported?: boolean }>;
+    hasUnsupportedClaims?: boolean;
   }>>([
     { role: 'assistant', text: "Ask me anything about this PDF. I'll analyze the entire document text and cite the exact page." },
   ]);
@@ -202,7 +209,16 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [uploadPages, setUploadPages] = useState<any[]>([]);
   const [uploadFileSize, setUploadFileSize] = useState('');
   const [uploadFileUrl, setUploadFileUrl] = useState<string | null>(null);
+  const [uploadCitation, setUploadCitation] = useState<CitationRecord | undefined>(undefined);
+  const [docCitationOpen, setDocCitationOpen] = useState(false);
+  const [docCitationCopied, setDocCitationCopied] = useState(false);
   const [showAdvancedUploadMeta, setShowAdvancedUploadMeta] = useState(false);
+  // Shown after parsing when no DOI citation was found. Nothing is saved until "Save citation".
+  const [citationPromptOpen, setCitationPromptOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualAuthor, setManualAuthor] = useState('');
+  const [manualYear, setManualYear] = useState('');
+  const [manualSourceType, setManualSourceType] = useState<'unknown' | 'journal_article'>('unknown');
 
   // ─── Refs ──────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -493,6 +509,41 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       console.warn('Document parsing server note:', err);
     }
 
+    // DOIs in the PDF give a citation. Prefer the one whose title matches the PDF's.
+    // A failure here must not block the upload.
+    setUploadCitation(undefined);
+    setCitationPromptOpen(false);
+    let foundCitation = false;
+    let pdfTitle: string | undefined;
+    try {
+      const { dois, title } = await readPdfDois(file);
+      pdfTitle = title;
+      const lookups = await Promise.all(dois.slice(0, 3).map((doi) => resolveCitation({ doi })));
+      const records = lookups.map((o) => o.record).filter((r): r is CitationRecord => r !== null);
+      const matched = title ? records.find((r) => r.title && titlesMatch(title, r.title)) : undefined;
+      const pick = matched ?? records[0];
+      if (pick) {
+        // Count only DOIs that resolved, so a broken fragment does not raise the warning.
+        const checked = assessCitation(pick, title);
+        // Count only DOIs that resolved, so a broken fragment does not trigger this note.
+        if (records.length > 1) checked.confidence!.notes.push('More than one resolvable DOI was found on the first page.');
+        setUploadCitation(checked);
+        foundCitation = true;
+      }
+    } catch (err) {
+      console.warn('PDF DOI lookup skipped:', err);
+    }
+
+    // No DOI citation: ask the user for title, author and year. Prefill from the PDF's
+    // metadata title, or the file name without its extension.
+    if (!foundCitation) {
+      setManualTitle(pdfTitle?.trim() || rawName.replace(/\.[^/.]+$/, ''));
+      setManualAuthor('');
+      setManualYear('');
+      setManualSourceType('unknown');
+      setCitationPromptOpen(true);
+    }
+
     setUploadPages(extractedPages);
     setUploadContent(extractedContent);
     setUploadProgress(100);
@@ -500,8 +551,18 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     setIsUploadingFile(false);
   };
 
+  // Opens the file picker straight away. The upload window appears once a file is chosen.
   const handleTriggerUpload = () => {
-    setIsUploadModalOpen(true);
+    setUploadFileName('');
+    setUploadPages([]);
+    setUploadContent('');
+    setUploadFileUrl(null);
+    setUploadCitation(undefined);
+    setCitationPromptOpen(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -539,6 +600,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
           content: uploadContent.trim(),
           pages: uploadPages.length > 0 ? uploadPages : undefined,
           tags: ['uploaded-doc'],
+          citation: uploadCitation,
         }),
       });
 
@@ -881,6 +943,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               sourcePageNumber: sourcePage,
               citationQuote: primaryCitationQuote,
               citations: json.data.citations || [],
+              hasUnsupportedClaims: json.data.hasUnsupportedClaims === true,
             },
           ]);
         }
@@ -1301,7 +1364,14 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <FilePdf size={16} className="text-red-500 flex-shrink-0" weight="fill" />
-                <span className="text-xs md:text-sm font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA] truncate max-w-[220px] md:max-w-[360px]">
+                <span
+                  title={
+                    activeDocument.citation
+                      ? `${readConfidence(activeDocument.citation).warnings.length ? 'Verify this source. ' : ''}${formatCitationLine(activeDocument.citation)}`
+                      : undefined
+                  }
+                  className="text-xs md:text-sm font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA] truncate max-w-[220px] md:max-w-[360px]"
+                >
                   {activeDocument.title || activeDocument.filename}
                 </span>
               </div>
@@ -1426,6 +1496,47 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             <UploadSimple size={14} className="text-slate-500 dark:text-zinc-400" />
             <span>Upload PDF</span>
           </button>
+
+          {activeDocument?.citation && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDocCitationOpen(!docCitationOpen)}
+                title="Show citation"
+                className="p-1.5 rounded-lg text-[#325FEC] dark:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
+              >
+                <BookOpen size={15} weight="bold" />
+              </button>
+              {docCitationOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-lg border border-[#E4ECF6] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-3 shadow-lg text-xs text-slate-700 dark:text-zinc-300">
+                  <p className="leading-relaxed break-words">{formatCitationLine(activeDocument.citation!)}</p>
+                  {readConfidence(activeDocument.citation!).warnings.length ? (
+                    <div className="mt-2 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>
+                      <p className="mt-0.5">{readConfidence(activeDocument.citation!).warnings.join(' ')}</p>
+                    </div>
+                  ) : null}
+                  {readConfidence(activeDocument.citation!).notes.length ? (
+                    <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(activeDocument.citation!).notes.join(' ')}</p>
+                  ) : null}
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(formatCitationLine(activeDocument.citation!));
+                        setDocCitationCopied(true);
+                        setTimeout(() => setDocCitationCopied(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#E4ECF6] dark:bg-[#222226] hover:bg-[#D4DFF0] cursor-pointer"
+                    >
+                      {docCitationCopied ? <Check size={12} /> : <Copy size={12} />}
+                      <span>{docCitationCopied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             onClick={() => setIsAiOpen(!isAiOpen)}
@@ -1677,6 +1788,13 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                           })}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Claim support warning: only when a claim is not backed by a quote in the document */}
+                  {msg.role === 'assistant' && msg.hasUnsupportedClaims && (
+                    <div className="mt-2 p-2 rounded-md bg-[#F8F9FB] dark:bg-[#18181B] border border-[#E2E5EB] dark:border-[#27272A] text-[10.5px] text-amber-600 dark:text-amber-400">
+                      This might not be the source. Please verify.
                     </div>
                   )}
                 </div>
@@ -2065,6 +2183,104 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                     </div>
                   </div>
 
+                  {/* No DOI found: the user confirms the citation details. Nothing is saved until "Save citation". */}
+                  {citationPromptOpen && uploadProgress >= 100 && !isUploadingFile && (
+                    <div className="p-3 rounded-xl bg-[#F8F9FB] dark:bg-[#18181B] border border-[#E2E5EB] dark:border-[#27272A] space-y-2.5">
+                      <div>
+                        <p className="text-[11px] font-semibold text-[#0F172A] dark:text-[#FAFAFA]">No DOI found in this PDF</p>
+                        <p className="text-[10.5px] text-slate-400 dark:text-zinc-500">Enter the citation details, or skip. Only what you enter is saved.</p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono uppercase text-slate-400">Title</label>
+                        <input
+                          type="text"
+                          value={manualTitle}
+                          onChange={(e) => setManualTitle(e.target.value)}
+                          className="w-full bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-xl px-3 py-1.5 text-xs text-[#0F172A] dark:text-[#FAFAFA] outline-none focus:border-[#325FEC]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase text-slate-400">Author</label>
+                          <input
+                            type="text"
+                            value={manualAuthor}
+                            onChange={(e) => setManualAuthor(e.target.value)}
+                            placeholder="Smith, Jones"
+                            className="w-full bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-xl px-3 py-1.5 text-xs text-[#0F172A] dark:text-[#FAFAFA] outline-none focus:border-[#325FEC]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-mono uppercase text-slate-400">Year</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={manualYear}
+                            onChange={(e) => setManualYear(e.target.value)}
+                            placeholder="2024"
+                            className="w-full bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-xl px-3 py-1.5 text-xs text-[#0F172A] dark:text-[#FAFAFA] outline-none focus:border-[#325FEC]"
+                          />
+                        </div>
+                      </div>
+                      {!isValidManualYear(manualYear) && (
+                        <p className="text-[10.5px] text-amber-700 dark:text-amber-400">Year must be four digits, or left empty.</p>
+                      )}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono uppercase text-slate-400">Type</label>
+                        <select
+                          value={manualSourceType}
+                          onChange={(e) => setManualSourceType(e.target.value as 'unknown' | 'journal_article')}
+                          className="w-full bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-xl px-3 py-1.5 text-xs text-[#0F172A] dark:text-[#FAFAFA] outline-none focus:border-[#325FEC]"
+                        >
+                          <option value="unknown">Unknown</option>
+                          <option value="journal_article">Journal article</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCitationPromptOpen(false)}
+                          className="px-3 py-1 rounded-lg text-[11px] font-medium text-slate-600 dark:text-zinc-300 hover:bg-[#E2E5EB] dark:hover:bg-[#27272A] transition-colors cursor-pointer"
+                        >
+                          Skip
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!manualTitle.trim() || !isValidManualYear(manualYear)) return;
+                            setUploadCitation(
+                              buildManualCitation({
+                                title: manualTitle,
+                                author: manualAuthor,
+                                year: manualYear,
+                                sourceType: manualSourceType,
+                              }),
+                            );
+                            setCitationPromptOpen(false);
+                          }}
+                          disabled={!manualTitle.trim() || !isValidManualYear(manualYear)}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-[#E4ECF6] dark:bg-[#27272A] hover:bg-[#D4DFF0] dark:hover:bg-[#33333A] text-[#0F172A] dark:text-[#FAFAFA] disabled:opacity-40 transition-colors cursor-pointer"
+                        >
+                          Save citation
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {uploadCitation?.resolvedFrom === 'manual' && !citationPromptOpen && (
+                    <div className="flex items-start justify-between gap-2 text-[10.5px] text-slate-500 dark:text-zinc-400">
+                      <p className="leading-relaxed break-words">Citation: {formatCitationLine(uploadCitation)}</p>
+                      <button
+                        type="button"
+                        onClick={() => setCitationPromptOpen(true)}
+                        className="flex-shrink-0 text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
+
                   {/* Optional Collapsible Metadata */}
                   <div>
                     <button
@@ -2121,6 +2337,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   setUploadFileName('');
                   setUploadPages([]);
                   setUploadContent('');
+                  setCitationPromptOpen(false);
                 }}
                 className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-zinc-300 hover:bg-[#E2E5EB] dark:hover:bg-[#18181B] transition-colors cursor-pointer"
               >

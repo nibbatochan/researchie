@@ -42,4 +42,13 @@ export interface CitationRecord {
   accessedAt?: string; // ISO 8601, web sources only
   missingFields: string[];
   retracted?: boolean; // undefined = retraction check not run
+  confidence?: Confidence; // set by assessCitation in verify.ts
+  enteredByUser?: boolean; // true when the DOI, PMID or title came from the user, so a refresh keeps the same check
+}
+
+// warnings: the identifier or title the user entered does not match the clip.
+// notes: plain facts about the source (missing fields, preprint, web page, retraction).
+export interface Confidence {
+  warnings: string[];
+  notes: string[];
 }

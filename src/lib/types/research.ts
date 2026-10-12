@@ -109,6 +109,7 @@ export interface ResearchDocument {
   fileUrl?: string;
   fileData?: string;
   tags?: string[];
+  citation?: CitationRecord; // from the PDF's DOI, when one is found at upload
 }
 
 export interface Collaborator {

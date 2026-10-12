@@ -15,7 +15,10 @@ import {
   BookOpen,
   CaretDown,
   CaretUp,
-  ShieldCheck
+  ShieldCheck,
+  ArrowsClockwise,
+  ArrowLeft,
+  X
 } from '@phosphor-icons/react';
 import { ResearchAtom } from '@/lib/types/research';
 import { buildDeepLink } from '@/lib/utils/textFragments';
@@ -23,7 +26,8 @@ import { BlockAtomCard } from './BlockAtomCard';
 import { ImageAtomCard } from './ImageAtomCard';
 import { FormattedAIMessage } from './FormattedAIMessage';
 import type { CitationRecord } from '@/lib/citations/types.ts';
-import { buildWebCitation } from '@/lib/citations/webCitation.ts';
+import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
+import { assessCitation, readConfidence } from '@/lib/citations/verify.ts';
 import {
   candidateLabel,
   formatCitationLine,
@@ -93,12 +97,14 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [isContextExpanded, setIsContextExpanded] = useState(false);
-  const [citation, setCitation] = useState<CitationRecord | undefined>(atom.metadata?.citation);
+  const [citation, setCitation] = useState<CitationRecord | undefined>(() => (atom.metadata?.citation ? refreshWebCitation(atom.metadata.citation) : undefined));
   const [citationInput, setCitationInput] = useState<string | null>(null); // null = input closed
   const [citationBusy, setCitationBusy] = useState(false);
   const [citationError, setCitationError] = useState<string | null>(null);
   const [citationCandidates, setCitationCandidates] = useState<CitationRecord[] | null>(null);
+  const [citationOpen, setCitationOpen] = useState(false); // the citation panel stays open until closed
   const [citationCopied, setCitationCopied] = useState(false);
+  const [citationMismatch, setCitationMismatch] = useState<CitationRecord | null>(null); // a typed or picked source that does not match the clip
 
   const handleAddTag = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -214,7 +220,8 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const runCitationLookup = async (ids: { doi?: string; pmid?: string }) => {
+  // A failed lookup only sets the error: the saved citation is left unchanged.
+  const runCitationLookup = async (ids: { doi?: string; pmid?: string }, userEntered = false) => {
     setCitationBusy(true);
     setCitationError(null);
     try {
@@ -223,9 +230,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
         setCitationError(reasonMessage(out.reason));
         return;
       }
-      await saveCitation(atom.id, out.record);
-      setCitation(out.record);
-      setCitationInput(null);
+      await saveCitationRecord(out.record, userEntered);
     } catch (err) {
       setCitationError(err instanceof Error ? err.message : 'Citation lookup failed.');
     } finally {
@@ -233,12 +238,49 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     }
   };
 
+  const closeCitation = () => {
+    setCitationOpen(false);
+    setCitationInput(null);
+    setCitationCandidates(null);
+    setCitationError(null);
+  };
+
+  // Back returns to the view before: a pick list goes back to the search box, the
+  // search box goes back to the saved citation, and a saved citation collapses.
+  // Refresh clears any failed result and reopens the search box.
+  const refreshCitation = () => {
+    setCitationOpen(true);
+    setCitationMismatch(null);
+    setCitationCandidates(null);
+    setCitationError(null);
+    setCitationInput('');
+  };
+
+  // The saved citation is never changed by Back.
+  const goBack = () => {
+    if (citationMismatch) {
+      setCitationMismatch(null);
+      setCitationError(null);
+      if (!citation) closeCitation();
+      return;
+    }
+    if (citationCandidates) {
+      setCitationCandidates(null);
+      setCitationError(null);
+      return;
+    }
+    setCitationInput(null);
+    setCitationError(null);
+    if (!citation) closeCitation();
+  };
+
   // Order: identifier from an existing citation, then the page's own identifier
-  // read at clip time, then ask the user for one.
+  // read at clip time, then ask the user for one. Also the Refresh action.
   const handleGetCitation = () => {
+    setCitationOpen(true);
     const page = atom.metadata?.pageIdentifiers;
-    if (citation?.doi) return runCitationLookup({ doi: citation.doi });
-    if (citation?.pmid) return runCitationLookup({ pmid: citation.pmid });
+    if (citation?.doi) return runCitationLookup({ doi: citation.doi }, citation.enteredByUser);
+    if (citation?.pmid) return runCitationLookup({ pmid: citation.pmid }, citation.enteredByUser);
     if (page?.doi) return runCitationLookup({ doi: page.doi });
     if (page?.pmid) return runCitationLookup({ pmid: page.pmid });
     setCitationInput('');
@@ -248,7 +290,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const handleCitationSubmit = async () => {
     const text = (citationInput ?? '').trim();
     const ids = parseIdentifier(text);
-    if (ids) return runCitationLookup(ids);
+    if (ids) return runCitationLookup(ids, true);
     if (text.length < 5) {
       setCitationError('Enter a DOI, a PMID or a paper title.');
       return;
@@ -266,11 +308,21 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     }
   };
 
-  // Saves a record the user chose, or one built from the page itself.
-  const saveCitationRecord = async (record: CitationRecord) => {
+  // Saves a record from a lookup, a pick, or the page itself. Every record gets the
+  // check against the clip's title first. userEntered is true for a DOI, PMID or title the user typed or picked.
+  const saveCitationRecord = async (record: CitationRecord, userEntered = false) => {
     try {
-      await saveCitation(atom.id, record);
-      setCitation(record);
+      const checked = assessCitation(record, atom.metadata?.pageInfo?.title || atom.title, { userEntered });
+      // A mismatch the user caused is a failed verify: keep the saved citation and show the warning.
+      if (userEntered && checked.confidence?.warnings.length) {
+        setCitationMismatch(checked);
+        setCitationInput(null);
+        setCitationCandidates(null);
+        setCitationError(null);
+        return;
+      }
+      await saveCitation(atom.id, checked);
+      setCitation(checked);
       setCitationCandidates(null);
       setCitationInput(null);
     } catch (err) {
@@ -349,7 +401,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           </div>
 
           <div 
-            className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0 transition-opacity"
+            className={`${citationOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-center gap-1 text-slate-400 dark:text-zinc-500 flex-shrink-0 transition-opacity`}
             onClick={(e) => e.stopPropagation()}
           >
             {(targetLink || isDocAtom) && (
@@ -362,15 +414,37 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 <ArrowSquareOut size={13} className={hasTextFragment ? 'text-[#325FEC] dark:text-[#518FFF]' : ''} />
               </button>
             )}
-            <button
-              type="button"
-              onClick={handleGetCitation}
-              disabled={citationBusy}
-              className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer disabled:opacity-50"
-              title={citation ? 'Refresh citation' : 'Get citation'}
-            >
-              <BookOpen size={13} />
-            </button>
+            {citationOpen ? (
+              <div className="flex items-center gap-0.5 rounded-md bg-[#E4ECF6] dark:bg-[#222226] p-0.5">
+                <button
+                  type="button"
+                  onClick={refreshCitation}
+                  disabled={citationBusy}
+                  className="p-1 rounded text-[#325FEC] dark:text-[#518FFF] hover:bg-white dark:hover:bg-[#18181B] transition-colors cursor-pointer disabled:opacity-50"
+                  title="Refresh citation"
+                >
+                  <ArrowsClockwise size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={closeCitation}
+                  className="p-1 rounded text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-[#18181B] transition-colors cursor-pointer"
+                  title="Close citation"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={citation ? () => setCitationOpen(true) : handleGetCitation}
+                disabled={citationBusy}
+                className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer disabled:opacity-50"
+                title={citation ? 'Show citation' : 'Get citation'}
+              >
+                <BookOpen size={13} />
+              </button>
+            )}
             <button
               onClick={handleCopyCitation}
               className="p-1 rounded text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
@@ -390,83 +464,133 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           </div>
         </div>
 
-        {(citation || citationInput !== null || citationCandidates || citationError || citationBusy) && (
+        {citationOpen && (
           <div
             className="mt-2 mb-1 rounded-md border border-[#E4ECF6] dark:border-[#27272A] p-2.5 text-[12px] text-slate-700 dark:text-zinc-300"
             onClick={(e) => e.stopPropagation()}
           >
-            {citation && (
-              <>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-zinc-500">
-                    Citation · {citation.status.replace(/_/g, ' ')}
-                  </span>
-                  <button type="button" onClick={handleCopyFormattedCitation} className="text-[11px] text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer">
+            <div className="flex items-center justify-between gap-2 min-h-[18px]">
+              {citationBusy ? (
+                <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-zinc-500">Finding a source…</span>
+              ) : citation && citationInput === null && !citationCandidates ? (
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${readConfidence(citation).warnings.length ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                  {citation.status === 'page_tags' ? 'Web page' : citation.status.replace(/_/g, ' ')}
+                </span>
+              ) : (
+                <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                  {citationMismatch ? 'Verify source' : citationCandidates ? 'Choose a match' : 'Find a source'}
+                </span>
+              )}
+            </div>
+
+            {citationMismatch && (
+              <div className="mt-1.5 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+                <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>
+                <p className="mt-0.5">The source found is "{citationMismatch.title ?? 'untitled'}". {citationMismatch.confidence?.warnings.join(' ')}</p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                  >
+                    <ArrowLeft size={12} />
+                    <span>{citation ? 'Back to saved citation' : 'Back'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {citation && citationInput === null && !citationCandidates && !citationMismatch && (
+              <div className="mt-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
+                  <button type="button" onClick={handleCopyFormattedCitation} className="shrink-0 text-[11px] text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer">
                     {citationCopied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <p className="leading-relaxed break-words">{formatCitationLine(citation)}</p>
-                {citation.missingFields.length > 0 && (
-                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">Incomplete: {citation.missingFields.join(', ')}</p>
-                )}
-                {citation.retracted && (
-                  <p className="mt-1 text-[11px] text-red-500">Retracted. Check before citing.</p>
-                )}
-              </>
-            )}
-            {citationInput !== null && (
-              <div className="flex items-center gap-2 mt-1">
-                <input
-                  value={citationInput}
-                  onChange={(e) => setCitationInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCitationSubmit();
-                  }}
-                  placeholder="DOI, PMID or paper title"
-                  className="flex-1 min-w-0 bg-transparent border-b border-[#E4ECF6] dark:border-[#27272A] text-[12px] focus:outline-none focus:border-[#325FEC] py-0.5"
-                />
-                <button type="button" disabled={citationBusy} onClick={handleCitationSubmit} className="text-[11px] text-[#325FEC] dark:text-[#518FFF] cursor-pointer disabled:opacity-50">
-                  {citationBusy ? 'Looking up…' : 'Look up'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCitationInput(null);
-                    setCitationError(null);
-                    setCitationCandidates(null);
-                  }}
-                  className="text-[11px] text-slate-400 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                {readConfidence(citation).warnings.length ? (
+                  <div className="mt-2 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>
+                    <p className="mt-0.5">{readConfidence(citation).warnings.join(' ')}</p>
+                  </div>
+                ) : null}
+                {readConfidence(citation).notes.length ? (
+                  <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">{readConfidence(citation).notes.join(' ')}</p>
+                ) : null}
               </div>
             )}
-            {citationInput !== null && atom.metadata?.pageInfo?.url && (
-              <button
-                type="button"
-                onClick={() => saveCitationRecord(buildWebCitation(atom.metadata.pageInfo!, new Date().toISOString()))}
-                className="mt-2 text-left text-[11px] text-[#325FEC] dark:text-[#518FFF] cursor-pointer"
-              >
-                Cite this web page instead
-              </button>
+
+            {citationInput !== null && !citationCandidates && !citationMismatch && (
+              <div className="mt-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={citationInput}
+                    onChange={(e) => setCitationInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCitationSubmit();
+                    }}
+                    placeholder="DOI, PMID or paper title"
+                    className="flex-1 min-w-0 bg-transparent border-b border-[#E4ECF6] dark:border-[#27272A] text-[12px] focus:outline-none focus:border-[#325FEC] py-0.5"
+                  />
+                  <button type="button" disabled={citationBusy} onClick={handleCitationSubmit} className="text-[11px] text-[#325FEC] dark:text-[#518FFF] cursor-pointer disabled:opacity-50">
+                    {citationBusy ? 'Looking up…' : 'Look up'}
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                  >
+                    <ArrowLeft size={12} />
+                    <span>{citation ? 'Back to saved citation' : 'Back'}</span>
+                  </button>
+                  {atom.metadata?.pageInfo?.url && (
+                  <button
+                    type="button"
+                    onClick={() => saveCitationRecord(buildWebCitation(atom.metadata.pageInfo!, new Date().toISOString()))}
+                    className="mt-2 text-[11px] text-[#325FEC] dark:text-[#518FFF] hover:opacity-80 cursor-pointer"
+                  >
+                    Cite this web page instead
+                  </button>
+                )}
+                </div>
+              </div>
             )}
+
             {citationCandidates && citationCandidates.length > 0 && (
-              <div className="mt-2 flex flex-col gap-1">
-                <p className="text-[11px] text-slate-400">Pick the match:</p>
+              <div className="mt-1.5 flex flex-col gap-1">
+                <p className="text-[11px] text-slate-500">
+                  {citationCandidates.length > 1 ? 'Several matches. Pick the one your clip came from.' : 'Pick the match.'}
+                </p>
                 {citationCandidates.map((candidate) => (
                   <button
                     key={candidate.doi}
                     type="button"
-                    onClick={() => saveCitationRecord(candidate)}
-                    className="text-left text-[12px] leading-snug p-1.5 rounded hover:bg-[#E4ECF6] dark:hover:bg-[#222226] cursor-pointer"
+                    onClick={() => saveCitationRecord(candidate, true)}
+                    className="text-left text-[12px] leading-snug p-1.5 rounded hover:bg-[#F4F4F5] dark:hover:bg-[#222226] cursor-pointer"
                   >
                     {candidateLabel(candidate)}
                   </button>
                 ))}
               </div>
             )}
-            {citationBusy && citationInput === null && <p className="text-[11px] text-slate-400">Looking up…</p>}
-            {citationError && <p className="mt-1 text-[11px] text-red-500">{citationError}</p>}
+
+            {citationCandidates && citationCandidates.length > 0 && (
+              <div className="mt-1.5">
+                <button
+                    type="button"
+                    onClick={goBack}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                  >
+                    <ArrowLeft size={12} />
+                    <span>Back</span>
+                  </button>
+              </div>
+            )}
+            {citationBusy && citationInput === null && <p className="mt-1.5 text-[11px] text-slate-400">Looking up…</p>}
+            {citationError && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{citationError}</p>}
           </div>
         )}
 

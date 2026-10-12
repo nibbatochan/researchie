@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getProjectDocuments, getDocumentById, addDocument, deleteDocument } from '@/lib/data/sampleDocuments';
 import { ResearchDocument } from '@/lib/types/research';
+import { isCitationRecord } from '@/lib/citations/metadata.ts';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { projectId, title, filename, author, sourceUrl, fileUrl, fileData, content, pages, tags, fileSize } = body;
+    const { projectId, title, filename, author, sourceUrl, fileUrl, fileData, content, pages, tags, fileSize, citation } = body;
 
     if (!projectId || !title) {
       return NextResponse.json(
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
       pages: docPages,
       uploadedAt: new Date().toISOString(),
       tags: tags || ['uploaded-doc'],
+      citation: isCitationRecord(citation) ? citation : undefined,
     };
 
     addDocument(newDoc);

@@ -1,11 +1,15 @@
-// Browser-only. Reads a PDF File with pdf.js and looks for a DOI in its
-// metadata and first page. Same loading pattern as CustomPDFViewer.tsx.
+// Browser-only. Reads a PDF File with pdf.js and returns the DOIs found in its
+// metadata and first page, plus the PDF's title for checking them.
+// Same loading pattern as CustomPDFViewer.tsx.
 
-import { findPdfDoi, type PdfDoiResult, type PdfInfo } from './pdf.ts';
+import { findPdfDois, type PdfInfo } from './pdf.ts';
 
-export type PdfDoiReadResult = PdfDoiResult & { title?: string };
+export interface PdfReadResult {
+  dois: string[];
+  title?: string;
+}
 
-export async function readPdfDoi(file: File): Promise<PdfDoiReadResult> {
+export async function readPdfDois(file: File): Promise<PdfReadResult> {
   const pdfjsLib = await import('pdfjs-dist');
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -21,7 +25,10 @@ export async function readPdfDoi(file: File): Promise<PdfDoiReadResult> {
     const firstPageText = content.items.map((item) => ('str' in item ? item.str : '')).join(' ');
 
     const pdfInfo = (info ?? {}) as PdfInfo;
-    return { ...findPdfDoi(pdfInfo, firstPageText), title: typeof pdfInfo.title === 'string' ? pdfInfo.title : undefined };
+    return {
+      dois: findPdfDois(pdfInfo, firstPageText),
+      title: typeof pdfInfo.title === 'string' ? pdfInfo.title : undefined,
+    };
   } finally {
     await task.destroy();
   }

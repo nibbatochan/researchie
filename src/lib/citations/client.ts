@@ -56,8 +56,8 @@ export function reasonMessage(reason: ResolveResponse['reason']): string {
 export function formatCitationLine(record: CitationRecord): string {
   const vancouver = formatVancouver(record);
   if (vancouver) return vancouver;
-  // No verified style rule for web pages yet, so show the fields in plain order.
-  if (record.sourceType === 'web_page') {
+  // No verified style rule for web pages or unknown sources yet, so show the fields in plain order.
+  if (record.sourceType === 'web_page' || record.sourceType === 'unknown') {
     const parts = [
       record.authors.map((a) => a.family).join(', '),
       record.title,

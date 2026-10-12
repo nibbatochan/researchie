@@ -87,3 +87,9 @@
 - **Provisional 3:** Automated periodic bi-directional webhook sync for Notion.
 
 
+
+### Decision 8: Confidence Check on Every Saved Citation
+- **Context**: A wrong citation causes problems later. Clips can come from a page whose DOI tag belongs to another paper, a PDF can list several DOIs on its first page, a title search can return a preprint or a similar paper, and some records have missing fields or a retraction notice.
+- **Decision**: Every citation is checked before it is saved (`src/lib/citations/verify.ts`). It is "high" only when its title matches the clip, PDF or search title, it is a journal article, and no other concern applies. Anything else is marked "check", and the card and PDF panel show "This might not be the source. Please verify." with the reasons. PDFs use the DOI whose title matches the PDF's title, and warn when more than one DOI resolves.
+- **Rationale**: The aim is near-certainty. When certainty is not reached, the user is told, rather than shown a confident-looking citation.
+- **Limits**: Title matching can still accept a wrong paper that shares a title. Citations saved before this decision have no check until they are refreshed.

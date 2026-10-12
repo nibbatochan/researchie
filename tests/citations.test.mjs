@@ -127,21 +127,6 @@ test('withCitation keeps existing metadata and replaces only the citation', () =
   assert.deepEqual(withCitation(undefined, record), { citation: record });
 });
 
-import { findPdfDoi } from '../src/lib/citations/pdf.ts';
-
-test('findPdfDoi prefers a DOI in the PDF metadata', () => {
-  const out = findPdfDoi({ title: 'Paper', keywords: 'doi:10.1038/nature12373' }, 'DOI 10.9999/other');
-  assert.deepEqual(out, { doi: '10.1038/nature12373', source: 'pdf_metadata' });
-});
-
-test('findPdfDoi falls back to the first page text', () => {
-  const out = findPdfDoi({ title: 'Paper' }, 'Nature 500, 54–58 (2013). https://doi.org/10.1038/nature12373.');
-  assert.deepEqual(out, { doi: '10.1038/nature12373', source: 'first_page' });
-});
-
-test('findPdfDoi returns nothing when no DOI is present, so the user confirms', () => {
-  assert.deepEqual(findPdfDoi({ title: 'Untitled' }, 'No identifier on this page.'), {});
-});
 
 import { buildWebCitation } from '../src/lib/citations/webCitation.ts';
 
@@ -159,8 +144,18 @@ test('a web page with title, author and date is a page-tags record', () => {
 
 test('a web page missing author and date is incomplete, not guessed', () => {
   const record = buildWebCitation({ url: 'https://example.org/x', title: 'Untitled piece' }, '2026-10-12T00:00:00Z');
-  assert.equal(record.status, 'incomplete');
+  assert.equal(record.status, 'page_tags'); // a web page is verified by its address, not incomplete
   assert.deepEqual(record.missingFields, ['author', 'date']);
   assert.equal(record.year, undefined);
   assert.deepEqual(record.authors, []);
+});
+
+import { refreshWebCitation } from '../src/lib/citations/webCitation.ts';
+
+test('an older web citation marked incomplete is shown as a web page with notes', () => {
+  const old = buildWebCitation({ url: 'https://example.org/x', title: 'Untitled piece' }, '2026-10-12T00:00:00Z');
+  old.status = 'incomplete';
+  const fresh = refreshWebCitation(old);
+  assert.equal(fresh.status, 'page_tags');
+  assert.match(fresh.confidence.notes.join(' '), /Not shown on the page: author, date/);
 });

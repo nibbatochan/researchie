@@ -1,7 +1,9 @@
-// Citation for an ordinary web page with no DOI or PMID. It is built from the
-// page's own tags and marked as a page source, not a verified record.
+// Citation for a web page from a known URL. The page is verified by its address,
+// so the status stays page_tags. Author or date missing from the page is a note
+// (see verify.ts), not an incomplete citation.
 
 import type { CitationRecord } from './types.ts';
+import { assessCitation } from './verify.ts';
 
 export interface PageInfo {
   url: string;
@@ -19,7 +21,7 @@ export function buildWebCitation(info: PageInfo, accessedAt: string): CitationRe
 
   const yearMatch = info.published?.match(/\b(\d{4})\b/);
   return {
-    status: missingFields.length > 0 ? 'incomplete' : 'page_tags',
+    status: 'page_tags',
     sourceType: 'web_page',
     resolvedFrom: 'page_tags',
     title: info.title,
@@ -30,4 +32,11 @@ export function buildWebCitation(info: PageInfo, accessedAt: string): CitationRe
     accessedAt,
     missingFields,
   };
+}
+
+// Web citations saved before the status fix carry 'incomplete'. Rebuild their status
+// and notes for display, so no saved record has to be rewritten.
+export function refreshWebCitation(record: CitationRecord): CitationRecord {
+  if (record.sourceType !== 'web_page') return record;
+  return assessCitation({ ...record, status: 'page_tags' });
 }
