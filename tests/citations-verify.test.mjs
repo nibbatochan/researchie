@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { titlesMatch, assessCitation } from '../src/lib/citations/verify.ts';
+import { titlesMatch, assessCitation, isRetracted } from '../src/lib/citations/verify.ts';
 import { findPdfDois } from '../src/lib/citations/pdf.ts';
 
 const journal = (title, extra = {}) => ({
@@ -55,13 +55,16 @@ test('a web page from a known URL is a note, never a warning', () => {
   assert.match(out.confidence.notes.join(' '), /verified by its address/);
 });
 
-test('missing fields, preprints and retraction notices are notes', () => {
+test('missing fields and preprints are notes; a retraction is not a verify warning or note', () => {
   const out = assessCitation(journal('X', { status: 'incomplete', missingFields: ['pages'], sourceType: 'preprint', retracted: true }), 'X', USER);
   assert.deepEqual(out.confidence.warnings, []);
   const text = out.confidence.notes.join(' ');
   assert.match(text, /Missing: pages/);
   assert.match(text, /Preprint/);
-  assert.match(text, /retraction notice/);
+  assert.doesNotMatch(text, /retract/i); // shown as its own amber box, see isRetracted
+  assert.equal(isRetracted(out), true);
+  assert.equal(isRetracted({ ...out, retracted: false }), false);
+  assert.equal(isRetracted({ ...out, retracted: undefined }), false);
 });
 
 test('a PubMed record without a retraction check is a note', () => {

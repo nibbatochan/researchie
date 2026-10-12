@@ -23,6 +23,13 @@ export function titlesMatch(a: string, b: string): boolean {
   return long.includes(short) && short.length >= 0.8 * long.length;
 }
 
+/** Shown in amber, apart from the verify warnings: the source itself is withdrawn. */
+export const RETRACTED_MESSAGE = 'This paper has been retracted. Do not cite it as valid evidence.';
+
+export function isRetracted(record: CitationRecord | null | undefined): boolean {
+  return record?.retracted === true;
+}
+
 export function assessCitation(
   record: CitationRecord,
   expectedTitle?: string,
@@ -43,7 +50,6 @@ export function assessCitation(
   else if (record.status === 'manual' && record.missingFields.length > 0) notes.push(`Missing: ${record.missingFields.join(', ')}.`);
   if (record.sourceType === 'preprint') notes.push('Preprint. A published version may differ.');
   if (record.sourceType === 'unknown') notes.push('The source type could not be identified.');
-  if (record.retracted === true) notes.push('A retraction notice was found.');
   if (record.resolvedFrom === 'pubmed' && record.retracted === undefined) notes.push('The retraction check did not run.');
 
   const confidence: Confidence = { warnings, notes };

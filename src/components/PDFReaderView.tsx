@@ -39,7 +39,7 @@ import { ResearchDocument, AtomType } from '@/lib/types/research';
 import type { CitationRecord } from '@/lib/citations/types.ts';
 import { formatCitationLine, resolveCitation, citationText, type CitationCopyKind } from '@/lib/citations/client.ts';
 import { readPdfDois } from '@/lib/citations/pdfReader.ts';
-import { assessCitation, readConfidence, titlesMatch } from '@/lib/citations/verify.ts';
+import { assessCitation, readConfidence, titlesMatch, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
 import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
 import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
@@ -1450,7 +1450,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 <span
                   title={
                     activeDocument.citation
-                      ? `${readConfidence(activeDocument.citation).warnings.length ? 'Verify this source. ' : ''}${formatCitationLine(activeDocument.citation)}`
+                      ? `${isRetracted(activeDocument.citation) ? 'RETRACTED. ' : ''}${readConfidence(activeDocument.citation).warnings.length ? 'Verify this source. ' : ''}${formatCitationLine(activeDocument.citation)}`
                       : undefined
                   }
                   className="text-xs md:text-sm font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA] truncate max-w-[220px] md:max-w-[360px]"
@@ -1593,6 +1593,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               {docCitationOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-lg border border-[#E4ECF6] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-3 shadow-lg text-xs text-slate-700 dark:text-zinc-300">
                   <p className="leading-relaxed break-words">{formatCitationLine(activeDocument.citation!)}</p>
+                  {isRetracted(activeDocument.citation) ? (
+                    <div data-testid="doc-retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
+                      <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>
+                    </div>
+                  ) : null}
                   {readConfidence(activeDocument.citation!).warnings.length ? (
                     <div className="mt-2 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
                       <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>

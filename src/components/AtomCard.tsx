@@ -27,7 +27,7 @@ import { ImageAtomCard } from './ImageAtomCard';
 import { FormattedAIMessage } from './FormattedAIMessage';
 import type { CitationRecord } from '@/lib/citations/types.ts';
 import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
-import { assessCitation, readConfidence } from '@/lib/citations/verify.ts';
+import { assessCitation, readConfidence, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
 import { formatCitationFacts } from '@/lib/citations/facts.ts';
 import {
   candidateLabel,
@@ -477,7 +477,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-zinc-500">Finding a source…</span>
               ) : citation && citationInput === null && !citationCandidates ? (
                 <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400">
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${readConfidence(citation).warnings.length ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${readConfidence(citation).warnings.length || isRetracted(citation) ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                   {citation.status === 'page_tags' ? 'Web page' : citation.status.replace(/_/g, ' ')}
                 </span>
               ) : (
@@ -522,6 +522,11 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                     ))}
                   </div>
                 </div>
+                {isRetracted(citation) ? (
+                  <div data-testid="retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
+                    <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>
+                  </div>
+                ) : null}
                 {readConfidence(citation).warnings.length ? (
                   <div className="mt-2 rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
                     <p className="font-medium text-amber-700 dark:text-amber-400">This might not be the source. Please verify.</p>
