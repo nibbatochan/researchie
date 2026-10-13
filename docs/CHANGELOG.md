@@ -1,5 +1,14 @@
 # Version Changelog
 
+## [v1.7.8] — 2026-10-13 (Stable browser tests)
+### Fixed
+- **`e2e/07` and `e2e/08` no longer flake.** They failed 4 to 11 times out of 14 from run to run. Cause: they never chose a project and clicked "Resume Reading" on whichever document the app listed first (documents are shown per project, newest first), and they checked for the button without waiting for it. So some runs opened a one-page placeholder PDF or no PDF. They now call one shared helper, `e2e/helpers/open-reader.ts`, that picks the project and the document by name and waits for each step (the same steps `e2e/09` and `e2e/10` already used, which never flaked).
+- **Result:** 14 of 14 on the first run and 28 of 28 over two repeats (was 9 of 14).
+- `e2e/03` "switches to Spatial Canvas mode" failed once in about 13 runs because the canvas took longer than the 5-second default to draw; it now waits up to 20 seconds. Passes 4 of 4 and 12 of 12 over three repeats.
+- Not run in this check: `e2e/06`, which calls live Groq and asserts the model's exact wording.
+
+---
+
 ## [v1.7.7] — 2026-10-13 (AMA style, PDF mismatch warning)
 ### Added & Enhanced
 - **AMA 11th edition** (`ama.ts`) with an AMA tab beside Vancouver and APA. Verified against the JAMA "Instructions for Authors" reference section (JAMA is AMA's journal): journal article (`Authors. Title. Journal. 2026;335(3):255–266. doi:...`), web page (`Organisation. Title. URL. Accessed January 30, 2012.`), and the author rule (all authors up to 6; if more than 6, the first 3 then "et al"). Preprints, datasets, book chapters and reports have no example on that page, so they return nothing and fall back to the plain line. Plain text, no italics. The online-first "[published online ...]" form is not done.

@@ -18,8 +18,9 @@ test.describe('3. 2D Spatial Canvas & Whiteboard Suite', () => {
       await page.waitForTimeout(500);
 
       // Verify canvas artboard surface is present
+      // The canvas can take a few seconds to draw on a cold start, so wait longer than the 5s default.
       const artboard = page.locator('.canvas-artboard, [class*="canvas"]').first();
-      await expect(artboard).toBeVisible();
+      await expect(artboard).toBeVisible({ timeout: 20000 });
     }
   });
 

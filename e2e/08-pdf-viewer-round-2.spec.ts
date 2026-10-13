@@ -1,28 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { openFixtureReader } from './helpers/open-reader';
 
 test.describe('PDF Viewer Round 2 - Bugs 1 to 7 Test Suite', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to root
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(600);
-
-    // Switch to Docs / Reader mode
-    const docsBtn = page.locator('button[title="Docs"], button:has-text("Document Library")').first();
-    if (await docsBtn.isVisible()) {
-      await docsBtn.click();
-      await page.waitForTimeout(500);
-    }
-
-    // If on Document Vault, click "Resume Reading" or document row
-    const resumeBtn = page.locator('button:has-text("Resume Reading"), tr:has-text("Just Enough Research"), button:has-text("Read")').first();
-    if (await resumeBtn.isVisible().catch(() => false)) {
-      await resumeBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    // Wait for the active PDF page wrapper to mount
-    const pageWrapper = page.locator('.pdf-page-wrapper, [id^="pdf-page-"]').first();
-    await expect(pageWrapper).toBeVisible({ timeout: 20000 });
+    // Same project and document every run (see helpers/open-reader.ts).
+    await openFixtureReader(page);
   });
 
   // Bug 1: Selection accuracy — drag over text without drifting left/right or to previous line

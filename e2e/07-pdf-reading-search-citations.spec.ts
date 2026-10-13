@@ -1,23 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { openFixtureReader } from './helpers/open-reader';
 
 test.describe('07. PDF Reading, Clipping, Search & Assistant Citations Suite', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(800);
-
-    // Switch to Docs / Reader mode
-    const docsBtn = page.locator('button[title="Docs"], button:has-text("Document Library")').first();
-    if (await docsBtn.isVisible()) {
-      await docsBtn.click();
-      await page.waitForTimeout(600);
-    }
-
-    // If on Document Vault, click "Resume Reading" to enter active reader canvas
-    const resumeBtn = page.locator('button:has-text("Resume Reading")').first();
-    if (await resumeBtn.isVisible()) {
-      await resumeBtn.click();
-      await page.waitForTimeout(600);
-    }
+    // Same project and document every run (see helpers/open-reader.ts).
+    await openFixtureReader(page);
   });
 
   test('Req 1 & 10: PDF document library loads and displays pages', async ({ page }) => {
