@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openFixtureReader } from './helpers/open-reader';
+import { removeReaderClipsSavedByTheseTests } from './helpers/cleanup';
 
 test.describe('PDF Viewer Round 2 - Bugs 1 to 7 Test Suite', () => {
+  removeReaderClipsSavedByTheseTests();
   test.beforeEach(async ({ page }) => {
     // Same project and document every run (see helpers/open-reader.ts).
     await openFixtureReader(page);

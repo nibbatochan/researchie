@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { removeReaderClipsSavedByTheseTests } from './helpers/cleanup';
 
 // Document Assistant behaviour: icon placement, one scroll per click, click-away clearing,
 // one saved highlight at a time, a resizable panel. Answers are mocked so no model is called.
@@ -59,6 +60,7 @@ async function ask(page: Page, question = 'Why did the Segway fail?') {
 }
 
 test.describe('10. Document Assistant UI', () => {
+  removeReaderClipsSavedByTheseTests();
   test('each link icon sits on the line of the sentence it supports', async ({ page }) => {
     await mockQna(page, [
       answer('The Segway was slower than a car. It cost ten times a bicycle. Nothing else is claimed here.', [

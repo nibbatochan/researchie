@@ -1,5 +1,18 @@
 # Version Changelog
 
+## [v1.7.10] — 2026-10-13 (Test clean-up and housekeeping)
+### Fixed & Enhanced
+- **Browser tests clean up their clips.** `e2e/07`, `e2e/08` and `e2e/10` save clips by hand in the "Artificial Intelligence & RAG" project and left a copy behind on every run (22 reader clips had piled up). A new helper, `e2e/helpers/cleanup.ts`, deletes the reader clips saved since each suite started and never touches older ones. Checked: with the cleanup off one test adds 2 clips (22 to 24); with it on, 20 passing tests leave the count unchanged. `KEEP_TEST_CLIPS=1` turns the cleanup off when you want to inspect a run.
+- **Stopped tracking the local Cognee graph files** (`.cognee-graph-*.json`), as with the documents store. They stay on disk and are in `.gitignore`.
+- **`package.json` version** is now 1.7.9 (it said 1.2.0).
+- Already done earlier, no change needed: `InlineClipInserter.tsx` and `lib/cn.ts` were deleted in the 2026-10-09 clean-up, and `lucide-react` was replaced by Phosphor and removed from `package.json`. `SCOPE.md` listed these as open by mistake.
+- Deleted the local backup branch `backup/pre-scrub-2026-10-13` (it held the old history with the revoked key).
+
+### Known Issues & Open Work
+- 15 older duplicate test clips remain in the project (5 each of "Brief books for people who make websites", "Foreword by Jeffrey Zeldman" and "No"). They need the owner's yes before deletion.
+
+---
+
 ## [v1.7.9] — 2026-10-13 (Extension Undo fix)
 ### Fixed
 - **Undo on the clip toast went to the wrong port.** After a clip, the in-page toast offers "Undo (5s)". `content.js`, `blockPicker.js` and `cropper.js` sent the delete to `http://localhost:3000`, but the app runs on 3001, and a web page's CORS rules would also block the call. The toast then vanished and the clip stayed in the timeline. The three scripts now send a `DELETE_ATOM` message to the background script, which already finds the real server address (`getWorkingApiBase`) and is not limited by CORS. If the delete fails, the toast now says "Could not undo. Delete it from the timeline." instead of disappearing.
