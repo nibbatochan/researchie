@@ -530,13 +530,15 @@
       undoBtn?.addEventListener('click', async () => {
         clearInterval(timer);
         try {
-          await fetch(`http://localhost:3000/api/atoms?id=${encodeURIComponent(atomId)}`, {
-            method: 'DELETE',
+          const result = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ action: 'DELETE_ATOM', atomId }, (res) => resolve(res || { success: false }));
           });
+          if (!result.success) throw new Error('delete failed');
           toast.innerHTML = `<span style="color:#8B949E;">Undo successful.</span>`;
           setTimeout(() => toast.remove(), 1000);
         } catch {
-          toast.remove();
+          toast.innerHTML = `<span style="color:#F85149;">Could not undo. Delete it from the timeline.</span>`;
+          setTimeout(() => toast.remove(), 2500);
         }
       });
     }

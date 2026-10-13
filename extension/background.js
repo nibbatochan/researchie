@@ -236,6 +236,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     saveAtomToPlatform(message.payload).then((res) => sendResponse(res));
     return true;
   }
+  if (message.action === 'DELETE_ATOM') {
+    // Undo on the clip toast. The page scripts cannot reach the app themselves: they hard-coded
+    // port 3000 and a web page's CORS rules apply to them. The background knows the real address.
+    (async () => {
+      try {
+        const apiBase = await getWorkingApiBase();
+        const res = await fetch(`${apiBase}/atoms?id=${encodeURIComponent(message.atomId)}`, { method: 'DELETE' });
+        sendResponse({ success: res.ok });
+      } catch (err) {
+        sendResponse({ success: false, error: String((err && err.message) || err) });
+      }
+    })();
+    return true;
+  }
   if (message.action === 'AI_SUMMARIZE') {
     (async () => {
       try {

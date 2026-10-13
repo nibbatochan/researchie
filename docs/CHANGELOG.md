@@ -1,5 +1,12 @@
 # Version Changelog
 
+## [v1.7.9] — 2026-10-13 (Extension Undo fix)
+### Fixed
+- **Undo on the clip toast went to the wrong port.** After a clip, the in-page toast offers "Undo (5s)". `content.js`, `blockPicker.js` and `cropper.js` sent the delete to `http://localhost:3000`, but the app runs on 3001, and a web page's CORS rules would also block the call. The toast then vanished and the clip stayed in the timeline. The three scripts now send a `DELETE_ATOM` message to the background script, which already finds the real server address (`getWorkingApiBase`) and is not limited by CORS. If the delete fails, the toast now says "Could not undo. Delete it from the timeline." instead of disappearing.
+- Syntax-checked with `node --check`. **Not yet run in Chrome:** reload the extension in `chrome://extensions` and try Undo on a real clip.
+
+---
+
 ## [v1.7.8] — 2026-10-13 (Stable browser tests)
 ### Fixed
 - **`e2e/07` and `e2e/08` no longer flake.** They failed 4 to 11 times out of 14 from run to run. Cause: they never chose a project and clicked "Resume Reading" on whichever document the app listed first (documents are shown per project, newest first), and they checked for the button without waiting for it. So some runs opened a one-page placeholder PDF or no PDF. They now call one shared helper, `e2e/helpers/open-reader.ts`, that picks the project and the document by name and waits for each step (the same steps `e2e/09` and `e2e/10` already used, which never flaked).
