@@ -3,7 +3,7 @@
 ## [v1.7.9] — 2026-10-13 (Extension Undo fix)
 ### Fixed
 - **Undo on the clip toast went to the wrong port.** After a clip, the in-page toast offers "Undo (5s)". `content.js`, `blockPicker.js` and `cropper.js` sent the delete to `http://localhost:3000`, but the app runs on 3001, and a web page's CORS rules would also block the call. The toast then vanished and the clip stayed in the timeline. The three scripts now send a `DELETE_ATOM` message to the background script, which already finds the real server address (`getWorkingApiBase`) and is not limited by CORS. If the delete fails, the toast now says "Could not undo. Delete it from the timeline." instead of disappearing.
-- Syntax-checked with `node --check`. **Not yet run in Chrome:** reload the extension in `chrome://extensions` and try Undo on a real clip.
+- Syntax-checked with `node --check`, then **verified live in Chrome on 2026-10-13**: Undo removed the clip. The same live test confirmed the extension captures the page DOI and title from a real PLoS ONE article and the citation resolves to "verified doi" with no typing.
 
 ---
 
