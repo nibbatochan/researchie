@@ -8,8 +8,7 @@
 - Already done earlier, no change needed: `InlineClipInserter.tsx` and `lib/cn.ts` were deleted in the 2026-10-09 clean-up, and `lucide-react` was replaced by Phosphor and removed from `package.json`. `SCOPE.md` listed these as open by mistake.
 - Deleted the local backup branch `backup/pre-scrub-2026-10-13` (it held the old history with the revoked key).
 
-### Known Issues & Open Work
-- 15 older duplicate test clips remain in the project (5 each of "Brief books for people who make websites", "Foreword by Jeffrey Zeldman" and "No"). They need the owner's yes before deletion.
+- **Deleted the 15 older duplicate test clips** (5 each of "Brief books for people who make websites", "Foreword by Jeffrey Zeldman" and "No") from "Artificial Intelligence & RAG", with the owner's yes. The 7 remaining reader clips are the owner's own.
 
 ---
 
