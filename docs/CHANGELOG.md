@@ -1,5 +1,24 @@
 # Version Changelog
 
+## [v1.8.0] — 2026-10-14 (PDF research report export)
+### Added & Enhanced
+- **PDF export.** A new **PDF** tab in the Export dialog saves a real `.pdf` file of a project: cover, clickable contents, then the clips as cards (syntheses and notes, quotes, web blocks and tables, images with OCR text, links), a numbered bibliography, and a colour key. Every page after the cover has a running header and "Page n of N". Works for the whole project or only the selected clips.
+- **Options in the dialog:** which sections to include (with their counts), citation style (Vancouver, APA 7 or AMA 11; starts from the style last chosen in the citation box), your notes, images, and verification flags. A summary shows clips, sources and flagged clips before you download.
+- **Each clip card** shows its type tag, title, text, source line (site, page, date), a `[n]` marker linking to the bibliography, tags, your notes, flags (retracted, verify source, could not be checked), and an "Open exact passage" link when the clip has one.
+- **Design system.** White page, White 90 cards, White 70 borders; JetBrains Mono for headings, citations, DOIs and dates, Figtree for reading text. Each semantic colour has one job: Royal Blue for section rules, Citation Blue for every link, AI Purple for AI notes, Sky for web blocks, Green for verified, Amber for retracted or verify, Red for could not be checked. Sky, green and amber fail the 4.5 contrast minimum as small text on white (4.1, 3.8, 3.2), so they colour shapes (side bars, dots) and the words beside them stay in ink.
+- **Characters are never dropped silently.** Greek letters, math signs, arrows, sub and superscripts, accented letters and Cyrillic draw through a fallback font (DejaVu Sans); special hyphens become plain hyphens. Characters no font here has (for example Chinese) show as a visible mark, and the dialog lists them before you download.
+- **Built with:** `@react-pdf/renderer` (loaded only when you export), fonts in `public/fonts` (Figtree and JetBrains Mono, SIL OFL; DejaVu Sans, its own free licence), the report data builder `src/lib/export/pdf/pdfReport.ts`, and the drawing code `ReportDocument.ts`.
+- **Tests:** 154 unit tests (new: `pdf-report`, `pdf-render`, `pdf-glyphs`) and `e2e/13-pdf-export.spec.ts`, which downloads a real PDF and reads it back (sections, citations in two styles, flags, notes, symbols, switched-off sections).
+
+### Known Issues & Open Work
+- The contents page has clickable links but no page numbers.
+- Bibliography entries are numbered in order of first citation for every style. APA normally uses an alphabetical list and author-date citations; that is not done.
+- An image from another website is skipped if the browser cannot load it without cross-site permission. Images saved inside Researchie are fine.
+- Chinese, Japanese, Korean and other scripts DejaVu lacks print as a replacement mark.
+- Large reports with images are big: the 77-clip "Artificial Intelligence & RAG" project makes a 69-page PDF of about 4 MB in about 18 seconds. Turn images off for a smaller file.
+
+---
+
 ## [v1.7.10] — 2026-10-13 (Test clean-up and housekeeping)
 ### Fixed & Enhanced
 - **Browser tests clean up their clips.** `e2e/07`, `e2e/08` and `e2e/10` save clips by hand in the "Artificial Intelligence & RAG" project and left a copy behind on every run (22 reader clips had piled up). A new helper, `e2e/helpers/cleanup.ts`, deletes the reader clips saved since each suite started and never touches older ones. Checked: with the cleanup off one test adds 2 clips (22 to 24); with it on, 20 passing tests leave the count unchanged. `KEEP_TEST_CLIPS=1` turns the cleanup off when you want to inspect a run.

@@ -25,7 +25,7 @@
 | **OCR & Search Engine** | ✅ Active | Automatic background Tesseract OCR on imported images/clips, fully searchable OCR text across platform, search match highlighting with auto-expand in detailed view. |
 | **AI Synthesis Suite** | ✅ Active | Grounded Doc Assistant with page citations, Timeline AI Assistant (~380px sidebar), PRD / Synthesis generator, and Semantic Vector Search (`/api/atoms/search`). |
 | **Workspaces & Views** | ✅ Active | 3 core workspace modes: **Stream / Feed**, **Spatial Canvas**, and **Document Reader**. Mode selection is preserved across sub-project switches. |
-| **Export Engine** | ✅ Active | Export to Obsidian Vault (.zip / .md), Notion (API Push / .md), Markdown (`.md`), Citations (APA / BibTeX `.bib`), and Raw JSON. |
+| **Export Engine** | ✅ Active | Export to Obsidian Vault (.zip / .md), Notion (API Push / .md), Markdown (`.md`), Citations (APA / BibTeX `.bib`), Raw JSON, and a **PDF research report** (v1.8.0: cover, contents, clip cards, numbered bibliography in Vancouver, APA or AMA, colour key; code in `src/lib/export/pdf/`, panel `src/components/PdfExportPanel.tsx`). |
 
 ---
 

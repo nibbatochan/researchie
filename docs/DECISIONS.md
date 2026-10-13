@@ -68,6 +68,12 @@
 - **Decision**: `serverExternalPackages: ['pdf-parse']` in `next.config.mjs`. A PLoS paper then parsed to 15 real pages with the abstract on page 1.
 - **Limits**: Documents uploaded before this change hold placeholder text and must be uploaded again. The parse route still swallows its own errors and falls back to placeholder text; surfacing that error is open work.
 
+### Decision 14: PDF Export Is a Real File Built in the Browser, in Our Design System
+- **Context**: The app exported only text formats. A researcher needs a document to hand to a supervisor or attach to a draft, with sources attached.
+- **Decision**: `@react-pdf/renderer`, loaded only when the user exports, draws a report from a plain data model (`ReportModel`). The model is built by a pure function (`pdfReport.ts`) and drawn by `ReportDocument.ts`, so each half is tested in Node without a browser. Chosen over "print to PDF" because it gives one click, exact layout, clickable links, bookmarks and page numbers on every browser. Cover is white with a blue rule (prints cheaply). Design-system tokens live in `theme.ts`; each semantic colour has one job, and the three colours below 4.5 contrast on white colour shapes only.
+- **Decision**: Text is never dropped silently. The two bundled fonts cover Latin only, so any character outside them is drawn in DejaVu Sans (Greek, math, arrows, sub and superscripts, Latin-extended, Cyrillic), and characters no font has show as a visible mark and are listed in the dialog first. A real export showed the problem: "data‑driven" lost its hyphen and "μm" would have become "m".
+- **Limits**: No page numbers on the contents page. The bibliography is numbered for every style (no author-date citations). The mono font's ligature table was emptied because its Latin subset crashed on "//" and "--"; this is noted in `public/fonts/LICENSE.txt`.
+
 ---
 
 ## Molecule Build System Log

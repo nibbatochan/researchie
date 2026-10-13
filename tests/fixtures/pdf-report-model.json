@@ -1,0 +1,381 @@
+{
+  "cover": {
+    "title": "Physical activity and cardiovascular risk: a research report",
+    "description": "Clips, quotes and AI summaries gathered while reading the Möller cohort and the Ramírez follow-up study, with the open questions that remain.",
+    "generatedAt": "2026-10-13T08:00:00Z",
+    "clipCount": 14,
+    "sourceCount": 4,
+    "styleLabel": "Vancouver"
+  },
+  "sections": [
+    {
+      "key": "syntheses",
+      "title": "Syntheses and notes",
+      "items": [
+        {
+          "tags": [
+            "cardiology",
+            "summary"
+          ],
+          "flags": [],
+          "isAi": true,
+          "body": "The cohort study followed 4,812 adults for a median of 6.4 years. Participants who reported more than 150 minutes of moderate activity each week had a lower risk of cardiovascular events than those who reported none, and the gap widened after adjustment for age, smoking and baseline blood pressure.\n\nThe authors caution that physical activity was self-reported at enrolment only. People who change their habits during follow-up are counted in their original group, which probably understates the true effect. They also note that the participants were recruited from primary care clinics in two regions, so the findings may not carry over to other populations.\n\nIn a sensitivity analysis that excluded the first two years of follow-up, the association was slightly weaker but still clear. The authors read this as evidence against reverse causation, where early illness reduces activity and also raises risk.",
+          "id": "s1",
+          "kind": "note",
+          "title": "Activity and heart risk: what the evidence says",
+          "citationNumber": 1,
+          "source": {
+            "label": "AI summary of 3 clips"
+          },
+          "capturedAt": "2026-09-28T10:00:00Z"
+        },
+        {
+          "tags": [
+            "open questions"
+          ],
+          "flags": [
+            {
+              "kind": "verify",
+              "text": "Verify source: the trial protocol was amended after enrolment began."
+            }
+          ],
+          "isAi": true,
+          "body": "Three questions remain open: whether the effect holds in adults over 75, whether the dose response is linear, and whether wearable data would change the picture.\n\nA second round of analysis by Ramírez and colleagues is due next year.",
+          "id": "s2",
+          "kind": "note",
+          "title": "Open questions from the Möller trial",
+          "capturedAt": "2026-09-29T08:30:00Z"
+        },
+        {
+          "tags": [
+            "methods"
+          ],
+          "flags": [],
+          "isAi": false,
+          "body": "The sample is large enough for the main result, but the subgroup of adults over 75 has only 212 people.",
+          "id": "s3",
+          "kind": "note",
+          "title": "My reading notes on sample size",
+          "notes": "Ask Dr. Ramírez whether the subgroup was pre-specified. If not, I should treat it as exploratory.",
+          "capturedAt": "2026-09-30T14:15:00Z"
+        }
+      ]
+    },
+    {
+      "key": "quotes",
+      "title": "Quotes",
+      "items": [
+        {
+          "tags": [
+            "dose",
+            "hazard ratio"
+          ],
+          "flags": [],
+          "isAi": false,
+          "body": "“Participants reporting more than 150 minutes of moderate activity per week had a hazard ratio of 0.78 – a 22% lower risk – compared with inactive participants.”\n\n“The association persisted after adjustment.”",
+          "id": "q1",
+          "kind": "quote",
+          "title": "“More than 150 minutes a week”",
+          "source": {
+            "label": "Möller et al., European Heart Journal",
+            "url": "https://example.org/moller-2024",
+            "page": 7
+          },
+          "citationNumber": 1,
+          "capturedAt": "2026-09-12T09:20:00Z",
+          "deepLink": "https://example.org/moller-2024#:~:text=more%20than%20150%20minutes",
+          "notes": "This is the headline figure. Check the confidence interval on page 8 before quoting it."
+        },
+        {
+          "tags": [],
+          "flags": [
+            {
+              "kind": "retracted",
+              "text": "Retracted: the journal withdrew this paper on 2026-03-02. Do not rely on it without reading the notice."
+            }
+          ],
+          "isAi": false,
+          "body": "Physical activity was self-reported at enrolment only, and participants who changed habits during follow-up remain in their original group.",
+          "id": "q2",
+          "kind": "quote",
+          "title": "On self-reported activity",
+          "source": {
+            "label": "Möller et al., European Heart Journal",
+            "url": "https://example.org/moller-2024",
+            "page": 11
+          },
+          "citationNumber": 1,
+          "capturedAt": "2026-09-12T09:41:00Z"
+        },
+        {
+          "tags": [
+            "older adults"
+          ],
+          "flags": [
+            {
+              "kind": "verify",
+              "text": "Verify source: the DOI resolves to a different title."
+            }
+          ],
+          "isAi": false,
+          "body": "The cohort study followed 4,812 adults for a median of 6.4 years. Participants who reported more than 150 minutes of moderate activity each week had a lower risk of cardiovascular events than those who reported none, and the gap widened after adjustment for age, smoking and baseline blood pressure.\n\nThe authors caution that physical activity was self-reported at enrolment only. People who change their habits during follow-up are counted in their original group, which probably understates the true effect. They also note that the participants were recruited from primary care clinics in two regions, so the findings may not carry over to other populations.",
+          "id": "q3",
+          "kind": "quote",
+          "title": "Dose response in older adults",
+          "source": {
+            "label": "Ramírez & Okafor, Lancet Healthy Longevity",
+            "url": "https://example.org/ramirez-2025",
+            "page": 3
+          },
+          "citationNumber": 2,
+          "capturedAt": "2026-09-14T16:05:00Z",
+          "deepLink": "https://example.org/ramirez-2025#:~:text=dose%20response"
+        },
+        {
+          "tags": [],
+          "flags": [],
+          "isAi": false,
+          "body": "Short quotes still get a card, a title and a source line.",
+          "id": "q4",
+          "kind": "quote",
+          "title": "A quote with no source link",
+          "source": {
+            "label": "Interview with Dr. Ramírez"
+          },
+          "capturedAt": "2026-09-15T12:00:00Z"
+        },
+        {
+          "tags": [],
+          "flags": [],
+          "isAi": false,
+          "body": "Exercise is not a cure, but it is the closest thing we have to one.",
+          "id": "q5",
+          "kind": "quote",
+          "title": "Closing remark",
+          "source": {
+            "label": "Interview with Dr. Ramírez"
+          },
+          "capturedAt": "2026-09-15T12:20:00Z"
+        },
+        {
+          "id": "q6",
+          "kind": "quote",
+          "title": "Symbols: μm, ≥ 5 and Σ",
+          "body": "Greek α β γ μσ Δ Σ Ω π; size 5 μm.\n\nMath ≥ 5, ≤ 9, ≠ 0, ≈ 3, → ←, ∞, ∑, √, ∂, ∈.\n\nScripts: 10⁻⁶ and H₂O. Latin-ext: Łódź, Đorđe, ć. Combined: K̂ and ŷ.\n\nA data‑driven study. Chinese word: 研究 ends here.",
+          "isAi": false,
+          "source": {
+            "label": "Just Enough Research – Erika Hall (Page 144)",
+            "url": "https://example.org/jer",
+            "page": 144
+          },
+          "capturedAt": "2026-09-16T10:00:00Z",
+          "tags": [
+            "α-test"
+          ],
+          "flags": []
+        }
+      ]
+    },
+    {
+      "key": "blocks",
+      "title": "Web blocks",
+      "items": [
+        {
+          "tags": [
+            "table"
+          ],
+          "flags": [],
+          "isAi": false,
+          "body": "Group            Events   Person-years   HR (95% CI)\nInactive           412        6,100   1.00 (ref)\n< 150 min/week     301        7,900   0.88 (0.76–1.02)\n> 150 min/week     266        9,300   0.78 (0.66–0.92)\n\nHR = hazard ratio; CI = confidence interval. Adjusted for age, sex, smoking, blood pressure.",
+          "id": "b1",
+          "kind": "block",
+          "title": "Table 2: outcomes by activity group",
+          "source": {
+            "label": "Möller et al., Table 2",
+            "url": "https://example.org/moller-2024#table2",
+            "page": 8
+          },
+          "citationNumber": 1,
+          "capturedAt": "2026-09-12T10:02:00Z",
+          "deepLink": "https://example.org/moller-2024#:~:text=Table%202"
+        },
+        {
+          "tags": [],
+          "flags": [
+            {
+              "kind": "unchecked",
+              "text": "Could not be checked: the citation service did not answer. Try again later."
+            }
+          ],
+          "isAi": false,
+          "body": "The cohort study followed 4,812 adults for a median of 6.4 years. Participants who reported more than 150 minutes of moderate activity each week had a lower risk of cardiovascular events than those who reported none, and the gap widened after adjustment for age, smoking and baseline blood pressure.\n\nThe authors caution that physical activity was self-reported at enrolment only. People who change their habits during follow-up are counted in their original group, which probably understates the true effect. They also note that the participants were recruited from primary care clinics in two regions, so the findings may not carry over to other populations.\n\nIn a sensitivity analysis that excluded the first two years of follow-up, the association was slightly weaker but still clear. The authors read this as evidence against reverse causation, where early illness reduces activity and also raises risk.\n\nThe cohort study followed 4,812 adults for a median of 6.4 years. Participants who reported more than 150 minutes of moderate activity each week had a lower risk of cardiovascular events than those who reported none, and the gap widened after adjustment for age, smoking and baseline blood pressure.\n\nThe authors caution that physical activity was self-reported at enrolment only. People who change their habits during follow-up are counted in their original group, which probably understates the true effect. They also note that the participants were recruited from primary care clinics in two regions, so the findings may not carry over to other populations.\n\nIn a sensitivity analysis that excluded the first two years of follow-up, the association was slightly weaker but still clear. The authors read this as evidence against reverse causation, where early illness reduces activity and also raises risk.",
+          "id": "b2",
+          "kind": "block",
+          "title": "Methods paragraph (long block that must split across pages)",
+          "source": {
+            "label": "Ramírez & Okafor, Methods",
+            "url": "https://example.org/ramirez-2025"
+          },
+          "citationNumber": 2,
+          "capturedAt": "2026-09-14T16:30:00Z"
+        }
+      ]
+    },
+    {
+      "key": "images",
+      "title": "Images",
+      "items": [
+        {
+          "tags": [
+            "figure"
+          ],
+          "flags": [],
+          "isAi": false,
+          "body": "Kaplan–Meier curves by activity group.",
+          "id": "i1",
+          "kind": "image",
+          "title": "Figure 3: survival curves",
+          "imageUrl": "data:image/png;base64,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g0++6PWFGcIMYYa/Gf7V948BBhlimBFGGWOcCSaZYpoZZpljngUWWWKZFVZZY50NNtlimx122WOfAw454pgTTjkjQpQYcRIkSZHmnAxZLsiRp0CREmUqVKlxSZ0GVzS5pkWbDl1uuOWOex545IlnXnjljXc++OSLXl+YIcwQZvib4V9//xhgkCGGGWGUMcaZYJIppplhljnmWWCRJZZZYZU11tlgky222WGXPfY54JAjjjnhlDMiRIkRJ0GSFGnOyZDlghx5ChQpUaZClRqX1GlwRZNrWrTp0OWGW+6454FHnnjmhVfeeOeDT77o9YUZwgxhhr8Z/s33jwEGGWKYEUYZY5wJJplimhlmmWOeBRZZYpkVVlljnQ022WKbHXbZY58DDjnimBNOOSNClBhxEiRJkeacDFkuyJGnQJESZSpUqXFJnQZXNLmmRZsOXW645Y57HnjkiWdeeOWNdz745IteX5ghzBBm+Jvh337/GGCQIYYZYZQxxplgkimmmWGWOeZZYJEllllhlTXW2WCTLbbZYZc99jngkCOOOeGUMyJEiREnQZIUac7JkOWCHHkKFClRpkKVGpfUaXBFk2tatOnQ5YZb7rjngUeeeOaFV95454NPvuj1hRnCDGGGvxn+3fePAQYZYpgRRhljnAkmmWKaGWaZY54FFllimRVWWWOdDTbZYpsddtljnwMOOeKYE045I0KUGHESJEmR5pwMWS7IkadAkRJlKlSpcUmdBlc0uaZFmw5dbrjljnseeOSJZ1545Y13Pvjki15fmCHMEGb4m+Hff/8YYJAhhhlhlDHGmWCSKaaZYZY55llgkSWWWWGVNdbZYJMtttlhlz32OeCQI4454ZQzIkSJESdBkhRpzsmQ5YIceQoUKVGmQpUal9RpcEWTa1q06dDlhlvuuOeBR5545oVX3njng0++6PWFGcIMYYa/Gf7D948BBhlimBFGGWOcCSaZYpoZZpljngUWWWKZFVZZY50NNtlimx122WOfAw454pgTTjkjQpQYcRIkSZHmnAxZLsiRp0CREmUqVKlxSZ0GVzS5pkWbDl1uuOWOex545IlnXnjljXc++OSLXl+YIcwQZvib4T9+/xhgkCGGGWGUMcaZYJIppplhljnmWWCRJZZZYZU11tlgky222WGXPfY54JAjjjnhlDMiRIkRJ0GSFGnOyZDlghx5ChQp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",
+          "ocrText": "Figure 3. Event-free survival by activity group. Years since enrolment (x axis), proportion event-free (y axis). Log-rank p < 0.001.",
+          "source": {
+            "label": "Möller et al., Figure 3",
+            "url": "https://example.org/moller-2024",
+            "page": 9
+          },
+          "citationNumber": 1,
+          "capturedAt": "2026-09-12T10:30:00Z"
+        },
+        {
+          "tags": [],
+          "flags": [],
+          "isAi": false,
+          "body": "",
+          "id": "i2",
+          "kind": "image",
+          "title": "Screenshot with no image kept",
+          "ocrText": "Dose-response curve flattens above 300 minutes a week.",
+          "source": {
+            "label": "Conference slide, Heart Rhythm 2026"
+          },
+          "capturedAt": "2026-09-18T11:11:00Z"
+        }
+      ]
+    },
+    {
+      "key": "links",
+      "title": "Links",
+      "items": [
+        {
+          "tags": [
+            "guideline"
+          ],
+          "flags": [],
+          "isAi": false,
+          "body": "The 2020 guidelines recommend at least 150 to 300 minutes of moderate activity a week for adults.",
+          "id": "l1",
+          "kind": "link",
+          "title": "WHO guidelines on physical activity",
+          "source": {
+            "label": "who.int",
+            "url": "https://www.who.int/publications/i/item/9789240015128"
+          },
+          "capturedAt": "2026-09-20T09:00:00Z"
+        },
+        {
+          "tags": [],
+          "flags": [
+            {
+              "kind": "unchecked",
+              "text": "Could not be checked: no DOI was found for this page."
+            }
+          ],
+          "isAi": false,
+          "body": "Preprint, not peer reviewed. Reports a similar dose response using wearable data.",
+          "id": "l2",
+          "kind": "link",
+          "title": "Preprint on wearable step counts",
+          "source": {
+            "label": "medrxiv.org",
+            "url": "https://www.medrxiv.org/content/10.1101/2026.01.01.000001"
+          },
+          "citationNumber": 3,
+          "capturedAt": "2026-09-21T13:45:00Z"
+        }
+      ]
+    }
+  ],
+  "bibliography": [
+    {
+      "number": 1,
+      "text": "Möller K, Ramírez J, Okafor N. Physical activity and cardiovascular events in a primary care cohort. Eur Heart J. 2024;45(12):1100–1112. doi:10.1093/eurheartj/ehae001",
+      "href": "https://doi.org/10.1093/eurheartj/ehae001",
+      "status": "verified",
+      "flags": [
+        {
+          "kind": "retracted",
+          "text": "Retracted: withdrawn by the journal on 2026-03-02."
+        }
+      ],
+      "citedBy": [
+        "s1",
+        "q1",
+        "q2",
+        "b1",
+        "i1"
+      ]
+    },
+    {
+      "number": 2,
+      "text": "Ramírez J, Okafor N. Dose response of activity in older adults. Lancet Healthy Longev. 2025;6(3):e200–e210.",
+      "href": "https://example.org/ramirez-2025/a-very-long-path/that-keeps-going/with-no-spaces-at-all/to-test-how-long-links-wrap-inside-a-bibliography-entry?utm_source=test&utm_medium=pdf",
+      "status": "web",
+      "flags": [],
+      "citedBy": [
+        "q3",
+        "b2"
+      ]
+    },
+    {
+      "number": 3,
+      "text": "Preprint authors. Wearable step counts and mortality. medRxiv. 2026. (Entered by hand.)",
+      "status": "manual",
+      "flags": [
+        {
+          "kind": "verify",
+          "text": "Verify source: preprint, not peer reviewed."
+        }
+      ],
+      "citedBy": [
+        "l2"
+      ]
+    },
+    {
+      "number": 4,
+      "text": "Conference slide, Heart Rhythm 2026. Accessed 2026-09-18.",
+      "href": "https://example.org/slides",
+      "status": "unchecked",
+      "flags": [
+        {
+          "kind": "unchecked",
+          "text": "Could not be checked: the lookup timed out."
+        }
+      ],
+      "citedBy": []
+    }
+  ],
+  "options": {
+    "sections": {
+      "syntheses": true,
+      "quotes": true,
+      "blocks": true,
+      "images": true,
+      "links": true,
+      "bibliography": true
+    },
+    "citationStyle": "line",
+    "includeNotes": true,
+    "includeImages": true,
+    "includeFlags": true,
+    "generatedAt": "2026-10-13T08:00:00Z"
+  }
+}

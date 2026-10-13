@@ -1,0 +1,9 @@
+Fonts in this folder, used only by the PDF report export.
+
+Figtree - Copyright 2022 The Figtree Project Authors (https://github.com/erikdkennedy/figtree)
+JetBrains Mono - Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+Both are licensed under the SIL Open Font License, Version 1.1.
+Full text: https://openfontlicense.org
+Files are the Latin subset (WOFF) from the @fontsource npm packages.
+JetBrains Mono files were modified: the 'calt' ligature feature was emptied, because the Latin subset's ligature glyphs are broken and crash PDF rendering (for example on '//' in URLs). Under the OFL a modified font may not use the Reserved Font Name for distribution outside this app; these files are used only inside generated PDFs.

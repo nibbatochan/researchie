@@ -592,7 +592,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             <button
               onClick={() => setIsExportModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 hover:text-[#0F172A] dark:hover:text-white border border-[#D9E1EC] dark:border-[#27272A] transition-all shadow-xs flex-shrink-0"
-              title="Export to Markdown, citations, or JSON"
+              title="Export to PDF, Markdown, citations, or JSON"
             >
               <Export size={13} className="text-slate-500 dark:text-zinc-400" />
               <span>Export</span>

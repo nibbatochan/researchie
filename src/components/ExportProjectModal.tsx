@@ -29,6 +29,8 @@ import { formatProjectToMarkdown, formatBibliography, formatProjectToJson } from
 import { formatProjectToObsidianMarkdown, generateObsidianVaultZip, getObsidianUri } from '@/lib/export/obsidian';
 import { formatProjectToNotionMarkdown } from '@/lib/export/notion';
 import { downloadFile } from '@/lib/export/download';
+import { PdfExportPanel } from './PdfExportPanel';
+import { FilePdf as FilePdfIcon } from '@phosphor-icons/react';
 
 interface ExportProjectModalProps {
   isOpen: boolean;
@@ -38,7 +40,7 @@ interface ExportProjectModalProps {
   selectedAtoms?: ResearchAtom[];
 }
 
-type TabType = 'obsidian' | 'notion' | 'markdown' | 'citations' | 'json';
+type TabType = 'obsidian' | 'notion' | 'markdown' | 'citations' | 'pdf' | 'json';
 type NotionSubTab = 'sync' | 'guide' | 'troubleshooting';
 
 /**
@@ -375,6 +377,20 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
             >
               <Books size={14} />
               <span>Citations</span>
+            </button>
+
+            {/* PDF Tab */}
+            <button
+              onClick={() => setActiveTab('pdf')}
+              data-testid="export-tab-pdf"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                activeTab === 'pdf'
+                  ? 'bg-white dark:bg-[#1C1C20] text-[#325FEC] dark:text-[#518FFF] font-semibold shadow-sm'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-zinc-200'
+              }`}
+            >
+              <FilePdfIcon size={14} />
+              <span>PDF</span>
             </button>
 
             {/* JSON Tab */}
@@ -798,6 +814,10 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
             </div>
           )}
 
+          {activeTab === 'pdf' ? (
+            <PdfExportPanel project={project} atoms={activeAtoms} />
+          ) : (
+            <>
           {/* Right Side: Code / Markdown Preview Box */}
           <div className="flex-1 p-5 overflow-y-auto bg-[#F8F9FB] dark:bg-[#09090B] font-mono text-xs text-slate-800 dark:text-zinc-200 min-h-0">
             <pre className="whitespace-pre-wrap break-words leading-relaxed select-text font-mono text-slate-700 dark:text-zinc-300">
@@ -808,9 +828,12 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
               {activeTab === 'json' && jsonContent}
             </pre>
           </div>
+            </>
+          )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (the PDF tab has its own download button) */}
+        {activeTab !== 'pdf' && (
         <div className="px-5 py-3.5 border-t border-[#E2E5EB] dark:border-[#27272A] bg-white dark:bg-[#121214] flex items-center justify-between flex-shrink-0">
           <span className="text-xs text-slate-500 dark:text-zinc-400 font-sans">
             Ready to import into <span className="text-[#0F172A] dark:text-zinc-200 font-medium">Obsidian, Notion, Logseq, or LaTeX</span>.
@@ -865,6 +888,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
