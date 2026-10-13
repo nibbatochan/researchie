@@ -230,3 +230,60 @@ test('odd data does not throw', () => {
   assert.equal(m.sections[0].items[0].title, 'Research Note');
   assert.doesNotThrow(() => buildReportModel({ title: 'T' }, [], opts()));
 });
+
+// ---- Clips from uploaded files use the paper's citation, not the file name ----
+
+const fileClip = (id, over = {}) => atom(id, 'quote', {
+  content: { rawText: 'A sentence from the paper.' },
+  metadata: {
+    sourceUrl: '/reader?doc=doc-1&page=1', pageTitle: 'journal.pone.0355849 (Page 1)',
+    documentId: 'doc-1', documentName: 'journal.pone.0355849.pdf', documentType: 'pdf', pageNumber: 1, ...over,
+  },
+});
+
+test('a clip from an uploaded PDF shows the paper citation and links to its DOI, not the file name', () => {
+  const doc = { id: 'doc-1', title: 'journal.pone.0355849', filename: 'journal.pone.0355849.pdf', citation: article({ doi: '10.1371/journal.pone.0355849', authors: [{ family: 'Lee' }, { family: 'Park' }] }) };
+  const model = buildReportModel(project, [fileClip('a')], opts(), [doc]);
+  const item = model.sections[0].items[0];
+  assert.equal(item.source.label, 'Lee and Park (2020), J Pets');
+  assert.equal(item.source.url, 'https://doi.org/10.1371/journal.pone.0355849');
+  assert.equal(item.source.page, 1);
+  assert.ok(!item.source.label.includes('journal.pone'));
+  // The paper is in the bibliography with its DOI, and the clip points to it.
+  assert.equal(model.bibliography.length, 1);
+  assert.equal(item.citationNumber, 1);
+  assert.equal(model.bibliography[0].href, 'https://doi.org/10.1371/journal.pone.0355849');
+});
+
+test('a clip with its own citation uses it over the document one; authors read "et al." from three up', () => {
+  const doc = { id: 'doc-1', citation: article({ doi: '10.1/doc', authors: [{ family: 'Doc' }] }) };
+  const own = article({ doi: '10.1/own', authors: [{ family: 'A' }, { family: 'B' }, { family: 'C' }] });
+  const model = buildReportModel(project, [withCit(fileClip('a'), own)], opts(), [doc]);
+  assert.equal(model.sections[0].items[0].source.label, 'A et al. (2020), J Pets');
+  assert.equal(model.bibliography[0].href, 'https://doi.org/10.1/own');
+});
+
+test('no citation anywhere: a file-style title becomes "Uploaded PDF", a real title is kept without the page suffix', () => {
+  const raw = buildReportModel(project, [fileClip('a')], opts(), []);
+  assert.equal(raw.sections[0].items[0].source.label, 'Uploaded PDF');
+  assert.equal(raw.sections[0].items[0].source.url, undefined);
+  assert.equal(raw.sections[0].items[0].source.page, 1);
+  const real = buildReportModel(project, [fileClip('b', { pageTitle: 'Just Enough Research — Erika Hall (Page 144)', pageNumber: 144 })], opts(), []);
+  assert.equal(real.sections[0].items[0].source.label, 'Just Enough Research — Erika Hall');
+  assert.equal(real.sections[0].items[0].source.page, 144);
+  assert.equal(real.bibliography.length, 0);
+});
+
+test('a clip whose document was deleted still gets a clean label; web clips are unchanged', () => {
+  const gone = buildReportModel(project, [fileClip('a', { documentId: 'doc-missing', sourceUrl: '/reader?doc=doc-missing&page=2', pageNumber: 2 })], opts(), [{ id: 'doc-1' }]);
+  assert.equal(gone.sections[0].items[0].source.label, 'Uploaded PDF');
+  const web = atom('w', 'quote', { content: { rawText: 'x' }, metadata: { sourceUrl: 'https://example.org/p', pageTitle: 'Example page' } });
+  const out = buildReportModel(project, [web], opts(), [{ id: 'doc-1', citation: article() }]);
+  assert.equal(out.sections[0].items[0].source.label, 'Example page');
+  assert.equal(out.sections[0].items[0].source.url, 'https://example.org/p');
+});
+
+test('passing no documents at all still works (older callers)', () => {
+  const model = buildReportModel(project, [fileClip('a')], opts());
+  assert.equal(model.sections[0].items[0].source.label, 'Uploaded PDF');
+});

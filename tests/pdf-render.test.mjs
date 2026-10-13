@@ -70,7 +70,10 @@ test('has the running footer and keeps accents, dashes and curly quotes', () => 
   assert.ok(text.includes('Ramírez'));
   assert.ok(text.includes('–'));
   assert.ok(text.includes('“'));
-  assert.ok(text.includes('Open exact passage'));
+  // The "Open exact passage" label was removed on request; the source name carries that link now.
+  assert.ok(!text.includes('Open exact passage'));
+  // A PDF cannot force a new tab, so the report tells the reader how.
+  assert.ok(text.replace(/s+/g, ' ').includes('to open it in a new tab'));
 });
 
 test('characters outside the Latin fonts are drawn by the fallback font, not dropped', () => {

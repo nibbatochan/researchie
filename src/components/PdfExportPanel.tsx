@@ -9,6 +9,7 @@ import {
   DEFAULT_REPORT_OPTIONS,
   REPORT_STYLE_LABELS,
   type ReportCitationStyle,
+  type ReportDocumentInfo,
   type ReportOptions,
   type ReportSectionKey,
 } from '@/lib/export/pdf/types.ts';
@@ -36,6 +37,22 @@ export const PdfExportPanel: React.FC<PdfExportPanelProps> = ({ project, atoms }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAs, setSavedAs] = useState<string | null>(null);
+  // Uploaded PDFs carry the paper's citation. Clips taken from them use it instead of the file name.
+  const [documents, setDocuments] = useState<ReportDocumentInfo[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/documents')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const list = (json?.data ?? json?.documents ?? []) as ReportDocumentInfo[];
+        if (!cancelled) setDocuments(list.map((d) => ({ id: d.id, title: d.title, filename: d.filename, citation: d.citation })));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Start with the citation style the user last chose in the citation box, when the PDF supports it.
   useEffect(() => {
@@ -51,17 +68,19 @@ export const PdfExportPanel: React.FC<PdfExportPanelProps> = ({ project, atoms }
   // Counts per section with everything switched on, so a switched-off section still shows its size.
   const everything = useMemo(
     () =>
-      buildReportModel(project, atoms, {
-        ...fullOptions,
-        sections: { syntheses: true, quotes: true, blocks: true, images: true, links: true, bibliography: true },
-      }),
+      buildReportModel(
+        project,
+        atoms,
+        { ...fullOptions, sections: { syntheses: true, quotes: true, blocks: true, images: true, links: true, bibliography: true } },
+        documents,
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project, atoms, options.citationStyle, options.includeFlags, options.includeNotes, options.includeImages],
+    [project, atoms, documents, options.citationStyle, options.includeFlags, options.includeNotes, options.includeImages],
   );
   const model = useMemo(
-    () => buildReportModel(project, atoms, fullOptions),
+    () => buildReportModel(project, atoms, fullOptions, documents),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project, atoms, options],
+    [project, atoms, documents, options],
   );
 
   // Characters no PDF font here can draw (for example Chinese). They print as a visible mark, not silently.
@@ -84,7 +103,7 @@ export const PdfExportPanel: React.FC<PdfExportPanelProps> = ({ project, atoms }
     setSavedAs(null);
     try {
       const now = new Date();
-      const finalModel = buildReportModel(project, atoms, { ...options, generatedAt: now.toISOString() });
+      const finalModel = buildReportModel(project, atoms, { ...options, generatedAt: now.toISOString() }, documents);
       // The PDF library and fonts load only now, so the rest of the app stays light.
       const { generateReportPdf } = await import('@/lib/export/pdf/generate.ts');
       const blob = await generateReportPdf(finalModel);

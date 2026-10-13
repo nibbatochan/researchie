@@ -11,11 +11,13 @@ import type {
   ReportOptions,
   ReportSection,
   ReportSectionKey,
+  ReportDocumentInfo,
   SourceStatus,
 } from './types.ts';
 import { REPORT_STYLE_LABELS } from './types.ts';
 import { citationText } from '../../citations/client.ts';
 import { isCitationRecord } from '../../citations/metadata.ts';
+import { isUsablePdfTitle } from '../../citations/pdf.ts';
 import { readConfidence, RETRACTED_MESSAGE, normalizeTitle } from '../../citations/verify.ts';
 
 const SECTION_DEFS: { key: ReportSectionKey; title: string; types: string[]; kind: ReportItem['kind'] }[] = [
@@ -118,7 +120,37 @@ function dedupeKey(record: CitationRecord, fallback: string): string {
   return title ? `title:${title}` : `item:${fallback}`;
 }
 
-function buildItem(atom: ResearchAtom, kind: ReportItem['kind'], options: ReportOptions): ReportItem {
+const PAGE_SUFFIX = /\s*\(\s*page\s+\d+\s*\)\s*$/i;
+
+/** The id of the uploaded document a clip came from, when it came from one. */
+function documentIdOf(meta: Record<string, unknown>, sourceUrl: string): string {
+  const fromMeta = str(meta.documentId) || str(meta.docId) || str(meta.pdfDocId);
+  if (fromMeta) return fromMeta;
+  const match = sourceUrl.match(/[?&]doc=([^&#]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+/** A reader can recognise this: "Lee and Park (2020), J Pets". Never a file name. */
+export function shortCitation(record: CitationRecord): string {
+  const names = (record.authors ?? []).map((a) => a.family).filter(Boolean);
+  let who = '';
+  if (names.length === 1) who = names[0];
+  else if (names.length === 2) who = `${names[0]} and ${names[1]}`;
+  else if (names.length > 2) who = `${names[0]} et al.`;
+  const year = record.year ? ` (${record.year})` : '';
+  const journal = record.journalAbbrev ?? record.journal;
+  if (who) return `${who}${year}${journal ? `, ${journal}` : ''}`;
+  const title = record.title ?? '';
+  if (!title) return '';
+  return (title.length > 70 ? `${title.slice(0, 67)}...` : title) + year;
+}
+
+function buildItem(
+  atom: ResearchAtom,
+  kind: ReportItem['kind'],
+  options: ReportOptions,
+  docs: Map<string, ReportDocumentInfo>,
+): { item: ReportItem; record?: CitationRecord } {
   const content = atom.content ?? {};
   const meta = atom.metadata ?? ({} as ResearchAtom['metadata']);
   const sourceUrl = str(meta.sourceUrl);
@@ -151,7 +183,25 @@ function buildItem(atom: ResearchAtom, kind: ReportItem['kind'], options: Report
   const tags = Array.isArray(atom.tags) ? atom.tags.filter((t) => typeof t === 'string') : [];
   const isAi = tags.some((t) => AI_TAGS.includes(t.toLowerCase()));
 
-  const label = str(meta.pageTitle) || str(meta.siteName) || str(meta.documentName) || hostOf(sourceUrl);
+  // A clip's citation is its own, or else the one saved on the uploaded document it came from.
+  const docId = documentIdOf(meta as unknown as Record<string, unknown>, sourceUrl);
+  const doc = docId ? docs.get(docId) : undefined;
+  const ownCitation = isCitationRecord(meta.citation) ? meta.citation : undefined;
+  const docCitation = isCitationRecord(doc?.citation) ? (doc?.citation as CitationRecord) : undefined;
+  const record = ownCitation ?? docCitation;
+
+  let label = str(meta.pageTitle) || str(meta.siteName) || str(meta.documentName) || hostOf(sourceUrl);
+  let sourceHref = isHttp(sourceUrl) ? sourceUrl : undefined;
+  const fromUploadedFile =
+    !isHttp(sourceUrl) && (!!docId || sourceUrl.startsWith('/reader') || ['pdf', 'epub', 'markdown'].includes(str(meta.documentType)));
+  if (fromUploadedFile) {
+    // The app's own file title ("journal.pone.0355849 (Page 1)") means nothing to a reader. Use the paper's
+    // citation when there is one, else a real title, else say what it is. Link to the paper by its DOI.
+    const cleaned = (str(meta.pageTitle) || str(doc?.title)).replace(PAGE_SUFFIX, '').trim();
+    const kindLabel = /\.pdf$/i.test(str(meta.documentName) || str(doc?.filename)) || str(meta.documentType) === 'pdf' ? 'Uploaded PDF' : 'Uploaded document';
+    label = (record && shortCitation(record)) || (isUsablePdfTitle(cleaned) ? cleaned : kindLabel);
+    sourceHref = record?.doi ? `https://doi.org/${record.doi}` : record?.url && isHttp(record.url) ? record.url : undefined;
+  }
   const page = meta.pageNumber ?? meta.page;
   const item: ReportItem = {
     id: atom.id,
@@ -164,7 +214,7 @@ function buildItem(atom: ResearchAtom, kind: ReportItem['kind'], options: Report
   };
   if (label) {
     item.source = { label };
-    if (isHttp(sourceUrl)) item.source.url = sourceUrl;
+    if (sourceHref) item.source.url = sourceHref;
     if (typeof page === 'number') item.source.page = page;
   }
   const capturedAt = atom.capturedAt ?? atom.created_at;
@@ -175,26 +225,28 @@ function buildItem(atom: ResearchAtom, kind: ReportItem['kind'], options: Report
   if (content.ocrText) item.ocrText = content.ocrText;
   const deepLink = buildDeepLink(sourceUrl, str(meta.scrollToTextFragment) || str(meta.textFragment), str(meta.deepLink));
   if (deepLink) item.deepLink = deepLink;
-  return item;
+  return { item, record };
 }
 
 export function buildReportModel(
   project: { title: string; description?: string },
   atoms: ResearchAtom[],
   options: ReportOptions,
+  documents: ReportDocumentInfo[] = [],
 ): ReportModel {
   const list = Array.isArray(atoms) ? atoms.filter((a) => a && typeof a === 'object') : [];
   const sections: ReportSection[] = [];
   const recordOf = new Map<string, CitationRecord>();
+  const docs = new Map<string, ReportDocumentInfo>();
+  for (const d of Array.isArray(documents) ? documents : []) if (d && d.id) docs.set(d.id, d);
 
   for (const def of SECTION_DEFS) {
     if (!options.sections?.[def.key]) continue;
     const items: ReportItem[] = [];
     for (const atom of list) {
       if (!def.types.includes(atom.type)) continue;
-      const item = buildItem(atom, def.kind, options);
-      const citation = atom.metadata?.citation;
-      if (isCitationRecord(citation)) recordOf.set(item.id, citation);
+      const { item, record } = buildItem(atom, def.kind, options, docs);
+      if (record) recordOf.set(item.id, record);
       items.push(item);
     }
     if (items.length > 0) sections.push({ key: def.key, title: def.title, items });

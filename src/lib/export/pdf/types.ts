@@ -106,3 +106,11 @@ export interface ReportModel {
   bibliography: BibliographyEntry[];
   options: ReportOptions;
 }
+
+/** The little the report needs from an uploaded document: its title and the citation saved on it. */
+export interface ReportDocumentInfo {
+  id: string;
+  title?: string;
+  filename?: string;
+  citation?: unknown;
+}

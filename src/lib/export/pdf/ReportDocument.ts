@@ -239,8 +239,10 @@ function SourceLine(item: ReportItem) {
   const parts: unknown[] = [];
   const src = item.source;
   if (src) {
-    if (isHttp(src.url)) {
-      parts.push(h(Link, { key: 'src', src: src.url, style: { color: COLORS.link, textDecoration: 'none' } }, ...rs(src.label, 70, 'figtree')));
+    // The source name links to the exact passage when the clip has one, else to the page.
+    const href = isHttp(item.deepLink) ? item.deepLink : src.url;
+    if (isHttp(href)) {
+      parts.push(h(Link, { key: 'src', src: href, style: { color: COLORS.link, textDecoration: 'none' } }, ...rs(src.label, 70, 'figtree')));
     } else {
       parts.push(h(Text, { key: 'src' }, ...rs(src.label, 70, 'figtree')));
     }
@@ -339,13 +341,6 @@ function Card(item: ReportItem) {
         )
       : null,
     Flags(item.flags),
-    isHttp(item.deepLink)
-      ? h(
-          Link,
-          { src: item.deepLink, style: { marginTop: 6, color: COLORS.link, textDecoration: 'none', fontFamily: FONTS.mono, ...lh(TYPE.caption) } },
-          'Open exact passage',
-        )
-      : null,
   );
 }
 
@@ -426,6 +421,7 @@ function ColourKey() {
         h(Text, { style: { flex: 1, ...lh(TYPE.caption) } }, c.meaning),
       ),
     ),
+    h(Text, { style: { marginTop: 10, color: COLORS.muted, ...lh(TYPE.caption) } }, 'Tip: hold Ctrl (Cmd on a Mac) while you click a link to open it in a new tab.'),
   );
 }
 
@@ -495,6 +491,7 @@ function Contents(model: ReportModel) {
         h(Text, { style: { fontFamily: FONTS.mono, color: COLORS.muted, ...lh(TYPE.caption) } }, r.count),
       ),
     ),
+    h(Text, { style: { marginTop: 10, color: COLORS.muted, ...lh(TYPE.caption) } }, 'Tip: hold Ctrl (Cmd on a Mac) while you click a link to open it in a new tab.'),
   );
 }
 

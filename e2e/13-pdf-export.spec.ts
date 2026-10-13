@@ -27,6 +27,7 @@ const RETRACTED_TEXT = `E2E pdf retracted quote ${STAMP}`;
 const NOTE_TEXT = `E2E pdf synthesis paragraph ${STAMP}`;
 const SYMBOLS_TEXT = `E2E symbols ${STAMP}: 5 μm, p ≥ 0.05, α-helix, H₂O, K̂n and data\u2011driven`;
 const CJK_TEXT = `E2E cjk ${STAMP} 日本語`;
+const FILE_QUOTE = `E2E uploaded file quote ${STAMP}`;
 
 async function readPdf(path: string) {
   const bytes = fs.readFileSync(path);
@@ -89,6 +90,21 @@ test.describe('13. PDF research report export', () => {
       },
     });
     await make({ type: 'quote', title: 'E2E symbols', content: { rawText: SYMBOLS_TEXT, text: SYMBOLS_TEXT }, metadata: { sourceUrl: '', pageTitle: 'Symbols' } });
+    // A clip taken from an uploaded PDF: the app names it after the file, but the paper has a citation.
+    await make({
+      type: 'quote',
+      title: 'E2E file clip',
+      content: { rawText: FILE_QUOTE, text: FILE_QUOTE },
+      metadata: {
+        sourceUrl: '/reader?doc=doc-e2e-missing&page=3',
+        pageTitle: 'journal.pone.0355849 (Page 3)',
+        documentId: 'doc-e2e-missing',
+        documentName: 'journal.pone.0355849.pdf',
+        documentType: 'pdf',
+        pageNumber: 3,
+        citation: citation('10.1000/e2e.file', { authors: [{ family: 'Rivera' }, { family: 'Chen' }], journal: 'Nature Tests', year: 2021 }),
+      },
+    });
     await make({ type: 'quote', title: 'E2E cjk', content: { rawText: CJK_TEXT, text: CJK_TEXT }, metadata: { sourceUrl: '', pageTitle: 'CJK' } });
     await make({
       type: 'note',
@@ -129,6 +145,15 @@ test.describe('13. PDF research report export', () => {
     expect(text).toContain('This paper has been retracted');
     expect(text).toMatch(/Page 2 of \d+/);
     expect(text).toContain('How to read this report');
+
+    // A clip from an uploaded PDF shows the paper's citation, not the file name.
+    expect(text).toContain(FILE_QUOTE);
+    expect(text).toContain('Rivera and Chen (2021), Nature Tests');
+    expect(text).toContain('p. 3');
+    expect(text).not.toContain('journal.pone.0355849');
+    // The "Open exact passage" label is gone, and the report says how to open links in a new tab.
+    expect(text).not.toContain('Open exact passage');
+    expect(text).toContain('to open it in a new tab');
 
     // Science symbols survive the trip through the real browser, fonts and all.
     expect(text).toContain('5 μm, p ≥ 0.05, α-helix, H₂O');

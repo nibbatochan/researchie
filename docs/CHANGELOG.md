@@ -1,10 +1,23 @@
 # Version Changelog
 
+## [v1.8.1] — 2026-10-14 (PDF export: citations for uploaded files, no "Open exact passage")
+### Fixed & Enhanced
+- **Uploaded files show the paper's citation, not the file name.** A clip taken from an uploaded PDF used to print the app's own title, for example "journal.pone.0355849 (Page 1)", which means nothing to a reader. Now the report uses the paper's citation: the clip's own, or else the one saved on the document it came from (the Export dialog loads the uploaded documents to find it). The source line reads "Geng et al. (2026), PLoS One - p. 1", links to the paper's DOI, and the paper appears in the bibliography with its DOI. One author reads "Lee (2020)", two "Lee and Park (2020)", three or more "Lee et al. (2020)". With no citation, a real title is kept (without the "(Page N)" suffix); a file-style title becomes "Uploaded PDF" or "Uploaded document".
+- **"Open exact passage" removed.** The source name now carries that link: it opens the exact passage when the clip has one, else the page.
+- **Links and new tabs.** A PDF file cannot tell the viewer to open a link in a new tab; the viewer decides, and Chrome, Edge and Firefox open it in the same tab on a plain click. The report now says so on the contents page and in the colour key: hold Ctrl (Cmd on a Mac) while clicking a link to open it in a new tab.
+- Tests: 159 unit tests (new builder tests for uploaded-file clips) and `e2e/13` checks all three changes in a real download. Checked on the real "Manual Test Run: 8 Cases" project: no raw file names, no "Open exact passage", the DOI is in the bibliography.
+
+### Known Issues & Open Work
+- A clip from an uploaded PDF whose document has no saved citation prints "Uploaded PDF - p. N". Add a citation on the document (Upload PDF, then the citation icon) to get the full source line.
+- A clip taken from a deleted document keeps only what it carries itself.
+
+---
+
 ## [v1.8.0] — 2026-10-14 (PDF research report export)
 ### Added & Enhanced
 - **PDF export.** A new **PDF** tab in the Export dialog saves a real `.pdf` file of a project: cover, clickable contents, then the clips as cards (syntheses and notes, quotes, web blocks and tables, images with OCR text, links), a numbered bibliography, and a colour key. Every page after the cover has a running header and "Page n of N". Works for the whole project or only the selected clips.
 - **Options in the dialog:** which sections to include (with their counts), citation style (Vancouver, APA 7 or AMA 11; starts from the style last chosen in the citation box), your notes, images, and verification flags. A summary shows clips, sources and flagged clips before you download.
-- **Each clip card** shows its type tag, title, text, source line (site, page, date), a `[n]` marker linking to the bibliography, tags, your notes, flags (retracted, verify source, could not be checked), and an "Open exact passage" link when the clip has one.
+- **Each clip card** shows its type tag, title, text, source line (site, page, date), a `[n]` marker linking to the bibliography, tags, your notes, flags (retracted, verify source, could not be checked), and the source name links to the exact passage when the clip has one.
 - **Design system.** White page, White 90 cards, White 70 borders; JetBrains Mono for headings, citations, DOIs and dates, Figtree for reading text. Each semantic colour has one job: Royal Blue for section rules, Citation Blue for every link, AI Purple for AI notes, Sky for web blocks, Green for verified, Amber for retracted or verify, Red for could not be checked. Sky, green and amber fail the 4.5 contrast minimum as small text on white (4.1, 3.8, 3.2), so they colour shapes (side bars, dots) and the words beside them stay in ink.
 - **Characters are never dropped silently.** Greek letters, math signs, arrows, sub and superscripts, accented letters and Cyrillic draw through a fallback font (DejaVu Sans); special hyphens become plain hyphens. Characters no font here has (for example Chinese) show as a visible mark, and the dialog lists them before you download.
 - **Built with:** `@react-pdf/renderer` (loaded only when you export), fonts in `public/fonts` (Figtree and JetBrains Mono, SIL OFL; DejaVu Sans, its own free licence), the report data builder `src/lib/export/pdf/pdfReport.ts`, and the drawing code `ReportDocument.ts`.
