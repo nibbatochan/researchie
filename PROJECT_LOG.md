@@ -84,3 +84,26 @@
 - `npx tsc --noEmit` is clean and 92 unit tests pass. `e2e/09` passes 5 of 5.
 - **Live Q&A result before the last tuning:** 18 test questions on a real paper all passed with no warnings, and 12 repeat questions produced 29 citations with none unsupported. After that, testing used up Groq's daily allowance, so the final settings are unverified live.
 - **Next:** document assistant UI fixes (per-sentence icons, one scroll per click, outside-click clear, single saved highlight, resizable panel), formatted lines for the remaining source types, APA and AMA, and a live Chrome clip test. Commit the uncommitted work.
+
+## Session Record: Phase 7 Citation Formats, Assistant UI, Security Scrub & PDF Research Report
+
+### 1. Architectural Decisions
+- **Citation warnings grow carefully:** Save anyway on a user-entered mismatch, a warning for a PDF whose DOI points to another paper (junk metadata titles ignored), and an amber box for a retraction, kept apart from the verify warning. Decision 15.
+- **Secrets are scrubbed and scanned:** real Supabase keys found in a planning doc were removed from every commit before the first push, the key was rotated and the old one refused, and every push is scanned for each `.env.local` value. Decision 16.
+- **Browser tests choose their own data:** one helper opens the same project and PDF every time, and tests delete the clips they save. Decision 17.
+- **Local models are a test fallback only.** Decision 18.
+- **The PDF report is a real file built in the browser, in the design system:** a data builder and a drawing half share one contract and are tested in Node without a browser. Decision 14.
+- **How the work was run:** independent pieces went to separate agents running in parallel (AMA style and the PDF mismatch warning; then the report data builder and the report drawing), a follow-up message sent one agent back to fix the dropped symbols, and the six unverified Groq questions went to one agent that sent them 3 minutes apart. Every result was re-checked by the lead (own test runs, reading the code, reading rendered pages) before it was accepted. That caught, for example, a false-warning risk from junk PDF titles and the silent loss of scientific symbols.
+
+### 2. State of Key Files
+- `src/lib/citations/`: `apa.ts`, `ama.ts`, `export.ts` (BibTeX, RIS), `vancouver.ts` now covers journal article, preprint, dataset, chapter, report and web page; `verify.ts` has `isRetracted`; `pdf.ts` has `isUsablePdfTitle`; the Crossref mapper reads retractions from `updated-by`.
+- `src/components/CitationStyleBar.tsx`: style tabs, live preview and Copy on the "verified" line of the clip citation box and the PDF citation popover.
+- `src/lib/export/pdf/`, `src/components/PdfExportPanel.tsx`, `public/fonts/`: the PDF report (Decision 14).
+- `src/lib/qa/answerLinks.ts` and the PDF reader: link icon per sentence, one scroll per click, click-away clearing, single saved highlight, resizable assistant panel.
+- `extension/background.js`, `content.js`, `blockPicker.js`, `cropper.js`: Undo on the clip toast now deletes through the background script (it had used a hard-coded wrong port).
+- `e2e/helpers/`, `e2e/07` to `e2e/13`; `tests/` now has 159 unit tests.
+
+### 3. Readiness for Next Phase
+- **Verified live:** Groq 18 of 18; the Chrome extension capture and Undo; the retraction check; a PDF export of the real 77-clip project; the production build.
+- **Open:** AMA forms for four more source types and APA author-date citations; page numbers on the PDF contents page; the eight old PDF entries to delete or re-upload (owner); the PDF export commits to push after a key scan; the unrewritten local branches must not be pushed.
+- **Candidates for the next phase (from the PRD):** shared projects for teams, an offline clip queue, two-way Notion sync. Shared projects need a design conversation first.

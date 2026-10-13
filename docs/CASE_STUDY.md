@@ -67,3 +67,46 @@ The bigger lesson was that the first symptom ("the AI is wrong") had four differ
 ### Outcome
 - Library delete, upload and Q&A now behave as described above, with 92 unit tests and a 5-test browser spec for the link icons.
 - Still to do: placing the link icon per sentence, one scroll per click, clearing a highlight on outside click, a resizable assistant panel, formatted lines for more source types, and a live Chrome clip test.
+
+---
+
+## 4. Case Study: A Report a Researcher Can Hand In (October 2026)
+
+### The problem
+A research tool earns its keep at the moment someone hands work over: to a supervisor, into a draft, to a collaborator. Until now the clips and citations lived inside the app and left only as text. A document had to carry the sources with it, readably, and without quietly changing what the researcher wrote.
+
+### The principles we set
+1. **Never change the researcher's text silently.** A missing symbol is a data error, not a styling detail.
+2. **Colour carries meaning, and words carry the message.** Each semantic colour has one job, and the colours that fail contrast as small text only colour shapes.
+3. **A reader who was not there must understand every line.** The app's own file names are not citations.
+4. **Check the thing itself, not a proxy for it.** Read the pages and re-read the file as text.
+5. **Keep secrets out of every document, and scan before every push.**
+
+### What we built
+- A PDF report from a new tab in the Export dialog: cover, clickable contents, clip cards with sources, numbered bibliography in Vancouver, APA or AMA, and a colour key, in the product's own design system.
+- Citation formats around it: APA 7, AMA 11, six Vancouver source types, BibTeX and RIS, with a single citation box (style tabs, live preview, a clear Copied state).
+- A warning policy that grew with evidence: Save anyway, a warning when a PDF's own DOI points to a different paper, and an amber box for a retraction.
+
+### What testing taught us
+| Step | Result |
+| :--- | :--- |
+| First real export of a 77-clip project | A clean 69-page PDF. The pages looked right, and the text checks passed. |
+| Extra test with scientific symbols | Greek letters, ≥, μ, sub and superscripts and some accented letters were silently missing, and "data‑driven" lost its hyphen because the non-breaking hyphen is not in the font. A "μm" would have printed as "m". |
+| Fix | Characters outside the two Latin fonts draw in a fallback font; special hyphens become plain; anything no font has prints as a visible mark and is listed in the dialog first. |
+| Real data check, again | The clips from an uploaded PLoS paper printed "journal.pone.0355849 (Page 1)". Now they read "Geng et al. (2026), PLoS One - p. 1" with the DOI in the bibliography. |
+| Before the first push | A scan found the real Supabase keys in a planning document. They were removed from every commit, the key was rotated, and the old key was confirmed dead. |
+| Browser tests | Two suites failed 4 to 11 times out of 14. The cause was that they never chose a project. After the fix: 28 of 28 over two repeats. |
+
+The pattern in every row was the same: the check that passed (text found, a test green) was a stand-in for the thing that mattered (the researcher's words intact, a reader's understanding, a safe repository). Each problem was found only by looking at the real output.
+
+### Honest limits
+- The contents page has no page numbers, and every citation style uses numbered references (APA author-date is not done).
+- Scripts the fallback font lacks, such as Chinese, print as a replacement mark.
+- AMA covers journal articles and web pages only, because no primary example exists for the rest.
+- A PDF cannot force a link into a new tab; the report tells the reader to Ctrl-click.
+- Two local branches were not scrubbed and must not be pushed as they are.
+
+### Outcome
+- A researcher can export a project to a PDF with working links, the right citations and flagged sources, and see before downloading what cannot be drawn.
+- 159 unit tests, 13 browser specs, a production build that passes, and the heavy PDF code loads only on export.
+- Still to do: AMA forms for four more types, APA author-date citations, page numbers on the contents page, and the next features from the plan: shared projects, an offline queue and two-way Notion sync.

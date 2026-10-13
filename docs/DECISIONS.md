@@ -40,7 +40,7 @@
 - **Context**: A wrong citation causes problems later, but warning on every imperfect record teaches users to ignore warnings. The first version flagged missing fields, preprints, web pages and automatic title differences. Real use showed that was too noisy.
 - **Decision**: `assessCitation` in `src/lib/citations/verify.ts` returns `warnings` and `notes`. The warning "This might not be the source. Please verify." appears only when a DOI, PMID or title the user typed or picked points to a different title than the clip. Missing fields, preprints, web pages, unknown source types, retraction notices and automatic title differences are plain gray notes. A web page from a known URL is verified by its address (status `page_tags`, shown as "Web page"). A user-entered mismatch is a failed verify: it is not saved, the card shows the warning screen, and Back returns to the saved citation unchanged. Refresh clears any failed result and reopens the search box. `enteredByUser` is stored on the record so a refresh keeps the same rule. Records saved before the split are read as notes (`readConfidence`), so they never crash the card.
 - **Rationale**: A warning has to mean "there is evidence this is wrong". Everything else is information.
-- **Limits**: A wrong paper that shares the clip's title is still accepted. An automatic PDF DOI whose title differs from the PDF's shows only a note, by the rule above. There is no "Save anyway" button yet.
+- **Limits**: A wrong paper that shares the clip's title is still accepted. An automatic PDF DOI whose title differs from the PDF's showed only a note, and there was no "Save anyway" button. **Updated by Decision 15.**
 
 ### Decision 9: Four Ways to Get a Citation, Without Asking for a DOI
 - **Context**: Researchers rarely know a DOI or PMID.
@@ -73,6 +73,30 @@
 - **Decision**: `@react-pdf/renderer`, loaded only when the user exports, draws a report from a plain data model (`ReportModel`). The model is built by a pure function (`pdfReport.ts`) and drawn by `ReportDocument.ts`, so each half is tested in Node without a browser. Chosen over "print to PDF" because it gives one click, exact layout, clickable links, bookmarks and page numbers on every browser. Cover is white with a blue rule (prints cheaply). Design-system tokens live in `theme.ts`; each semantic colour has one job, and the three colours below 4.5 contrast on white colour shapes only.
 - **Decision**: Text is never dropped silently. The two bundled fonts cover Latin only, so any character outside them is drawn in DejaVu Sans (Greek, math, arrows, sub and superscripts, Latin-extended, Cyrillic), and characters no font has show as a visible mark and are listed in the dialog first. A real export showed the problem: "data‑driven" lost its hyphen and "μm" would have become "m".
 - **Limits**: No page numbers on the contents page. The bibliography is numbered for every style (no author-date citations). The mono font's ligature table was emptied because its Latin subset crashed on "//" and "--"; this is noted in `public/fonts/LICENSE.txt`.
+
+### Decision 15: Citation Warnings Grow Carefully: Save Anyway, PDF Mismatch, Amber Retraction
+- **Context**: Decision 8 limited warnings to mismatches the user caused. Real use then showed three gaps: a user who knows a mismatched source is right had no way to keep it, a PDF whose DOI pointed to another paper showed nothing, and a retraction was a quiet gray note.
+- **Decision**: (1) A mismatch the user entered still stops the save, but the screen now offers **Save anyway**; the citation is then kept with its warning visible. (2) A DOI read from an uploaded PDF that points to a different paper is saved with the warning "This might not be the source. Please verify." and no gate. (3) A retracted paper shows its own amber box ("This paper has been retracted. Do not cite it as valid evidence.") apart from the verify warning, so the two are never confused.
+- **Rationale**: A warning still has to mean "there is evidence this is wrong". An automatic DOI that contradicts the file is evidence; a missing field is not. Amber, not red, matches the design system: red is for "could not be checked".
+- **Limits**: PDF metadata titles are often tool leftovers ("Microsoft Word - draft.docx", "PII: S0140-...", file names). Comparing one would raise a false warning, so those count as no title (the PDF title field was also never being read: pdf.js names it `Title`). A PDF with no usable metadata title gets no mismatch check.
+
+### Decision 16: Secrets Never Go in Documents, and Every Push Is Scanned
+- **Context**: Before the first push to GitHub, a scan found the real Supabase URL, anon key and service-role key written in a planning document, in every commit that held it. The repository had only ever been local.
+- **Decision**: Rewrite history before the first push (a tree filter replacing the three values with placeholders), prove that no value from `.env.local` remains in any commit of the pushed branch, push only that branch, then rotate the service key and confirm the old key is refused (HTTP 401). The standing rule: before each push, search every unpushed commit for each value in `.env.local`, listing names only, never values.
+- **Rationale**: A key in a pushed commit cannot be taken back, and rotation alone leaves it readable in history. Doing both is cheap before the first push.
+- **Limits**: Local branches that were not rewritten (`main`, `cleanup/2026-10-09`) may still hold the old values and must not be pushed as they are. A key pasted into a chat is exposed to that log, so it should be placed in `.env.local` by the owner.
+
+### Decision 17: Browser Tests Choose Their Own Data and Clean Up After Themselves
+- **Context**: `e2e/07` and `e2e/08` failed 4 to 11 times out of 14 from run to run. They clicked "Resume Reading" on whichever document the app listed first without choosing a project (documents are shown per project, newest first), and checked for the button without waiting. Several tests also saved a clip on every run: 22 duplicates had piled up.
+- **Decision**: One helper (`e2e/helpers/open-reader.ts`) picks the project and the document by name and waits for each step. A second helper (`e2e/helpers/cleanup.ts`) deletes the reader clips a suite saved, never older ones, and `KEEP_TEST_CLIPS=1` switches it off for inspection. Tests that create clips through the API delete them afterwards.
+- **Result**: 14 of 14, then 28 of 28 over two repeats (was 9 of 14). A run leaves the project's clip count unchanged (proved with the cleanup switched off: one test adds 2 clips, with it on none).
+- **Limits**: `e2e/06` still calls live Groq and asserts the model's exact wording, so it is excluded from routine runs.
+
+### Decision 18: A Local Model Is a Test Fallback, Not a Replacement
+- **Context**: Groq's free daily allowance ran out during testing, so `AI_PROVIDER=ollama` was added to send Q&A to a local Ollama server.
+- **Decision**: Keep it as an opt-in switch, off by default. Measured on the same 18 questions: `qwen2.5:7b` 11 of 18 (correct on easy facts, but raw JSON on one question, passage markers in the text, a wrong answer to an unanswerable one, three wrong citations that the verifier caught); `deepseek-r1` 1 of 18 (its thinking output breaks the JSON the app expects). Groq stays the model for real answers.
+- **Rationale**: The verifier meant a weak model never showed a wrong link as verified, but an answer the user cannot trust is still a failure.
+- **Limits**: Groq needs questions one at a time, a few minutes apart, on the free tier.
 
 ---
 

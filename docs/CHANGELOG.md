@@ -5,6 +5,7 @@
 - **Uploaded files show the paper's citation, not the file name.** A clip taken from an uploaded PDF used to print the app's own title, for example "journal.pone.0355849 (Page 1)", which means nothing to a reader. Now the report uses the paper's citation: the clip's own, or else the one saved on the document it came from (the Export dialog loads the uploaded documents to find it). The source line reads "Geng et al. (2026), PLoS One - p. 1", links to the paper's DOI, and the paper appears in the bibliography with its DOI. One author reads "Lee (2020)", two "Lee and Park (2020)", three or more "Lee et al. (2020)". With no citation, a real title is kept (without the "(Page N)" suffix); a file-style title becomes "Uploaded PDF" or "Uploaded document".
 - **"Open exact passage" removed.** The source name now carries that link: it opens the exact passage when the clip has one, else the page.
 - **Links and new tabs.** A PDF file cannot tell the viewer to open a link in a new tab; the viewer decides, and Chrome, Edge and Firefox open it in the same tab on a plain click. The report now says so on the contents page and in the colour key: hold Ctrl (Cmd on a Mac) while clicking a link to open it in a new tab.
+- `package.json` version is now 1.8.1, matching this log.
 - Tests: 159 unit tests (new builder tests for uploaded-file clips) and `e2e/13` checks all three changes in a real download. Checked on the real "Manual Test Run: 8 Cases" project: no raw file names, no "Open exact passage", the DOI is in the bibliography.
 
 ### Known Issues & Open Work
