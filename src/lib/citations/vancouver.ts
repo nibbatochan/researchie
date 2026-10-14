@@ -111,6 +111,10 @@ function bookChapter(record: CitationRecord): string {
 }
 
 // Authors. Title. Place: Agency; Year. Report No.: number. doi:10.xxxx
+// Checked 2026-10-14 against NLM's "Recommended Formats for Bibliographic Citation" Internet supplement
+// (technical-report example: "Place: Publisher; 1997 Sep [...]. Contract No.: 53-3198-5-028. 115 p."), so the
+// number follows the date. The "Report No.:" wording is from Citing Medicine chapter 4 as summarised by search;
+// the NCBI page itself sits behind a reCAPTCHA and was not read.
 function report(record: CitationRecord): string {
   const line = [
     sentence(formatAuthors(record.authors)),

@@ -14,7 +14,7 @@ const report = () => mapCrossrefWork({
   title: ['Coastal flood risk in the Gulf'],
   author: [{ given: 'Ada', family: 'Lovelace' }],
   institution: [{ name: 'National Coastal Agency' }],
-  'report-number': ['TR-2041'],
+  'alternative-id': ['TR-2041'],
   issued: { 'date-parts': [[2021]] },
 });
 
@@ -26,7 +26,7 @@ test('a Crossref report takes its agency from institution when publisher is miss
 });
 
 test('a report number is kept only for reports', () => {
-  const article = mapCrossrefWork({ type: 'journal-article', title: ['X'], 'report-number': 'R1', issued: { 'date-parts': [[2020]] } });
+  const article = mapCrossrefWork({ type: 'journal-article', title: ['X'], 'alternative-id': ['R1'], issued: { 'date-parts': [[2020]] } });
   assert.equal(article.reportNumber, undefined);
 });
 
@@ -78,4 +78,9 @@ test('a place of publication is shown on a web page when the record has one', ()
   const r = buildWebCitation({ url: 'https://example.org/x', title: 'Piece', siteName: 'Example Org', published: '2024-05-01' }, '2026-10-14T00:00:00Z');
   r.publisherPlace = 'Atlanta (GA)';
   assert.match(formatVancouver(r, { citedOn: CITED }), /^Atlanta \(GA\): Example Org \[Internet\]\./);
+});
+
+test('a DOI or URL in alternative-id is not mistaken for a report number', () => {
+  const r = mapCrossrefWork({ type: 'report', title: ['X'], 'alternative-id': ['10.1000/abc', 'https://example.org/x'], issued: { 'date-parts': [[2020]] } });
+  assert.equal(r.reportNumber, undefined);
 });

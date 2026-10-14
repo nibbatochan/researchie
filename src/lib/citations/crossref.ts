@@ -22,7 +22,7 @@ interface CrossrefWork {
   'publisher-location'?: string;
   editor?: { given?: string; family?: string; name?: string }[];
   institution?: { name?: string }[];
-  'report-number'?: string | string[];
+  'alternative-id'?: string[];
   issued?: CrossrefDate;
   'published-print'?: CrossrefDate;
   'published-online'?: CrossrefDate;
@@ -79,8 +79,10 @@ export function mapCrossrefWork(work: CrossrefWork): CitationRecord {
     missingFields: [],
   };
   if (work['publisher-location']) record.publisherPlace = work['publisher-location'];
-  const reportNumber = Array.isArray(work['report-number']) ? work['report-number'][0] : work['report-number'];
-  if (sourceType === 'report' && reportNumber) record.reportNumber = reportNumber;
+  // Crossref has no report-number field. Checked live on 100 report records: the number is carried in
+  // alternative-id (e.g. "CMU-CS-03-214", "PS/NCPN/NRR—2023/2498"), and only on records that have one.
+  const reportNumber = work['alternative-id']?.find((id) => id.trim() && !/^(https?:|10\.\d{4,})/i.test(id.trim()));
+  if (sourceType === 'report' && reportNumber) record.reportNumber = reportNumber.trim();
   if (work.editor?.length) record.editors = people(work.editor);
 
   // Retraction notices point at the retracted work via update-to.

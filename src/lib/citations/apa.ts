@@ -99,8 +99,9 @@ function bookChapter(record: CitationRecord): string {
   return join([end(authorList(record.authors)), year(record), end(record.title ?? ''), inPart, record.publisher ? end(record.publisher) : undefined, link(record)]);
 }
 
-// Handout 10.4 has no report-number example, so "Title (Report No. 123). Publisher." comes from the
-// Publication Manual's general form and is UNVERIFIED here. The handout's report examples are unchanged.
+// The handout has no report-number example. The APA Style site's report page gives
+// "Title (Report No. NASA/CR-2018-220043). Publisher. URL" (parenthetical right after the title, no period
+// before it) as summarised by search on 2026-10-14; the page itself would not render, so it was not read directly.
 function report(record: CitationRecord): string {
   const title = record.reportNumber
     ? `${(record.title ?? '').replace(/[.?!]$/, '')} (Report No. ${record.reportNumber}).`

@@ -2,13 +2,16 @@
 
 ## [v1.8.3] — 2026-10-14 (Citations: report number, agency, web update date and place)
 ### Enhanced
-- **Reports.** A Crossref report now keeps its report number, and takes its agency from the record's institution when no publisher is given. Vancouver adds "Report No.: ..." after the year; APA adds "(Report No. ...)" after the title; BibTeX puts it in the number field.
+- **Reports.** A Crossref report keeps its report number. Crossref has no report-number field: checked on 100 live report records, the number is in alternative-id (e.g. CMU-CS-03-214), so that is where it is read (DOIs and URLs in that list are ignored). Vancouver adds "Report No.: ..." after the year; APA adds "(Report No. ...)" after the title; BibTeX puts it in the number field. Two real DOIs (10.21236/ada461282, 10.36967/2297289) were run end to end through both styles.
 - **Web pages.** The extension now reads the page's last-update date (article:modified_time, og:updated_time, last-modified). Vancouver shows it as "[updated 2025 Feb 9; cited 2026 Oct 14]". A place of publication is shown when the record has one.
--  has 9 tests. 176 unit tests in total pass; tsc is clean.
-### Not verified or not done
-- The Vancouver "Report No.:" and APA "(Report No. ...)" forms are not checked against a primary source: the APA handout has no report-number example, and the NLM page was not re-read. Marked UNVERIFIED in docs/CITATION_API_RESEARCH.md.
+- 10 new tests in tests/citations-report-web.test.mjs; 177 unit tests pass; tsc clean.
+### Checked against sources
+- **Vancouver:** NLM's Internet formats supplement has a technical-report example with the number after the date ("...1997 Sep [...]. Contract No.: ...") and web sites with "[updated ...; cited ...]". The "Report No.:" wording comes from Citing Medicine chapter 4 as summarised by search; the NCBI page sits behind a reCAPTCHA and was not read.
+- **APA:** the APA Style site's report page gives "(Report No. NASA/CR-2018-220043)" right after the title, no period before it (search summary; the page would not render).
+### Not done
+- DataCite report numbers: 25 live DataCite reports (Zenodo) carry only an OAI identifier, no report number, so nothing is read.
 - Nothing reads a web site's place of publication from the page, so the place only appears if the record already has one.
-- DataCite report numbers are not read (field not checked). The extension change needs a live Chrome check.
+- The extension change (update-date capture) has not been run in real Chrome.
 
 ---
 
