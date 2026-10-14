@@ -110,14 +110,24 @@ function bookChapter(record: CitationRecord): string {
   return record.doi ? `${line} doi:${record.doi}` : line;
 }
 
-// Authors. Title. Publisher; Year.
+// Authors. Title. Place: Agency; Year. Report No.: number. doi:10.xxxx
 function report(record: CitationRecord): string {
   const line = [
     sentence(formatAuthors(record.authors)),
     sentence(field(record.title, 'title')),
     `${record.publisher ? `${record.publisherPlace ? `${record.publisherPlace}: ` : ''}${record.publisher}; ` : ''}${field(record.year, 'year')}.`,
-  ].join(' ');
+    record.reportNumber ? `Report No.: ${record.reportNumber}.` : undefined,
+  ].filter(Boolean).join(' ');
   return record.doi ? `${line} doi:${record.doi}` : line;
+}
+
+// The date a page says it was last updated. A bare YYYY-MM-DD is read as a local date,
+// so a timezone never moves it to the day before.
+function updatedOn(record: CitationRecord): Date | undefined {
+  if (!record.updatedAt) return undefined;
+  const day = record.updatedAt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const when = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(record.updatedAt);
+  return Number.isNaN(when.getTime()) ? undefined : when;
 }
 
 function siteName(record: CitationRecord): string | undefined {
@@ -129,14 +139,18 @@ function siteName(record: CitationRecord): string | undefined {
   }
 }
 
-// Part of a Web site (NLM Citing Medicine, chapter 25): Site [Internet]. Part title; date [cited date]. Available from: URL
-// The site's place of publication and the page's update date are not captured, so they are left out.
+// Part of a Web site (NLM Citing Medicine, chapter 25): Place: Site [Internet]. Part title; year [updated date; cited date]. Available from: URL
+// The place is shown only when the record has one; the extension does not read it from the page.
 function webPage(record: CitationRecord, options: VancouverOptions): string {
   const year = record.year ? `${record.year} ` : '';
+  const updated = updatedOn(record);
+  const dates = updated
+    ? `[updated ${nlmDate(updated)}; cited ${citedDate(record, options)}].`
+    : `[cited ${citedDate(record, options)}].`;
   return [
-    `${field(siteName(record), 'site name')} [Internet].`,
+    `${record.publisherPlace ? `${record.publisherPlace}: ` : ''}${field(siteName(record), 'site name')} [Internet].`,
     `${field(record.title, 'title')};`,
-    `${year}[cited ${citedDate(record, options)}].`,
+    `${year}${dates}`,
     availableFrom(record),
   ].join(' ');
 }

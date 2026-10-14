@@ -1,5 +1,17 @@
 # Version Changelog
 
+## [v1.8.3] — 2026-10-14 (Citations: report number, agency, web update date and place)
+### Enhanced
+- **Reports.** A Crossref report now keeps its report number, and takes its agency from the record's institution when no publisher is given. Vancouver adds "Report No.: ..." after the year; APA adds "(Report No. ...)" after the title; BibTeX puts it in the number field.
+- **Web pages.** The extension now reads the page's last-update date (article:modified_time, og:updated_time, last-modified). Vancouver shows it as "[updated 2025 Feb 9; cited 2026 Oct 14]". A place of publication is shown when the record has one.
+-  has 9 tests. 176 unit tests in total pass; tsc is clean.
+### Not verified or not done
+- The Vancouver "Report No.:" and APA "(Report No. ...)" forms are not checked against a primary source: the APA handout has no report-number example, and the NLM page was not re-read. Marked UNVERIFIED in docs/CITATION_API_RESEARCH.md.
+- Nothing reads a web site's place of publication from the page, so the place only appears if the record already has one.
+- DataCite report numbers are not read (field not checked). The extension change needs a live Chrome check.
+
+---
+
 ## [v1.8.2] — 2026-10-14 (Captured page HTML is cleaned on save)
 ### Security
 - **Clipped block HTML is cleaned before it is saved or shown.** A block clip keeps the page’s HTML so it can be shown exactly. Nothing removed script or event handlers on the server, and the app inserts that HTML into the page. Every block is now cleaned on save (`src/lib/security/sanitizeBlockHtml.ts`, wired into `src/app/api/atoms/route.ts`): scripts, frames, forms, objects and every on* handler are removed; javascript:, vbscript: and data: links are removed; style attributes cannot load a URL; links open with noopener. Ordinary layout, tables, lists, classes and text are kept.

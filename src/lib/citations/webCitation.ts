@@ -11,6 +11,13 @@ export interface PageInfo {
   siteName?: string;
   author?: string;
   published?: string; // as the page gives it, usually ISO 8601
+  updated?: string; // the page's last-update date, as the page gives it
+}
+
+// Keeps only a date the formatter can read: a leading YYYY-MM-DD. Anything else is dropped, not guessed.
+function updatedDate(value?: string): string | undefined {
+  const match = value?.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : undefined;
 }
 
 export function buildWebCitation(info: PageInfo, accessedAt: string): CitationRecord {
@@ -30,6 +37,7 @@ export function buildWebCitation(info: PageInfo, accessedAt: string): CitationRe
     year: yearMatch ? Number(yearMatch[1]) : undefined,
     url: info.url,
     accessedAt,
+    updatedAt: updatedDate(info.updated),
     missingFields,
   };
 }

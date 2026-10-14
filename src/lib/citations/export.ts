@@ -63,7 +63,7 @@ export function toBibTeX(record: CitationRecord): string {
   fields.push(
     ['year', record.year ? String(record.year) : undefined],
     ['volume', record.volume],
-    ['number', record.issue],
+    ['number', record.reportNumber ?? record.issue],
     ['pages', record.pages ? record.pages.replace(/(\d)\s*[-–]\s*(\d)/, '$1--$2') : undefined],
     ['publisher', record.publisher ? bibEscape(record.publisher) : undefined],
     ['address', record.publisherPlace ? bibEscape(record.publisherPlace) : undefined],

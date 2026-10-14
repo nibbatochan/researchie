@@ -99,8 +99,13 @@ function bookChapter(record: CitationRecord): string {
   return join([end(authorList(record.authors)), year(record), end(record.title ?? ''), inPart, record.publisher ? end(record.publisher) : undefined, link(record)]);
 }
 
+// Handout 10.4 has no report-number example, so "Title (Report No. 123). Publisher." comes from the
+// Publication Manual's general form and is UNVERIFIED here. The handout's report examples are unchanged.
 function report(record: CitationRecord): string {
-  return join([end(authorList(record.authors)), year(record), end(record.title ?? ''), record.publisher ? end(record.publisher) : undefined, link(record)]);
+  const title = record.reportNumber
+    ? `${(record.title ?? '').replace(/[.?!]$/, '')} (Report No. ${record.reportNumber}).`
+    : end(record.title ?? '');
+  return join([end(authorList(record.authors)), year(record), title, record.publisher ? end(record.publisher) : undefined, link(record)]);
 }
 
 function preprint(record: CitationRecord): string {

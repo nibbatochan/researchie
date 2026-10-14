@@ -22,6 +22,7 @@ interface CrossrefWork {
   'publisher-location'?: string;
   editor?: { given?: string; family?: string; name?: string }[];
   institution?: { name?: string }[];
+  'report-number'?: string | string[];
   issued?: CrossrefDate;
   'published-print'?: CrossrefDate;
   'published-online'?: CrossrefDate;
@@ -73,10 +74,13 @@ export function mapCrossrefWork(work: CrossrefWork): CitationRecord {
     volume: work.volume,
     issue: work.issue,
     pages: work.page,
-    publisher: work.publisher,
+    // A report's agency is often only in institution; publisher is the fallback.
+    publisher: work.publisher ?? (sourceType === 'report' ? work.institution?.[0]?.name : undefined),
     missingFields: [],
   };
   if (work['publisher-location']) record.publisherPlace = work['publisher-location'];
+  const reportNumber = Array.isArray(work['report-number']) ? work['report-number'][0] : work['report-number'];
+  if (sourceType === 'report' && reportNumber) record.reportNumber = reportNumber;
   if (work.editor?.length) record.editors = people(work.editor);
 
   // Retraction notices point at the retracted work via update-to.

@@ -38,7 +38,9 @@ export interface CitationRecord {
   issue?: string;
   pages?: string;
   publisher?: string;
-  publisherPlace?: string; // books and chapters, when the source gives it
+  publisherPlace?: string; // books, chapters, reports and web sites, when the source gives it
+  reportNumber?: string; // reports: the agency's own number, e.g. "TR-2041"
+  updatedAt?: string; // web pages: the date the page says it was last updated, ISO 8601
   editors?: CitationAuthor[]; // book chapters: the editors of the book
   url?: string;
   accessedAt?: string; // ISO 8601, web sources only

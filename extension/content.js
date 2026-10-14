@@ -398,6 +398,7 @@
       siteName: meta('meta[property="og:site_name"]'),
       author: meta('meta[name="author"]') || meta('meta[property="article:author"]'),
       published: meta('meta[property="article:published_time"]') || meta('meta[name="date"]') || meta('meta[name="citation_publication_date"]'),
+      updated: meta('meta[property="article:modified_time"]') || meta('meta[property="og:updated_time"]') || meta('meta[name="last-modified"]'),
     };
   }
 
