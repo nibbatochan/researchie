@@ -6,6 +6,7 @@ import { uploadAsset } from '@/lib/storage/service';
 import { generateEmbedding } from '@/lib/ai/embeddings';
 import { buildIsolatedBlockDoc, extractPlainTextFromHtml } from '@/lib/utils/htmlBlockNormalizer';
 import { isCitationRecord, withCitation } from '@/lib/citations/metadata.ts';
+import { sanitizeBlockHtml } from '@/lib/security/sanitizeBlockHtml.ts';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -135,8 +136,9 @@ export async function POST(request: Request) {
     const targetProjectId = body.projectId;
 
     // Normalize DOM Block content & synthesize standalone document if needed
-    let blockSanitizedHtml = body.content?.sanitizedHtml;
-    let blockStandaloneHtml = body.content?.standaloneHtml;
+    // Captured page HTML is cleaned here, on every save, before it is stored or shown.
+    let blockSanitizedHtml = sanitizeBlockHtml(body.content?.sanitizedHtml || '') || undefined;
+    let blockStandaloneHtml = sanitizeBlockHtml(body.content?.standaloneHtml || '') || undefined;
     let blockRawText = rawQuoteText;
 
     if (body.type === 'block') {

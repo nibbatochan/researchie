@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.8.2] — 2026-10-14 (Captured page HTML is cleaned on save)
+### Security
+- **Clipped block HTML is cleaned before it is saved or shown.** A block clip keeps the page’s HTML so it can be shown exactly. Nothing removed script or event handlers on the server, and the app inserts that HTML into the page. Every block is now cleaned on save (`src/lib/security/sanitizeBlockHtml.ts`, wired into `src/app/api/atoms/route.ts`): scripts, frames, forms, objects and every on* handler are removed; javascript:, vbscript: and data: links are removed; style attributes cannot load a URL; links open with noopener. Ordinary layout, tables, lists, classes and text are kept.
+- Checked live: a hostile block posted to the running app was stored with every dangerous piece removed and the readable text kept; the test clip was deleted. `tests/sanitize-block.test.mjs` has 8 tests. 167 unit tests in total pass.
+- Added dependency: `sanitize-html` (with `@types/sanitize-html`).
+
+---
+
 ## [v1.8.1] — 2026-10-14 (PDF export: citations for uploaded files, no "Open exact passage")
 ### Fixed & Enhanced
 - **Uploaded files show the paper's citation, not the file name.** A clip taken from an uploaded PDF used to print the app's own title, for example "journal.pone.0355849 (Page 1)", which means nothing to a reader. Now the report uses the paper's citation: the clip's own, or else the one saved on the document it came from (the Export dialog loads the uploaded documents to find it). The source line reads "Geng et al. (2026), PLoS One - p. 1", links to the paper's DOI, and the paper appears in the bibliography with its DOI. One author reads "Lee (2020)", two "Lee and Park (2020)", three or more "Lee et al. (2020)". With no citation, a real title is kept (without the "(Page N)" suffix); a file-style title becomes "Uploaded PDF" or "Uploaded document".
