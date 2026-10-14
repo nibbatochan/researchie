@@ -187,6 +187,7 @@ export default function DashboardPage() {
     title: string;
     description: string;
     color_badge: string;
+    folderIcon?: string;
     parentId?: string | null;
   }) => {
     const res = await fetch('/api/projects', {

@@ -24,6 +24,7 @@ import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 import { ThemeToggle } from './ThemeToggle';
 import { ResearchieLogo } from './ResearchieLogo';
 import { UserProfileButton } from './UserProfileButton';
+import { ProjectIcon } from './ProjectIcon';
 import { useSettings } from '@/lib/settings/settingsContext';
 
 interface ProjectListProps {
@@ -201,18 +202,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   key={p.id}
                   type="button"
                   onClick={() => onSelectProject(p.id)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-mono font-bold transition-all cursor-pointer ${
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer text-[#0F172A] dark:text-white ${
                     activeProjectId === p.id
-                      ? 'bg-[#325FEC] text-white shadow-xs scale-105'
-                      : 'text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] border border-[#D2DCEA] dark:border-[#27272A]'
+                      ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
+                      : 'border border-transparent hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
                   }`}
-                  style={{
-                    borderLeftColor: activeProjectId === p.id ? undefined : p.color,
-                    borderLeftWidth: activeProjectId === p.id ? undefined : '3px',
-                  }}
                   title={`${p.title} (${p.atomCount || 0} clips)`}
+                  aria-label={p.title}
+                  aria-current={activeProjectId === p.id ? 'true' : undefined}
                 >
-                  {p.title.charAt(0).toUpperCase()}
+                  <ProjectIcon shape={p.folderIcon} color={p.color} seed={p.id} size={18} />
                 </button>
               ))}
 

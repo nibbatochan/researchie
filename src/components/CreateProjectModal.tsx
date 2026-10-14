@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FolderSimple, TreeStructure } from '@phosphor-icons/react';
 import { ResearchProject } from '@/lib/types/research';
+import { ProjectIcon, PROJECT_SHAPES, DEFAULT_SHAPE } from './ProjectIcon';
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface CreateProjectModalProps {
     title: string; 
     description: string; 
     color_badge: string;
+    folderIcon?: string;
     parentId?: string | null;
   }) => Promise<void>;
 }
@@ -37,6 +39,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
+  const [shape, setShape] = useState<string>(DEFAULT_SHAPE);
   const [parentId, setParentId] = useState<string | null>(initialParentId);
   const [loading, setLoading] = useState(false);
 
@@ -61,11 +64,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         title: title.trim(),
         description: description.trim(),
         color_badge: color,
+        folderIcon: shape,
         parentId: parentId || null,
       });
       setTitle('');
       setDescription('');
       setColor(COLOR_OPTIONS[0]);
+      setShape(DEFAULT_SHAPE);
       setParentId(null);
       onClose();
     } finally {
@@ -138,6 +143,32 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-3 py-2 bg-[#EEF3F8] dark:bg-[#09090B] border border-[#D2DCEA] dark:border-[#27272A] rounded-xl text-xs text-[#0F172A] dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#325FEC] transition-colors resize-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-slate-500 dark:text-zinc-400 mb-2 uppercase">
+              Project Shape
+            </label>
+            <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Project shape">
+              {PROJECT_SHAPES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={shape === s.id}
+                  aria-label={s.label}
+                  title={s.label}
+                  onClick={() => setShape(s.id)}
+                  className={`h-9 rounded-lg flex items-center justify-center text-[#0F172A] dark:text-white border transition-colors ${
+                    shape === s.id
+                      ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
+                      : 'border-[#D2DCEA] dark:border-[#27272A] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
+                  }`}
+                >
+                  <ProjectIcon shape={s.id} color={color} seed={s.id} size={20} />
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
