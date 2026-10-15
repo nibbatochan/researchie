@@ -116,11 +116,15 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Plan: Delete the user's projects (their clips and documents go with them), then the profile (settings, tokens, AI keys cascade), then the login. The projects table only clears the owner on profile delete, so it must be deleted first.
           | Done: Built. Authenticator app set-up in Settings (Account & Security); delete needs password, a current code and DELETE. Migration 002_account_mfa.sql; otpauth package; 5 unit tests.
           | Done too: Migration 002 run on the testers project; deployed to https://researchie-testers.vercel.app on 2026-10-16 (/api/auth/totp answers 401 when signed out, so the route is live).
-          | Left: Try it by hand on the live site with a throwaway account (set up the authenticator app, then delete). Not tested against Supabase yet.
+          | Checked: You set up the authenticator app on the live site and it worked with a real app.
+          | Left: Say whether the delete itself went through (password, code, DELETE, then sign-in fails). Set-up works, but copying the key to a phone is too much work: see S-59.
     - [done] Switch between saved accounts from the sidebar {S-44}
           | What: The profile menu lists the other email addresses you signed in with on this browser. Picking one signs you out and opens the sign-in page with that address filled in; you type the password. "Use another account" signs out. A small x forgets an address.
           | Decided: Only addresses are remembered (in this browser), never passwords or sessions. Accounts are not kept signed in side by side.
-          | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Deployed 2026-10-16; not tried by hand on the live site yet.
+          | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Deployed 2026-10-16 and checked by you on the live site.
+    - [not started] Scan a QR code to set up the authenticator app {S-59}
+          | What: Today the set-up shows a key to copy into the phone app by hand. Show a QR code instead, so the app scans it and adds the account in one step.
+          | Notes: You asked for this after trying S-43. The server already builds the otpauth address a QR code needs (totpUri); the page only has to draw it. Keep the key as a fallback.
     - [not started] Sign in with Google {S-45}
           | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
           | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
@@ -186,6 +190,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 - p24 = S-25
 - p25 = S-26
 - p58 = S-58
+- p59 = S-59
 - p2a = S-28
 - p2b = S-29
 - p3 = S-30
