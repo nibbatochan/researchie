@@ -1,9 +1,9 @@
 # Product requirements document
 ## Project: Researchie (Web research extension and project organizer)
 
-Document version: 1.1.0  
-Status: Draft for review  
-Target release: Q4 2026 – Q1 2027  
+Document version: 2.0.0 (rewritten 2026-10-16 to match what was built; the first draft was 1.1.0)  
+Status: Built and in hosted testing  
+Extension: 1.5.0. App: v1.9.5. Live test site: `researchie-testers.vercel.app`  
 
 ## 1. Summary
 
@@ -132,49 +132,65 @@ Supporting jobs:
 
 ## 7. Feature specifications
 
-### Chrome extension
+What is built is marked as built. What is planned is marked as planned. The build history is in `docs/CHANGELOG.md`; the reasons for each choice are in `docs/DECISIONS.md`.
+
+### Chrome extension (built, version 1.5.0)
 
 #### 1. Selection tools
-- Text selection: When the user highlights text, a small popup pill appears with "Save to project" and "Ask AI". Clicking save captures the text, surrounding context, and builds a scroll-to-text link. Keyboard shortcut: `Alt + S`.
-- Link saving: Right-click any link or drag it into the extension icon to save the page preview.
-- Image saving: Hover over any image to see a "Save image" button, or press `Alt + C` to crop a section of the screen.
-- Layout block picker: Click "Inspect block" or press `Alt + B`. Moving the mouse highlights page containers with a light blue outline and tag name (`div.pricing-card`, `table.specs`). Pressing the Up arrow expands selection to the parent element; pressing Down selects the child element. Clicking saves the cleaned HTML and an image snapshot.
+- Text selection: highlighting text shows a small pill with three icons and nothing between them: Send, a tag, and three dots. Send saves the quote with its surrounding context and a scroll-to-text link. The tag icon adds one tag before sending. The three dots open "Set project". Hovering Send shows which project the clip goes to. Keyboard shortcut: `Alt + S`.
+- Link saving: the Link button in the extension popup, or `Alt + L`, saves the page address, title, favicon and description. A confirmation appears in the popup and on the page.
+- Image saving: `Alt + I` lets the user hover over any image and click it; `Alt + C` crops part of the screen. Both open the same small dialog with "Set project" and a tag icon.
+- Layout block picker: `Alt + B`. Moving the mouse highlights page containers with an outline and the tag name. The Up arrow expands the selection to the parent; the Down arrow selects a child. Clicking opens the same dialog, then saves the cleaned HTML (scripts and iframes removed) with the page's own colors and layout.
+- Set project: a small "Set project" label with the chosen project under it, highlighted. The list has no scrollbar. Projects have a blue folder; sub-projects have no icon and hang off a guide line under their project, the same as on the platform. Picking a project confirms with "Set to <project>". The popup, the side panel and the dialogs all show it the same way.
+- All dialogs share one look and stay fully inside the window, buttons included.
 
-#### 2. AI page summary
-- Quick summary: Generates a 3-bullet takeaway of the active tab in under 2 seconds.
-- Detailed breakdown: Pulls key data points, stated methodology, and main arguments.
-- Data table extractor: Finds tables on the page and converts them into markdown format.
-- One-click save: Sends the summary directly into the active project timeline.
+#### 2. Side panel (Chrome's native `chrome.sidePanel`)
+- Page summary: Auto, 3 bullets, Detailed, and Tables. It writes a real summary from the page text, and "Save to Project" puts it in the timeline.
+- Page Q&A: the assistant reads the clean text of the active tab. Answers carry clickable citations that scroll the tab to the exact sentence. Any answer can be saved to the project.
+- Feed: the project's recent clips, with Jump (open the source in context), delete, and the project switcher.
+- Account: a link icon opens the same token panel as the popup, and the status reads "Not connected" until a token is stored.
+- Ask AI on a selection was removed from the pill and the dialogs in 1.5.0; the side panel is where questions are asked.
 
-#### 3. In-page Q&A side panel
-- Uses Chrome's native side panel (`chrome.sidePanel`).
-- The assistant reads the clean text of the active tab. Users can ask questions like "What sample size was used?" or "What are their enterprise prices?".
-- Answers include clickable citation chips that scroll the active tab to the exact sentence.
-- Any answer can be saved directly to the project with one click.
+#### 3. Connecting to an account
+- The extension connects with a token only. The token ends in the server's address, so there is no server field. In the web app, Profile shows the token with Copy; in the extension, the link icon next to the on/off switch opens a box to paste it. The token is checked with the server before it is kept.
+- The extension only trusts https addresses, or http on this computer.
+- Without a token nothing is sent: the extension shows "Not connected" with a Connect button, and clips taken meanwhile wait in the offline queue.
+- On a local server (no accounts) the token is only a pairing code that carries the address.
 
-#### 4. Project switcher and queue
-- A small floating button on the edge of the page shows the current project name.
-- Clicking it opens a dropdown to switch projects or create a new one.
-- If the computer is offline, saved notes queue in browser storage and sync automatically once internet returns.
+#### 4. Offline queue
+- If the server cannot be reached, clips wait in browser storage and are sent by themselves every minute, at browser start, and when the browser goes online. A clip the server refuses is marked rejected and is not retried by itself. Each clip carries an id from its first try, so a retry after a lost reply does not save it twice.
 
-### Web application
+### Web application (built)
 
-#### 1. Authentication and projects dashboard
-- Sign in with Google, GitHub, or email magic link.
-- The extension connects to the web session using a secure token.
-- The dashboard lists all active projects, item counts, and recent updates.
+#### 1. Accounts and the projects dashboard
+- Two modes, chosen by the server. With accounts off (local development) there is one demo user and a local file store. With accounts on (the tester deployment) there are real accounts, and each user's data is private.
+- Sign-up and sign-in use email and password. Sign-up can require an invite code. Google sign-in is a disabled placeholder until it is set up in Supabase.
+- The session is an httpOnly cookie that only the server sets.
+- Switch account: the profile menu lists the other email addresses used to sign in on this browser. Picking one signs out and opens the sign-in page with that address filled in. Only addresses are remembered, never passwords.
+- Delete account: Settings, then Account & Security. The user sets up an authenticator app once, then deletes with the password, a current code from the app, and the word DELETE. This removes projects, clips, documents, settings, AI keys, extension tokens and the login. Showing a QR code for the set-up is planned.
+- The dashboard lists projects, sub-projects, clip counts and recent activity. Deleting a project asks whether to keep its clips and moves them to another project first if the user says so.
 
-#### 2. Project timeline view
-- Notes display in a chronological card stream.
-- Text cards display the quote with a button that opens the original website scrolled to the text.
-- Image cards include an image viewer and selectable OCR text.
-- Block cards include a toggle between the visual snapshot and the clean HTML markup.
-- Users can drag cards to reorganize them or add tags.
+#### 2. Workspace views
+- Three modes: Feed (a chronological card stream), Spatial Canvas, and Document Reader. Selection persists across sub-projects.
+- Text cards open the original page scrolled to the quote. Image cards show the image and searchable OCR text. Block cards switch between the visual snapshot and the clean HTML. Link cards can play YouTube, Vimeo, Dailymotion and Loom links in place. Cards can be tagged and pinned to the top of the feed. Deletes are optimistic with an 8-second undo and a trash drawer.
+- Document Reader: users upload PDFs and Word files, read them with text selection and highlights, and ask questions answered with passages and verified citations.
 
 #### 3. Search and synthesis
-- Search: Supports both exact keyword matching and conceptual search (so searching for "server costs" finds notes discussing "cloud hosting bills").
-- Context finder: Reconnects any single quote with the surrounding paragraphs from the original page.
-- Synthesis generator: Users select multiple notes and click "Synthesize" to generate a draft summary, comparison table, or outline with citations linked to each note.
+- Search: exact keyword matching plus conceptual search over saved notes.
+- Context finder: reconnects a quote with the surrounding paragraphs from the original page when the page can be fetched.
+- Synthesis: select several notes and generate a draft summary, comparison table or outline with a citation for each note.
+- Citation engine: resolves DOI, PMID, report numbers and web pages on demand, formats APA 7, AMA, NLM and others, flags retractions and mismatches as warnings, and exports BibTeX and RIS.
+
+#### 4. Export
+- Markdown, Obsidian (incremental, using `researchie_atom_id` in frontmatter), Notion (incremental, skipping blocks it already has), BibTeX and a PDF research report built in the browser.
+
+#### 5. AI
+- Each user brings their own key (Groq, Cerebras, OpenRouter or Google AI Studio) in Settings. The server checks it with the provider, encrypts it, and shows only the last four characters. A missing or rejected key returns a message and a link, never a made-up answer. Model names are editable because providers rename them.
+- With accounts off, a deterministic fallback works without any key so the app and its tests run offline.
+
+### Planned, not built
+- Sharing a project with other accounts: a link with can view or can edit, invites by email with a role, a member list, and Request access, all enforced on the server (scope S-54).
+- Sign in with Google (S-45); a QR code for the authenticator set-up (S-59); keeping each user's Notion token on the server (S-46); real-time collaboration and two-way Notion sync (provisional).
 
 ## 8. Competitor comparison
 
@@ -187,42 +203,50 @@ Supporting jobs:
 | Cross-note synthesis | Yes | No | Basic | No | Web synthesis only |
 | Searchable image OCR | Yes | No | Basic | No | No |
 
-## 9. Phased development plan
+## 9. Development phases and where each stands
 
-### Phase 1: Core extension and timeline (Weeks 1–6)
-- Next.js web application with user login and database setup.
+### Phase 1: Core extension and timeline — done
+- Next.js web application with login and database setup.
 - Chrome extension for text and link saving with scroll-to-text links.
-- Basic project timeline showing saved cards in order.
+- Project timeline showing saved cards in order.
 
-### Phase 2: In-page tools and block picker (Weeks 7–12)
-- Visual block picker to select and save HTML containers.
-- Side panel with page summarization and in-page Q&A.
-- Image clipping with OCR text extraction.
+### Phase 2: In-page tools and block picker — done
+- Block picker that saves cleaned HTML containers.
+- Side panel with page summaries and page Q&A.
+- Image and screen-crop clipping with OCR text extraction.
 
-### Phase 3: Search and synthesis (Weeks 13–18)
-- Conceptual search across all saved notes.
-- Context finder to view original paragraphs around quotes.
-- Multi-note synthesis tool for generating reports.
+### Phase 3: Search and synthesis — done
+- Conceptual search across saved notes, the context finder, and multi-note synthesis.
+- Citation engine, verified document Q&A, PDF reader and Spatial Canvas, added beyond the original plan.
 
-### Phase 4: Collaboration and export (Weeks 19–24)
-- Shared projects for teams.
-- Direct export to Markdown, Obsidian, Notion, and PDF.
+### Phase 4: Collaboration and export — export done, collaboration not started
+- Export to Markdown, Obsidian, Notion, BibTeX and PDF is built.
+- Shared projects for teams are not built (scope S-54). Real-time collaboration is provisional.
+
+### Phase 5: Hosted testing — in progress
+- Real accounts, private per-user data, each user's own AI key and the extension token are live at `researchie-testers.vercel.app` for 5 to 10 testers (Vercel Hobby plan, Supabase Postgres).
+- Open: live checks of sign-up, uploads and OCR on the hosted site; Google sign-in; the invite code on the live site.
 
 ## 10. Pricing model
 
-- Free tier: 3 projects, unlimited text and link saves, 25 block clips per month, and basic page summaries.
-- Pro tier ($12/month or $120/year): Unlimited projects, unlimited block clips, image OCR, full in-page Q&A, conceptual search, and multi-note synthesis.
-- Team tier ($25/user/month): Shared project workspaces, team search, and admin controls.
+Not decided. The earlier draft proposed a Free tier (3 projects, 25 block clips a month), a Pro tier ($12 a month) and a Team tier ($25 per user a month). None of these limits is enforced in the product, and enforcing free-plan limits was dropped on 2026-10-14. The app currently has no payments. Pricing will be set after testers have used it.
 
 ## 11. Technical stack
 
-- Chrome extension: TypeScript, Manifest V3, Shadow DOM for UI isolation (so host site styles do not mess up the extension buttons).
-- Web application: Next.js 15, React 19, Tailwind CSS, shadcn/ui components.
-- Database and storage: PostgreSQL with pgvector for search, Cloudflare R2 for saved images and snapshots.
-- AI engine: Gemini 1.5 Flash for fast in-page Q&A and summaries; Gemini 1.5 Pro for multi-note synthesis.
+- Chrome extension: Manifest V3, plain JavaScript with no build step. The pill and its menus use Shadow DOM so a site's styles cannot leak in. The block, image and screenshot dialogs sit in the page and carry their own styles. A background worker handles saving, the offline queue and the token.
+- Web application: Next.js 15.5, React 19, TypeScript, Tailwind CSS 3, Phosphor icons. PDF.js for reading PDFs, Tesseract.js for OCR (the English language file is shipped with the app), JSZip and react-markdown.
+- Database: Supabase Postgres with row-level security. On the tester deployment every query is filtered by the signed-in user, and the data layer is unit-tested to show one user cannot read or change another's data. With accounts off, the app uses local JSON files and an in-memory seeded store.
+- Search: vectors are computed by a deterministic local method, so search works without an external embedding service.
+- AI: pluggable providers behind one chat adapter (Groq, Cerebras, OpenRouter, Google AI Studio). The user's key is encrypted with AES-256-GCM, bound to the user. Document Q&A returns passages with offsets, and links come only from verified citations. The Python graph builder (Cognee scripts) runs locally only.
+- Authentication: Supabase Auth, with the session in an httpOnly cookie. The extension uses a token whose SHA-256 hash is stored. Account deletion is confirmed with a time-based one-time code (TOTP) from an authenticator app.
+- Hosting: Vercel, uploaded with the Vercel CLI.
+- Tests: unit tests (Node test runner) and Playwright end-to-end tests. The extension tests load the real extension into a throwaway Chrome profile.
 
 ## 12. Privacy and data security
 
-1. The extension only inspects page content when the user clicks a tool, highlights text, or opens the side panel. It does not record form inputs or passwords.
-2. All saved HTML blocks are sanitized to remove tracking scripts and iframes.
-3. Users can export all their saved notes and images at any time.
+1. The extension inspects page content only when the user clicks a tool, highlights text or opens the side panel. It does not record form inputs or passwords.
+2. Saved HTML blocks have scripts and iframes removed. Pages fetched on the server are refused for local and private addresses.
+3. On the tester site each user's projects, clips, documents and settings are private to that user. The session cookie cannot be read by page scripts, and requests that change data from another site are refused.
+4. Extension tokens are shown once, and only a hash is stored. A user can revoke tokens.
+5. AI keys are stored encrypted and never shown in full again. Secrets are never put in documents, and every push is scanned for them.
+6. Users can export all their notes at any time, and can delete their own account and everything in it.

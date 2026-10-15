@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { ShieldCheck, Warning } from '@phosphor-icons/react';
 
 // Settings -> Account & Security. Deleting the account needs a one-time code from an authenticator app, so the
@@ -14,6 +15,7 @@ export const DeleteAccountSettings: React.FC = () => {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
   const [setupCode, setSetupCode] = useState('');
+  const [qr, setQr] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [typed, setTyped] = useState('');
@@ -27,6 +29,20 @@ export const DeleteAccountSettings: React.FC = () => {
       .then((j) => setEnabled(Boolean(j.enabled)))
       .catch(() => setEnabled(false));
   }, []);
+
+  useEffect(() => {
+    if (!setup) {
+      setQr(null);
+      return;
+    }
+    let live = true;
+    QRCode.toDataURL(setup.uri, { margin: 1, width: 176 })
+      .then((url) => live && setQr(url))
+      .catch(() => live && setQr(null));
+    return () => {
+      live = false;
+    };
+  }, [setup]);
 
   async function startSetup() {
     setBusy(true);
@@ -109,7 +125,9 @@ export const DeleteAccountSettings: React.FC = () => {
           </>
         ) : (
           <div className="space-y-2">
-            <p className="text-[11px] text-slate-600 dark:text-zinc-400">In your app, add a new account with this key (or open the address on a phone that has the app):</p>
+            <p className="text-[11px] text-slate-600 dark:text-zinc-400">Open your authenticator app, choose to add an account, and scan this code:</p>
+            {qr && <img src={qr} alt="QR code for the authenticator app" width={176} height={176} className="rounded-lg bg-white p-1" />}
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400">Cannot scan? Enter this key by hand instead:</p>
             <code className="block p-1.5 rounded bg-[#F4F6F9] dark:bg-[#202024] font-mono text-[10px] text-slate-600 dark:text-zinc-400 break-all select-all">{setup.secret}</code>
             <input className={input} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code from the app" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
             <button type="button" disabled={busy || setupCode.length !== 6} onClick={turnOn} className="px-3 py-1.5 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white rounded-lg text-xs font-medium cursor-pointer">

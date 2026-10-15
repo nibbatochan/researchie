@@ -122,9 +122,10 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: The profile menu lists the other email addresses you signed in with on this browser. Picking one signs you out and opens the sign-in page with that address filled in; you type the password. "Use another account" signs out. A small x forgets an address.
           | Decided: Only addresses are remembered (in this browser), never passwords or sessions. Accounts are not kept signed in side by side.
           | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Deployed 2026-10-16 and checked by you on the live site.
-    - [not started] Scan a QR code to set up the authenticator app {S-59}
+    - [done] Scan a QR code to set up the authenticator app {S-59}
           | What: Today the set-up shows a key to copy into the phone app by hand. Show a QR code instead, so the app scans it and adds the account in one step.
-          | Notes: You asked for this after trying S-43. The server already builds the otpauth address a QR code needs (totpUri); the page only has to draw it. Keep the key as a fallback.
+          | Done: The set-up now draws a QR code in the browser from the otpauth address (qrcode package) and keeps the key as a fallback.
+          | Left: Deploy, then scan it with your phone app on the live site. Type-checked only.
     - [not started] Sign in with Google {S-45}
           | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
           | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
@@ -155,8 +156,9 @@ Statuses: not started, in progress, blocked, done, dropped.
     - [not started] Share a project with other accounts {S-54}
           | What: Figma-style sharing: a link with can view or can edit, invite by email with a role, a member list (owner, editor, viewer), the owner changes or removes access, and Request access with approve or deny, all enforced on the server.
           | Left: Needs new tables (project_members, project_invites, share_links, access_requests). Start after the live check (S-41).
-    - [not started] Rewrite the PRD to match what was built {S-55}
-          | What: docs/RESEARCH_TOOL_PRD.md still names tools that are not used (Cloudflare R2, Gemini 1.5, shadcn, a TypeScript extension). Rewrite it with every decision since 2026-10-14.
+    - [done] Rewrite the PRD to match what was built {S-55}
+          | What: docs/RESEARCH_TOOL_PRD.md named tools that are not used (Cloudflare R2, Gemini 1.5, shadcn, a TypeScript extension).
+          | Done: Rewritten as version 2.0.0 on 2026-10-16: features marked built or planned, phases with their status, pricing marked undecided, the real stack, and the privacy rules now in force.
     - [dropped] Enforce free-plan limits {S-56}
           | What: Free-tier caps (3 projects, 25 block clips a month) were never enforced. Dropped by you on 2026-10-14.
 

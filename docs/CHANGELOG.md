@@ -1,5 +1,12 @@
 # Version Changelog
 
+## [v1.9.6] — 2026-10-16 (QR code for the authenticator app; PRD rewritten)
+### Added
+- **QR code** in Settings -> Account & Security when setting up the authenticator app. It is drawn in the browser from the otpauth address (`qrcode` package); the key stays below it for apps that cannot scan.
+
+### Changed
+- `docs/RESEARCH_TOOL_PRD.md` rewritten as version 2.0.0 to match what was built: built and planned features, the five phases with their status, pricing marked undecided, the real stack and the privacy rules in force.
+
 ## [v1.9.5] — 2026-10-16 (Switch account list)
 ### Added
 - **Switch account** (tester deployment). The profile menu lists the other email addresses used to sign in on this browser. Picking one signs out and opens `/login?email=...` with the address filled in; the password is still typed. "Use another account" just signs out. An x forgets an address. Only the address is kept (localStorage, up to 6); no password, token or session. Local mode is unchanged.
