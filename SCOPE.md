@@ -2,65 +2,206 @@
 
 Edited by the `/scopetrack` mod. Use `/scopetrack` to see the tree and where you are. Never delete history: finished or dropped items stay in the tree.
 
-Current: {p16}
+Current: {S-41}
 
 Statuses: not started, in progress, blocked, done, dropped.
 
 ## Tree
 
-- [in progress] Researchie (core) {root}
-  - [in progress] Citation Engine {c1}
-    - [done] Crossref, DOI, DataCite, PubMed lookups {c2}
-    - [done] Title search pick list {c3}
-    - [done] Vancouver formatting {c4}
-    - [done] Web-page and manual citations {c5}
-    - [done] Verified DOI read from extension capture — checked live on a PLoS ONE article (PROJECT_LOG phase 7) {c6}
-    - [done] Preprint, dataset, book chapter lines (APA) {c7}
-    - [done] AMA style {c8}
-    - [done] Report number, agency, web update date/place — ed0872d, c793301; update-date reader checked on nasa.gov, extension itself not run in Chrome {c9}
-  - [in progress] Document Assistant Q&A {q1}
-    - [done] Passages, page numbers, verified quotes {q2}
-    - [done] Groq rate-limit handling — unit-tested only {q3}
-    - [done] Live check: Q 10, 13–16, 18 — Groq 18 of 18 passed (PROJECT_LOG phase 7) {q4}
-    - [done] Document Assistant UI fixes — owner checked in the reader 2026-10-14 {q5}
-    - [done] Document clean-up: kept the PLOS ONE paper and "Just Enough Research"; deleted the other 13 documents (8 placeholders, 5 demo documents) and removed the 5 demo documents from the seed list so they do not return. e2e 06 now uses Just Enough Research {q6}
-  - [done] Exports (Obsidian, Notion, Markdown, BibTeX) {e1}
-  - [done] Workspaces, PDF reader, OCR, AI synthesis {w1}
-  - [in progress] Housekeeping {h1}
-    - [done] Delete InlineClipInserter.tsx and lib/cn.ts {h2}
-    - [done] Replace lucide-react with Phosphor in PDFReaderView.tsx {h3}
-    - [done] Gitignore .documents-store.json and .cognee-graph-*.json (graph files untracked, uncommitted) {h4}
-    - [in progress] Commit work after f0bd60f. Committed locally as e7bf5c7 (everything up to v1.9.0, key scan clean). v1.9.1 fixes are a second local commit. Nothing is pushed: before any push do a fresh key scan, and do not push main or cleanup/2026-10-09 without a scrub {h5}
-    - [not started] Real-Chrome checks of work only tested in a headless test Chromium: side panel summary chips, "+ Save to Project", update-date capture, the new dialog menus, the video player on live YouTube and Vimeo, the offline-queue alarm and a real network drop, the extension Connect section {p24}
-    - [not started] scripts/testGroundingBaseline.cjs is stale (names the removed doc-dots-openai-spec) {p25}
-  - [not started] PRD gaps {p1}
-    - [dropped] Floating on-page project switcher button — replaced by in-flow switching, see {p2a}, {p2b} {p2}
-    - [done] In-flow project switching for text selection: hovering Send shows a tooltip with the destination project; a three-dot menu next to "Add tag" has "Change to…" listing all directories — v1.8.5, checked with the real extension in a test Chromium (e2e 15) {p2a}
-    - [done] Same three-dot menu on DOM block, screenshot, image and section capture; its confirmation popup shows which directory the content goes to {p2b}
-    - [done] "Ask AI" lives in the three-dot menu, not as its own pill button (reuses the in-page Q&A drawer) {p3}
-    - [done] AI page summary — fixed the wiring (side panel now calls /api/ai/summarize through background.js); summary is written from the page with no fixed template; chips for Auto, 3 bullets, Detailed, Tables; "+ Save to Project" already existed. v1.8.4. Live-checked on Groq; side panel not yet run in real Chrome {p4}
-    - [done] Automatic offline queue flush: the background worker now sends the queue on an alarm every minute while clips wait, at browser start, and on the online event; the Sync button uses the same code. Also fixed: the old flush deleted clips the server refused, queued clips had no project, and the side panel and popup said "Saved to offline queue" without queuing. v1.8.8, e2e 17 on the real extension, alarm timing and a real network drop not tested {p5}
-    - [dropped] Drag to reorder cards in the timeline — dropped by owner, the feed is a timeline; replaced by {p12} {p6}
-    - [done] Pin atoms, like pinned chats in WhatsApp: pin icon in the card's icon row; pinned cards stay at the top of the feed; a pin icon by the type filter shows pinned only — v1.8.5, e2e 14 {p12}
-    - [done] PDF export — built in v1.8.0 and v1.8.1 (export modal PDF tab) {p7}
-    - [not started] Team sharing between accounts, Figma style: share link with can view / can edit, invite by email with a role, member list (owner, editor, viewer), owner changes or removes access, "Request access" with approve or deny, all enforced on the server. Was blocked on auth; accounts now exist in code (p14) but are not yet checked live, so start after p16. Needs new tables (project_members, project_invites, share_links, access_requests) {p8}
-    - [dropped] Plan limits: free tier caps (3 projects, 25 block clips a month) are not enforced; tier is a UI flag — dropped by owner 2026-10-14 {p9}
-    - [done] Block HTML sanitization: scripts and iframes stripped on save — v1.8.2, 992b127 {p10}
-    - [done] Video embeds: a saved link to a YouTube, Vimeo, Dailymotion or Loom video plays inline on the card, with a Player / Link toggle, minimize, and a plain-link fallback when the video can't be embedded. Original URL stays the source. v1.8.7, unit and e2e tests with stubbed hosts, not checked against live providers {p13}
-    - [in progress] Tester deployment for 5 to 10 people: real email/password accounts with an httpOnly cookie, per-user data in Supabase, row-level security, extension connection by pasted token, settings in the account, and a bring-your-own AI key (Groq, Cerebras, OpenRouter, Google AI Studio). v1.9.0. Built and unit-tested; deployed at https://researchie-testers.vercel.app on a live testers Supabase project; the signed-in flows have not been checked by hand yet {p14}
-      - [in progress] Live setup and check: testers Supabase project made, schema.sql and 001_multi_user.sql run and checked, email confirmation off (done 2026-10-15). Left: Site URL in Supabase, rotate the service key, then the 33-item manual checklist (docs/TESTER_CHECKLIST.md) with two real accounts. Nothing signed-in has run against the real database yet {p16}
-      - [in progress] Vercel: deployed to https://researchie-testers.vercel.app with the six environment variables (2026-10-15; Next.js upgraded to 15.5.28 because Vercel blocked 15.1.4). Left: test server-side OCR, PDF parsing, the 4 MB upload limit and the tester Chrome extension zip on the live site; look at the 13 npm audit findings {p17}
-      - [not started] Delete account in a Danger zone: password, one-time code (email or authenticator app), typed DELETE, server-side delete of all the user's data {p15}
-      - [not started] Saved-accounts switcher in the sidebar (one httpOnly cookie per account); today "Switch account" signs out {p18}
-      - [not started] Google sign-in. Owner sets it up by hand in Supabase; the login button is a disabled placeholder and the wiring point is signInWithOAuth in authContext.tsx {p19}
-      - [not started] Notion token per user, stored encrypted like the AI key (today it lives in memory only on the tester site) {p20}
-      - [done] Duplicate clips when a save reaches the server but the reply is lost: the extension gives each clip an id before its first try, and the server returns the saved clip when it sees the same id from the same user. v1.9.1, unit-tested; not run on the live site {p21}
-      - [done] Deleting a project with "keep clips" now moves the clips (and documents) of the project and its sub-projects to a chosen project on the server, in the same request as the delete; the app picks the parent, another top-level project, or a new "Unfiled clips" project. Sub-projects are deleted on the server too. v1.9.1, unit tests and e2e 19. Local mode moves clips but not documents {p22}
-      - [not started] Retire the local file store so each route has one code path (today AUTH_REQUIRED picks between two) {p23}
-      - [in progress] npm audit: 13 findings down to 12 with the non-breaking fix. The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tooling; left until after the demo, then decide {p26}
-      - [done] Sign-up gate: set SIGNUP_INVITE_CODE on Vercel and sign-up asks for it; wrong guesses are limited per address. v1.9.1, unit-tested and checked on a local server. Still to do: set the variable on Vercel and redeploy, then try a sign-up {p27}
-      - [done] Default model names checked against the providers' lists: OpenRouter now openrouter/free (the old name no longer exists), Google now gemini-3.8-flash (2.5 is limited to earlier users), Groq fallbacks trimmed to listed production models. Still to do: try each provider with a real key {p28}
-    - [not started] Rewrite the PRD to match the real stack (Cloudflare R2, Gemini 1.5, shadcn, TypeScript extension are not used) and every decision from 2026-10-14: in-flow project switching, Ask AI in the menu, real summaries, pinning, no drag reorder, no plan limits, team sharing blocked on auth {p11}
+- [in progress] Researchie (core) {S-01}
+      | What: A research workbench and Chrome extension: clip text, blocks, images and links from any page into projects, keep each clip's exact source, and ask questions with citations.
+  - [done] Citation Engine {S-02}
+        | What: Turns a clip into a correct, checked citation.
+    - [done] Look up a source by DOI or PubMed ID {S-03}
+          | What: Finds a paper's title, authors and journal from Crossref, DataCite or PubMed when a clip has a DOI or PubMed ID.
+    - [done] Search for a source by title {S-04}
+          | What: When a clip has no DOI, lists matching papers to pick from.
+    - [done] Format a citation in Vancouver style {S-05}
+    - [done] Cite web pages and type a citation by hand {S-06}
+    - [done] Read the DOI from a page the extension clips {S-07}
+          | Notes: Checked live on a PLoS ONE article.
+    - [done] Cite preprints, datasets and book chapters (APA) {S-08}
+    - [done] Format a citation in AMA style {S-09}
+    - [done] Add report number, agency and web update date to citations {S-10}
+          | Notes: The update-date reader was checked on nasa.gov. The extension itself has not been run in Chrome for it.
+  - [done] Document Assistant {S-11}
+        | What: Ask questions about an uploaded document and get answers with page numbers and quotes.
+    - [done] Answer with page numbers and checked quotes {S-12}
+    - [done] Show a clear "busy" message when the AI is rate limited {S-13}
+          | What: Instead of a wrong answer, the assistant says the AI service is busy.
+          | Notes: Unit-tested only.
+    - [done] Check answers on real questions {S-14}
+          | What: Ran 18 real questions on Groq; all 18 passed.
+    - [done] Fix Document Assistant screen problems {S-15}
+          | What: You checked it in the reader on 2026-10-14.
+    - [done] Clean up the demo documents {S-16}
+          | What: Kept the PLOS ONE paper and "Just Enough Research"; deleted 13 others and removed the 5 demo documents from the starter list so they do not return.
+  - [done] Core features {S-17}
+        | What: Built earlier and working.
+    - [done] Export a project to Obsidian, Notion, Markdown and BibTeX {S-18}
+    - [done] Workspaces, PDF reader, OCR and AI synthesis {S-19}
+  - [in progress] Housekeeping {S-20}
+        | What: Keep the code tidy and the work saved.
+    - [done] Delete two unused files {S-21}
+          | What: InlineClipInserter.tsx and lib/cn.ts.
+    - [done] Switch the PDF reader to the Phosphor icons {S-22}
+    - [done] Stop tracking large local data files in git {S-23}
+          | What: .documents-store.json and the .cognee-graph files are ignored or untracked.
+    - [in progress] Commit the work and push it {S-24}
+          | What: Save the work to git, and later push it.
+          | Done: Committed locally as e7bf5c7 (up to v1.9.0) and e9a7db9 (v1.9.1). The secret scan was clean.
+          | Left: Push, after your yes: run a fresh key scan first, and do not push main or cleanup/2026-10-09 without a scrub.
+    - [not started] Try the extension in your real Chrome {S-25}
+          | What: Everything so far was tested in a test browser. Try it by hand in your own Chrome.
+          | Left: Side panel summary chips, "+ Save to Project", update-date capture, the new dialog menus, video on live YouTube and Vimeo, the offline-queue alarm with a real network drop, and the extension Connect section.
+    - [not started] Fix an out-of-date test script {S-26}
+          | What: scripts/testGroundingBaseline.cjs still names a document that was removed (doc-dots-openai-spec).
+    - [not started] Look at the new scope panel and say what to adjust {S-57}
+      | What: The panel was rebuilt (version 0.4.1) with S-numbers, one-line items, open cards, and add, edit, reorder and done buttons. It was tested with the mod's own tests on the terminal and desktop, but its look in the real app has not been seen yet.
+      | Left: Run /reload-plugins, open /scopetrack, and note anything unclear or ugly.
+      | Notes: The old version is backed up in C:\Users\suman\.claude\mods\scopetrack-backup-v0.3.0.
+  - [done] Chrome extension {S-27}
+        | What: Clipping from any page, with project menus and a side panel.
+    - [done] Switch project from the text-selection pill {S-28}
+          | What: Hover Send to see which project the clip goes to; the three-dot menu has "Change to…" listing every project.
+          | Notes: v1.8.5. Checked with the real extension in a test browser.
+    - [done] Same project menu on block, image and screenshot clips {S-29}
+          | What: The confirmation popup shows "Sends to <project>" and has the same three-dot menu.
+    - [done] Ask AI from the three-dot menu {S-30}
+          | What: Opens the in-page question panel from the menu instead of a separate pill button.
+    - [done] Summarize a page in the side panel {S-31}
+          | What: Writes a real summary from the page, with chips for Auto, 3 bullets, Detailed and Tables, and a "+ Save to Project" button.
+          | Notes: v1.8.4. Live-checked on Groq. The side panel has not been run in real Chrome.
+    - [done] Send saved clips automatically when the connection returns {S-32}
+          | What: Clips saved while the server is unreachable wait in a queue and are sent without pressing Sync.
+          | Done: The background worker sends the queue every minute, at browser start and when the browser goes online. It no longer deletes clips the server refused, queued clips keep their project, and "Saved offline" now tells the truth.
+          | Notes: v1.8.8. The alarm timing and a real network drop were not tested.
+    - [dropped] Floating project-switcher button on every page {S-33}
+          | What: Replaced by the in-flow menus (S-28 and S-29).
+  - [done] Feed and cards {S-34}
+        | What: How clips look and behave in the feed.
+    - [done] Pin clips to the top of the feed {S-35}
+          | What: A pin icon on each card keeps it at the top, like pinned chats; a pin filter by the type filter shows pinned clips only.
+          | Notes: v1.8.5. e2e 14.
+    - [done] Play video links on the clip card {S-36}
+          | What: YouTube, Vimeo, Dailymotion and Loom links play inline, with a Player / Link toggle, a minimize button and a plain-link fallback. The saved link stays the source.
+          | Notes: v1.8.7. Tested with stubbed hosts, not against live providers.
+    - [done] Strip scripts from clipped page blocks {S-37}
+          | What: Scripts and iframes are removed from a clipped block when it is saved.
+          | Notes: v1.8.2.
+    - [done] Export a project as a PDF {S-38}
+          | Notes: v1.8.0 and v1.8.1.
+    - [dropped] Drag to reorder cards in the feed {S-39}
+          | What: Dropped by you: the feed is a timeline. Pinning (S-35) replaced it.
+  - [in progress] Tester site {S-40}
+        | What: Lets 5 to 10 testers sign up and use their own private workspace, AI key and Chrome extension on a live site.
+        | Done: Accounts, private data, AI keys, the extension token and settings saved in the account; deployed at https://researchie-testers.vercel.app (v1.9.0, v1.9.1).
+        | Left: Live checks (S-41, S-42), then the items below.
+    - [in progress] Check sign-up and login by hand on the live site {S-41}
+          | What: Make two real accounts on the testers site and run the 33-item checklist in docs/TESTER_CHECKLIST.md. No signed-in step has been tried on the real database yet.
+          | Done: Testers Supabase project made; schema and migration run and checked; email confirmation off.
+          | Left: Set the Site URL in Supabase, rotate the service key, then run the checklist.
+    - [in progress] Check uploads, OCR and PDFs on the live site {S-42}
+          | What: The site is live at https://researchie-testers.vercel.app. Some features run on the server and have not been tried there.
+          | Done: Deployed with its environment variables. Next.js was upgraded to 15.5.28 because Vercel refused 15.1.4.
+          | Left: Try OCR, PDF parsing and the 4 MB upload limit; set SIGNUP_INVITE_CODE and redeploy (S-51); test the tester extension zip.
+    - [not started] Let a user delete their own account {S-43}
+          | What: A Danger zone in Settings that asks for the password, a one-time code and the word DELETE, then deletes the user's data and login on the server.
+          | Left: Decide how the code is sent: email needs a mail provider, or use an authenticator app.
+    - [not started] Switch between saved accounts from the sidebar {S-44}
+          | What: Today "Switch account" signs out. This would keep several accounts signed in and let you change between them.
+    - [not started] Sign in with Google {S-45}
+          | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
+          | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
+    - [not started] Keep each user's Notion token safely on the server {S-46}
+          | What: On the tester site the Notion token is kept in memory only, so users paste it each visit. This would store it encrypted, like the AI key.
+    - [done] Stop duplicate clips when a reply is lost {S-47}
+          | What: If a save reaches the server but the reply is lost, the extension's retry no longer makes a second copy.
+          | Done: Each clip gets an id before its first try; the server returns the saved clip for the same id.
+          | Notes: v1.9.1. Unit-tested; not run on the live site.
+    - [done] Keep clips when deleting a project {S-48}
+          | What: Deleting a project with "keep clips" moves its clips and documents to another project first.
+          | Done: The server moves them in the same request that deletes. The app picks the parent, another project, or a new "Unfiled clips" project. Sub-projects are deleted on the server too.
+          | Notes: v1.9.1. Unit tests and e2e 19. Local mode moves clips but not documents.
+    - [not started] Use one code path for data {S-49}
+          | What: The server picks between the old local file store and Supabase depending on AUTH_REQUIRED. Remove the old path so each route has one.
+    - [in progress] Review the npm security warnings {S-50}
+          | What: npm audit reports 12 findings (down from 13). The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tools.
+          | Left: Decide after the demo whether to upgrade.
+    - [in progress] Ask for an invite code when someone signs up {S-51}
+          | What: Set SIGNUP_INVITE_CODE and the sign-up form asks for it; wrong guesses are limited per address. Without it anyone who finds the address can register.
+          | Done: Built and unit-tested; checked on a local server (v1.9.1).
+          | Left: Set the variable on Vercel, redeploy, and try a sign-up.
+    - [in progress] Use AI model names that exist for each provider {S-52}
+          | What: Default models were checked against each provider's list: OpenRouter now uses openrouter/free, Google uses gemini-3.8-flash, and Groq falls back only to listed production models.
+          | Left: Try each provider with a real key.
+  - [in progress] Product plan {S-53}
+        | What: Features not built yet and the plan documents.
+    - [not started] Share a project with other accounts {S-54}
+          | What: Figma-style sharing: a link with can view or can edit, invite by email with a role, a member list (owner, editor, viewer), the owner changes or removes access, and Request access with approve or deny, all enforced on the server.
+          | Left: Needs new tables (project_members, project_invites, share_links, access_requests). Start after the live check (S-41).
+    - [not started] Rewrite the PRD to match what was built {S-55}
+          | What: docs/RESEARCH_TOOL_PRD.md still names tools that are not used (Cloudflare R2, Gemini 1.5, shadcn, a TypeScript extension). Rewrite it with every decision since 2026-10-14.
+    - [dropped] Enforce free-plan limits {S-56}
+          | What: Free-tier caps (3 projects, 25 block clips a month) were never enforced. Dropped by you on 2026-10-14.
+
+## Old IDs
+
+Items used to be called c1, p14 and so on. These still work in /scopetrack commands.
+
+- root = S-01
+- c1 = S-02
+- c2 = S-03
+- c3 = S-04
+- c4 = S-05
+- c5 = S-06
+- c6 = S-07
+- c7 = S-08
+- c8 = S-09
+- c9 = S-10
+- q1 = S-11
+- q2 = S-12
+- q3 = S-13
+- q4 = S-14
+- q5 = S-15
+- q6 = S-16
+- e1 = S-18
+- w1 = S-19
+- h1 = S-20
+- h2 = S-21
+- h3 = S-22
+- h4 = S-23
+- h5 = S-24
+- p24 = S-25
+- p25 = S-26
+- p2a = S-28
+- p2b = S-29
+- p3 = S-30
+- p4 = S-31
+- p5 = S-32
+- p2 = S-33
+- p12 = S-35
+- p13 = S-36
+- p10 = S-37
+- p7 = S-38
+- p6 = S-39
+- p14 = S-40
+- p16 = S-41
+- p17 = S-42
+- p15 = S-43
+- p18 = S-44
+- p19 = S-45
+- p20 = S-46
+- p21 = S-47
+- p22 = S-48
+- p23 = S-49
+- p26 = S-50
+- p27 = S-51
+- p28 = S-52
+- p1 = S-53
+- p8 = S-54
+- p11 = S-55
+- p9 = S-56
 
 ## Scope changes
 
@@ -72,6 +213,7 @@ Statuses: not started, in progress, blocked, done, dropped.
 - 2026-10-13 — Housekeeping: h2, h3 verified already done; h4 finished by untracking .cognee-graph-*.json; c8 (AMA) marked done per git log.
 - 2026-10-13 — c7 marked done (apa.ts covers preprint, dataset, chapter, report). h5 narrowed: e2e changes are already committed.
 - 2026-10-15 00:58 — started: Citation Engine
+- 2026-10-15 — Scope reorganised: every item has an S-number, titles and descriptions were rewritten in plain language, and "PRD gaps" was split into Chrome extension, Feed and cards, Tester site and Product plan. Old ids are listed under Old IDs. p27 and p28 are now "in progress" because each has one step left.
 
 ## History
 - 2026-10-13 22:36 — dropped: Citation Engine > Verified DOI read from extension capture
