@@ -45,6 +45,7 @@ import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type An
 import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
 import { FormattedAIMessage } from './FormattedAIMessage';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 // ─── Saved Highlight type ──────────────────────────────────────────
 interface SavedHighlight {
@@ -163,10 +164,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [savedHighlights, setSavedHighlights] = useState<SavedHighlight[]>([]);
   // Only the selected saved highlight is drawn on the pages; null when none is selected.
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
+  const prefs = usePrefs();
   // Assistant panel width in px. Dragged by its left edge, kept for next time.
   const [assistantWidth, setAssistantWidth] = useState<number>(() => {
     try {
-      const saved = Number(window.localStorage.getItem('researchie.assistantWidth'));
+      const saved = Number(prefs.get('researchie.assistantWidth'));
       return saved >= 260 && saved <= 720 ? saved : 320;
     } catch {
       return 320;
@@ -187,7 +189,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       try {
-        window.localStorage.setItem('researchie.assistantWidth', String(latest));
+        prefs.set('researchie.assistantWidth', String(latest));
       } catch {}
     };
     window.addEventListener('pointermove', onMove);
@@ -267,6 +269,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   // ─── Local Storage Cache Keys ──────────────────────────────────
   const localCacheKey = `researchie_docs_${projectId}`;
   const localDeletedCacheKey = `researchie_deleted_docs_${projectId}`;
+  // Local development caches documents in the browser. On the tester site they come from the account, so nothing is cached.
+  const cacheGet = (key: string) => (prefs.inAccount ? null : localStorage.getItem(key));
+  const cacheSet = (key: string, value: string) => {
+    if (!prefs.inAccount) localStorage.setItem(key, value);
+  };
 
   // ─── Fetch documents from API & Local Storage ──────────────────
   const fetchDocs = async () => {
@@ -283,14 +290,14 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
       let cachedDocs: ResearchDocument[] = [];
       try {
-        const saved = localStorage.getItem(localCacheKey);
+        const saved = cacheGet(localCacheKey);
         if (saved) cachedDocs = JSON.parse(saved);
       } catch {}
 
       // Retrieve deleted document IDs for this project to prevent ghost resurrections
       let deletedIds: string[] = [];
       try {
-        const delSaved = localStorage.getItem(localDeletedCacheKey);
+        const delSaved = cacheGet(localDeletedCacheKey);
         if (delSaved) deletedIds = JSON.parse(delSaved);
       } catch {}
       const deletedSet = new Set(deletedIds);
@@ -452,7 +459,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   const saveDocsToLocal = (updatedDocs: ResearchDocument[]) => {
     try {
-      localStorage.setItem(localCacheKey, JSON.stringify(updatedDocs));
+      cacheSet(localCacheKey, JSON.stringify(updatedDocs));
     } catch {}
   };
 
@@ -660,11 +667,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
           // Remove newDoc.id from deleted cache if it was previously deleted
           try {
-            const delSaved = localStorage.getItem(localDeletedCacheKey);
+            const delSaved = cacheGet(localDeletedCacheKey);
             if (delSaved) {
               const list: string[] = JSON.parse(delSaved);
               const filtered = list.filter((id) => id !== newDoc.id);
-              localStorage.setItem(localDeletedCacheKey, JSON.stringify(filtered));
+              cacheSet(localDeletedCacheKey, JSON.stringify(filtered));
             }
           } catch {}
 
@@ -752,11 +759,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
       // 2. Track deleted ID in localStorage cache to prevent ghost resurrection
       try {
-        const rawDel = localStorage.getItem(localDeletedCacheKey);
+        const rawDel = cacheGet(localDeletedCacheKey);
         const deletedIds: string[] = rawDel ? JSON.parse(rawDel) : [];
         if (!deletedIds.includes(docId)) {
           deletedIds.push(docId);
-          localStorage.setItem(localDeletedCacheKey, JSON.stringify(deletedIds));
+          cacheSet(localDeletedCacheKey, JSON.stringify(deletedIds));
         }
       } catch {}
 

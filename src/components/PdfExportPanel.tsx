@@ -14,6 +14,7 @@ import {
   type ReportSectionKey,
 } from '@/lib/export/pdf/types.ts';
 import { downloadBlob } from '@/lib/export/download';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 interface PdfExportPanelProps {
   project: ResearchProject;
@@ -54,10 +55,11 @@ export const PdfExportPanel: React.FC<PdfExportPanelProps> = ({ project, atoms }
     };
   }, []);
 
+  const prefs = usePrefs();
   // Start with the citation style the user last chose in the citation box, when the PDF supports it.
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(STYLE_STORAGE_KEY) as ReportCitationStyle | null;
+      const saved = prefs.get(STYLE_STORAGE_KEY) as ReportCitationStyle | null;
       if (saved && STYLES.includes(saved)) setOptions((o) => ({ ...o, citationStyle: saved }));
     } catch {}
   }, []);

@@ -81,7 +81,9 @@ async function uploadAndOpenCitation(page: Page, resolvedTitle: string, docIds: 
   await expect(page.getByText('No DOI found in this PDF')).toHaveCount(0);
   await save.click();
 
-  // The upload lands in the library; open it in the reader.
+  // The upload lands in the library; open it in the reader. Clicking Resume the instant the card
+  // appears is too early (the click does nothing), so give the library a moment to settle first.
+  await page.waitForTimeout(1500);
   const resume = page.locator('button:has-text("Resume Reading")').first();
   if (await resume.isVisible({ timeout: 5000 }).catch(() => false)) await resume.click();
 

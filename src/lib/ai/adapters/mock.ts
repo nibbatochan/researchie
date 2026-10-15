@@ -1,79 +1,16 @@
 import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult } from '../types';
+import { type SummaryMode, extractiveSummary } from '../summaryPrompt';
 
 export class MockAIAdapter implements AIServiceAdapter {
-  async summarizePage(pageText: string, pageTitle: string): Promise<AISummaryResult> {
-    const paragraphs = pageText
-      .split(/\n+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 40 && !p.toLowerCase().includes('cookie') && !p.toLowerCase().includes('terms of service'));
-
-    const sentences = pageText
-      .split(/[.!?]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 30 && s.length < 280);
-
-    // Extract sentences with numbers, data, percentages, metrics
-    const metricPattern = /(\d+(\.\d+)?%|\$\d+|\b\d+\s*(?:ms|s|tps|tokens|x|gb|mb|tb|million|billion|users|customers|queries)\b)/i;
-    const metricSentences = sentences.filter((s) => metricPattern.test(s));
-
-    // Extract core substantive findings (avoid duplicates)
-    const substantiveSentences: string[] = [];
-    for (const s of sentences) {
-      if (substantiveSentences.length >= 6) break;
-      const clean = s.endsWith('.') ? s : `${s}.`;
-      if (!substantiveSentences.some((existing) => existing.slice(0, 30) === clean.slice(0, 30))) {
-        substantiveSentences.push(clean);
-      }
-    }
-
-    if (substantiveSentences.length === 0) {
-      substantiveSentences.push(`Primary research notes and concepts extracted from ${pageTitle || 'the referenced material'}.`);
-    }
-
-    // Build Executive Overview from opening meaningful context
-    const overviewSeed = paragraphs.slice(0, 2).join(' ') || substantiveSentences.slice(0, 2).join(' ');
-    const overview = overviewSeed.length > 320 
-      ? overviewSeed.slice(0, 320).replace(/\s+\S*$/, '...') 
-      : overviewSeed || `Comprehensive research analysis for "${pageTitle || 'Web Source'}".`;
-
-    // Metrics & Data points
-    const metricsAndData = metricSentences.slice(0, 4).map((s) => s.endsWith('.') ? s : `${s}.`);
-
-    // Key Findings (4 to 6 items)
-    const keyFindings = substantiveSentences.slice(0, 5);
-
-    // Strategic Implications
-    const implications = [
-      `Implications for architecture: Key performance and cost metrics outlined in "${pageTitle || 'source'}" require explicit modeling in spec.`,
-      `Design & research impact: Verified data points should be cross-referenced against customer benchmarks before implementation.`,
-    ];
-
-    // Key entities
-    const words = pageText.match(/\b[A-Z][a-zA-Z0-9_\-]{3,}\b/g) || [];
-    const entityCounts: Record<string, number> = {};
-    for (const w of words) {
-      if (!['This', 'That', 'With', 'From', 'Have', 'When', 'What', 'Where', 'Then', 'They', 'These', 'About'].includes(w)) {
-        entityCounts[w] = (entityCounts[w] || 0) + 1;
-      }
-    }
-    const keyEntities = Object.entries(entityCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([k]) => k);
-
+  async summarizePage(pageText: string, pageTitle: string, mode: SummaryMode = 'auto'): Promise<AISummaryResult> {
+    // No model here: quote the page's own first sentences and say so. Nothing is written that the page does not contain.
+    const markdown = extractiveSummary(pageText, pageTitle, mode);
     return {
-      summary: overview,
-      bulletTakeaways: keyFindings,
-      keyFindings,
-      metricsAndData: metricsAndData.length > 0 ? metricsAndData : undefined,
-      implications,
-      keyEntities: keyEntities.length > 0 ? keyEntities : ['Architecture', 'Analysis', 'Metrics'],
-      structuredBrief: {
-        overview,
-        keyFindings,
-        metricsAndData,
-        implications,
-      },
+      summary: markdown,
+      markdown,
+      mode,
+      extractiveOnly: true,
+      bulletTakeaways: markdown.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2)),
     };
   }
 

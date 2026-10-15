@@ -98,6 +98,24 @@
 - **Rationale**: The verifier meant a weak model never showed a wrong link as verified, but an answer the user cannot trust is still a failure.
 - **Limits**: Groq needs questions one at a time, a few minutes apart, on the free tier.
 
+### Decision 19: Accounts Are a Deployment Switch, and Supabase Is the Only Store When It Is On
+- **Context**: Five to ten testers needed their own accounts and data on a hosted copy. The app kept its real data in two local JSON files (`.research-store.json`, `.documents-store.json`) merged with an optional Supabase mirror, no route knew who was calling, and Vercel does not keep files between requests.
+- **Decision**: `AUTH_REQUIRED=true` turns on accounts. Every data route calls `authorize()`, reads and writes go through `src/lib/data/cloud.ts` (Supabase only, every query filtered by the signed-in user), and the file stores and the Python graph route are bypassed. With the switch off, nothing changes: one demo user, the file store, the existing e2e suite.
+- **Rationale**: One switch keeps local development and the 70-test suite untouched while the hosted copy gets real isolation. The data layer takes its database client as a parameter, so the isolation rules are unit-tested with a fake (`tests/cloud-isolation.test.mjs`).
+- **Limits**: The server uses the service-role key, so the per-user filters in code are the real lock and row-level security is the second. Two code paths exist per route until the file store is retired.
+
+### Decision 20: The Login Session Is an httpOnly Cookie Set Only by the Server
+- **Context**: `@supabase/ssr`'s browser client keeps the session in cookies that page scripts can read, and this app renders HTML captured from other sites.
+- **Decision**: Sign-up, login and logout are server routes (`/api/auth/*`) that set the cookie with `httpOnly`, `sameSite=lax`, `secure` in production. The browser asks `/api/auth/me` who is signed in and never touches Supabase Auth. Cookie-authenticated writes from another origin are refused. The Chrome extension uses a token made in the web app (only its SHA-256 hash is stored), sent as a bearer header, kept in `chrome.storage.local`.
+- **Rationale**: A script injected into a page cannot read an httpOnly cookie. A pasted token avoids relying on the browser sharing cookies with an extension, which was not verified.
+- **Limits**: The token sits in extension storage until revoked. Google sign-in is a disabled placeholder. Switching accounts means signing out; a saved-accounts list would need one httpOnly cookie per account and was not built.
+
+### Decision 21: Each User Brings Their Own AI Key, Encrypted on the Server
+- **Context**: A shared key would burn the owner's quota, and provider limits apply per provider account.
+- **Decision**: Settings -> AI lets a user pick Groq, Cerebras, OpenRouter or Google AI Studio and paste a key. The server checks it with the provider, encrypts it (AES-256-GCM, bound to the user id) and stores it; the browser only sees the last four characters. Every AI route builds its client from the signed-in user's key, and a missing, rejected or exhausted key returns a message instead of a mock answer. The server's own `GROQ_API_KEY` is ignored on the tester deployment.
+- **Rationale**: All four providers speak the same chat format, so one adapter serves them. The provider notes on free tiers were checked against each provider's own pages; where "does not train on your data" could not be confirmed (Groq, Cerebras), the note says so. Google's free tier does use content to improve its products, and the UI warns.
+- **Limits**: If `KEY_ENCRYPTION_SECRET` changes, saved keys cannot be read and users paste them again. Model names are editable text because provider model names change.
+
 ---
 
 ## Molecule Build System Log

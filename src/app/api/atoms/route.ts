@@ -1,4 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
+
+// Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
+const MAX_BODY_BYTES = 4_300_000;
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getLocalProjects, getLocalAtoms, addLocalAtom, updateLocalAtom, deleteLocalAtom } from '@/lib/data/researchStore';
 import { generateTextFragment } from '@/lib/utils/textFragments';
@@ -7,6 +12,7 @@ import { generateEmbedding } from '@/lib/ai/embeddings';
 import { buildIsolatedBlockDoc, extractPlainTextFromHtml } from '@/lib/utils/htmlBlockNormalizer';
 import { isCitationRecord, withCitation } from '@/lib/citations/metadata.ts';
 import { sanitizeBlockHtml } from '@/lib/security/sanitizeBlockHtml.ts';
+import { withPinned } from '@/lib/atoms/pin.ts';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -20,9 +26,16 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') || undefined;
+
+    if (AUTH_REQUIRED) {
+      const data = await cloud.listAtoms(auth.user.id, projectId);
+      return NextResponse.json({ success: true, source: 'supabase', data });
+    }
 
     // Try Supabase first
     try {
@@ -80,6 +93,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  if (AUTH_REQUIRED && Number(request.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { success: false, error: 'This clip is over 4 MB, which is the most the server accepts. Crop a smaller area or clip less.', code: 'TOO_LARGE' },
+      { status: 413 }
+    );
+  }
   try {
     const body = await request.json();
 
@@ -199,6 +220,33 @@ export async function POST(request: Request) {
 
     const atomId = newAtomPayload.id;
 
+    if (AUTH_REQUIRED) {
+      // Tester deployment: the clip belongs to the signed-in user and goes straight to Supabase.
+      const saved = await cloud.insertAtom(auth.user.id, {
+        ...newAtomPayload,
+        userId: auth.user.id,
+        projectId: await cloud.resolveProjectId(auth.user.id, newAtomPayload.projectId),
+      } as any);
+      if (!saved) {
+        return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
+      }
+      if (saved.type === 'image' && finalImageUrl) {
+        // after() keeps the function alive for the OCR once the response is sent (a plain background promise is cut off on Vercel).
+        after(async () => {
+          try {
+            const { extractTextFromImage } = await import('@/lib/ocr/ocrService');
+            const { text, confidence } = await extractTextFromImage(finalImageUrl);
+            if (text) {
+              await cloud.updateAtom(auth.user.id, saved.id, { content: { ...saved.content, ocrText: text, ocrConfidence: confidence } });
+            }
+          } catch (err) {
+            console.error('Background OCR failed');
+          }
+        });
+      }
+      return NextResponse.json({ success: true, source: 'supabase', data: saved }, { status: 201 });
+    }
+
     // Always keep local store in sync
     const local = addLocalAtom(newAtomPayload);
 
@@ -287,6 +335,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
     if (!body.id) {
@@ -303,15 +353,44 @@ export async function PATCH(request: Request) {
       );
     }
 
+    if (body.pinned !== undefined && typeof body.pinned !== 'boolean') {
+      return NextResponse.json(
+        { success: false, error: 'pinned must be true or false' },
+        { status: 400 }
+      );
+    }
+
+    if (AUTH_REQUIRED) {
+      const current = await cloud.getAtom(auth.user.id, body.id);
+      if (!current) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+      const updateData: Record<string, any> = {};
+      if (body.tags !== undefined) updateData.tags = body.tags;
+      if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
+      if (body.title !== undefined) updateData.title = body.title;
+      if (body.citation !== undefined || body.pinned !== undefined) {
+        let metadata: any = current.metadata;
+        if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
+        if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
+        updateData.metadata = metadata;
+      }
+      const updated = Object.keys(updateData).length ? await cloud.updateAtom(auth.user.id, body.id, updateData) : current;
+      if (!updated) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+      return NextResponse.json({ success: true, source: 'supabase', data: updated });
+    }
+
     // Try Supabase update first
     try {
       const updateData: Record<string, any> = {};
       if (body.tags !== undefined) updateData.tags = body.tags;
       if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
       if (body.title !== undefined) updateData.title = body.title;
-      if (body.citation !== undefined) {
+      if (body.citation !== undefined || body.pinned !== undefined) {
+        // Citation and pin both live in the metadata JSON, so read it once and apply each change to it.
         const { data: current } = await supabaseAdmin.from('atoms').select('metadata').eq('id', body.id).single();
-        updateData.metadata = withCitation(current?.metadata, body.citation);
+        let metadata = current?.metadata;
+        if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
+        if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
+        updateData.metadata = metadata;
       }
 
       const { data, error } = await supabaseAdmin
@@ -348,8 +427,15 @@ export async function PATCH(request: Request) {
       tags: body.tags,
       userNotes: body.userNotes,
       title: body.title,
-      ...(body.citation !== undefined && current
-        ? { metadata: withCitation(current.metadata, body.citation) }
+      ...((body.citation !== undefined || body.pinned !== undefined) && current
+        ? {
+            metadata: (() => {
+              let metadata = current.metadata;
+              if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
+              if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
+              return metadata;
+            })(),
+          }
         : {}),
     });
 
@@ -374,6 +460,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -383,6 +471,12 @@ export async function DELETE(request: Request) {
         { success: false, error: 'Atom ID is required' },
         { status: 400 }
       );
+    }
+
+    if (AUTH_REQUIRED) {
+      const removed = await cloud.deleteAtom(auth.user.id, id);
+      if (!removed) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'Atom removed successfully' });
     }
 
     // Try Supabase delete

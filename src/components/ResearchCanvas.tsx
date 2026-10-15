@@ -81,6 +81,7 @@ import { buildIsolatedBlockDoc } from '@/lib/utils/htmlBlockNormalizer';
 import { semanticHighlightText } from '@/lib/utils/semanticHighlight';
 import { getAtomHighlightText } from '@/components/AtomCard';
 import { buildDeepLink } from '@/lib/utils/textFragments';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 const getAtomTypeSemanticStyle = (type: AtomType) => {
   switch (type) {
@@ -338,10 +339,11 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     setHistoryIndex((prev) => Math.min(prev + 1, 29));
   }, [historyIndex]);
 
+  const prefs = usePrefs();
   // Load Canvas Data per project
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(canvasStorageKey);
+      const raw = prefs.get(canvasStorageKey);
       if (raw) {
         const data: CanvasData = JSON.parse(raw);
         setNodes(data.nodes || []);
@@ -404,7 +406,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           connectors,
           drawings,
         };
-        localStorage.setItem(canvasStorageKey, JSON.stringify(data));
+        prefs.set(canvasStorageKey, JSON.stringify(data));
       } catch {}
     }, 400);
     return () => clearTimeout(timeout);

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { isPublicHttpUrl } from '@/lib/security/publicUrl';
 import { extractTextFromImage } from '@/lib/ocr/ocrService';
 
 // We can limit concurrency or process immediately
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
     const { imageUrl, imageBase64 } = body;
@@ -10,6 +14,14 @@ export async function POST(request: Request) {
     const source = imageBase64 || imageUrl;
     if (!source) {
       return NextResponse.json({ error: 'Missing imageUrl or imageBase64' }, { status: 400 });
+    }
+
+    // In the tester deployment the server only reads image data or public https images, never its own network.
+    if (AUTH_REQUIRED) {
+      const ok = typeof source === 'string' && (/^data:image\//i.test(source) || (/^https:\/\//i.test(source) && isPublicHttpUrl(source)));
+      if (!ok) {
+        return NextResponse.json({ error: 'Only image data or public https image links are accepted' }, { status: 400 });
+      }
     }
 
     const { text, confidence } = await extractTextFromImage(source);

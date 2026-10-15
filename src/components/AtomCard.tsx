@@ -18,12 +18,15 @@ import {
   ShieldCheck,
   ArrowsClockwise,
   ArrowLeft,
+  PushPin,
   X
 } from '@phosphor-icons/react';
 import { ResearchAtom } from '@/lib/types/research';
+import { isPinned } from '@/lib/atoms/pin';
 import { buildDeepLink } from '@/lib/utils/textFragments';
 import { BlockAtomCard } from './BlockAtomCard';
 import { ImageAtomCard } from './ImageAtomCard';
+import { VideoEmbed } from './VideoEmbed';
 import { FormattedAIMessage } from './FormattedAIMessage';
 import type { CitationRecord } from '@/lib/citations/types.ts';
 import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
@@ -45,6 +48,7 @@ interface AtomCardProps {
   viewMode?: 'clean' | 'detailed';
   searchQuery?: string;
   onDelete?: (id: string) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
   selectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
@@ -86,6 +90,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   viewMode = 'detailed',
   searchQuery = '',
   onDelete,
+  onTogglePin,
   selectable = false,
   isSelected = false,
   onToggleSelect,
@@ -93,6 +98,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   onOpenPdfReader,
 }) => {
   const [copied, setCopied] = useState(false);
+  const pinned = isPinned(atom);
   const [deleting, setDeleting] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [tags, setTags] = useState<string[]>(atom.tags || []);
@@ -186,6 +192,9 @@ export const AtomCard: React.FC<AtomCardProps> = ({
     if (highlightText) return buildDeepLink(source, undefined, highlightText);
     return source;
   }, [atom, isDocAtom, rawFragment, highlightText]);
+
+  // The saved URL, untouched, is what the video player is built from; citations keep using it too.
+  const videoSourceUrl = atom.content?.targetUrl || atom.metadata?.sourceUrl;
 
   const hasTextFragment = targetLink.includes('#:~:text=') || Boolean(rawFragment) || isDocAtom;
 
@@ -454,6 +463,17 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 <BookOpen size={13} />
               </button>
             )}
+            {onTogglePin && (
+              <button
+                type="button"
+                onClick={() => onTogglePin(atom.id, !pinned)}
+                className={`p-1 rounded hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer ${pinned ? 'text-[#325FEC] dark:text-[#518FFF]' : 'text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200'}`}
+                title={pinned ? 'Unpin' : 'Pin to top'}
+                aria-pressed={pinned}
+              >
+                <PushPin size={13} weight={pinned ? 'fill' : 'regular'} />
+              </button>
+            )}
             <button
               onClick={handleCopyCitation}
               className="p-1 rounded text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200 hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer"
@@ -663,16 +683,19 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           )}
 
           {atom.type === 'link' && (
-            <div className="flex items-center gap-2 text-sm">
-              <LinkSimple size={15} className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
-              <button
-                type="button"
-                onClick={handleOpenLink}
-                className="text-slate-800 dark:text-zinc-200 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:underline truncate text-sm text-left cursor-pointer"
-              >
-                {semanticHighlight(atom.title || targetLink, searchQuery)}
-              </button>
-            </div>
+            <>
+              <div className="flex items-center gap-2 text-sm">
+                <LinkSimple size={15} className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
+                <button
+                  type="button"
+                  onClick={handleOpenLink}
+                  className="text-slate-800 dark:text-zinc-200 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:underline truncate text-sm text-left cursor-pointer"
+                >
+                  {semanticHighlight(atom.title || targetLink, searchQuery)}
+                </button>
+              </div>
+              <VideoEmbed atomId={atom.id} url={videoSourceUrl} title={atom.title} />
+            </>
           )}
 
           {/* Context Tags in Compact View */}
@@ -876,6 +899,8 @@ export const AtomCard: React.FC<AtomCardProps> = ({
           </div>
         )}
 
+        {atom.type === 'link' && <VideoEmbed atomId={atom.id} url={videoSourceUrl} title={atom.title} />}
+
         {atom.type === 'block' && (
           <BlockAtomCard
             sanitizedHtml={atom.content.sanitizedHtml}
@@ -1025,6 +1050,19 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               {copied ? <Check size={13} className="text-[#325FEC] dark:text-[#518FFF]" /> : <Copy size={13} />}
               <span>{copied ? 'Copied' : 'Cite'}</span>
             </button>
+
+            {/* Pin button */}
+            {onTogglePin && (
+              <button
+                type="button"
+                onClick={() => onTogglePin(atom.id, !pinned)}
+                className={`p-1 rounded transition-colors cursor-pointer ${pinned ? 'text-[#325FEC] dark:text-[#518FFF]' : 'text-slate-400 hover:text-[#0F172A] dark:hover:text-zinc-200'}`}
+                title={pinned ? 'Unpin' : 'Pin to top'}
+                aria-pressed={pinned}
+              >
+                <PushPin size={13} weight={pinned ? 'fill' : 'regular'} />
+              </button>
+            )}
 
             {/* Delete button */}
             {onDelete && (

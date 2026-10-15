@@ -206,6 +206,10 @@
     document.body.appendChild(dialog);
 
     const tagInput = dialog.querySelector('#block-tag-input');
+    // Where it will go, with the three-dot menu to change it or ask AI.
+    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
+      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
+    }
     tagInput?.focus();
 
     dialog.querySelector('#btn-block-cancel').addEventListener('click', () => {
@@ -391,6 +395,10 @@
               directBlockFetch(payload);
             } else {
               const atomId = res?.data?.id;
+          if (!atomId) {
+            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            return;
+          }
               const projTitle = res?.projectTitle || activeProjTitle;
               showToastWithUndo(`Sent DOM block to ${projTitle}`, atomId);
             }
@@ -420,7 +428,7 @@
           }
         } catch {}
       }
-      showToast('Sent DOM block (queued for sync)');
+      showToast('Could not reach the server. Reload this page and try again.');
     }
 
     dialog.querySelector('#btn-block-confirm').addEventListener('click', confirmSend);

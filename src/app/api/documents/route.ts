@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getProjectDocuments, getDocumentById, addDocument, deleteDocument } from '@/lib/data/sampleDocuments';
 import { ResearchDocument } from '@/lib/types/research';
 import { isCitationRecord } from '@/lib/citations/metadata.ts';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
+
+// Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
+const MAX_BODY_BYTES = 4_300_000;
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -15,10 +20,21 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') || undefined;
     const documentId = searchParams.get('id') || undefined;
+
+    if (AUTH_REQUIRED) {
+      if (documentId) {
+        const doc = await cloud.getDocument(auth.user.id, documentId);
+        if (!doc) return NextResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
+        return NextResponse.json({ success: true, data: doc });
+      }
+      return NextResponse.json({ success: true, data: await cloud.listDocuments(auth.user.id, projectId) });
+    }
 
     if (documentId) {
       const doc = getDocumentById(documentId);
@@ -40,6 +56,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  if (AUTH_REQUIRED && Number(request.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { success: false, error: 'This file is over 4 MB, which is the most the server accepts. Use a smaller PDF.', code: 'TOO_LARGE' },
+      { status: 413 }
+    );
+  }
   try {
     const body = await request.json();
     const { projectId, title, filename, author, sourceUrl, fileUrl, fileData, content, pages, tags, fileSize, citation } = body;
@@ -117,6 +141,12 @@ export async function POST(request: Request) {
       citation: isCitationRecord(citation) ? citation : undefined,
     };
 
+    if (AUTH_REQUIRED) {
+      const saved = await cloud.addDocument(auth.user.id, { ...newDoc, projectId: await cloud.resolveProjectId(auth.user.id, newDoc.projectId) });
+      if (!saved) return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
+      return NextResponse.json({ success: true, data: saved }, { status: 201 });
+    }
+
     addDocument(newDoc);
 
     return NextResponse.json(
@@ -135,6 +165,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     let id = searchParams.get('id');
@@ -148,6 +180,11 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Document id is required' }, { status: 400 });
+    }
+
+    if (AUTH_REQUIRED) {
+      const removed = await cloud.deleteDocument(auth.user.id, id);
+      return NextResponse.json({ success: removed, deleted: removed, id }, { status: removed ? 200 : 404 });
     }
 
     const deleted = deleteDocument(id);

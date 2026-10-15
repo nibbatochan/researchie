@@ -28,8 +28,10 @@ import {
   Trash,
   ShieldCheck,
   ShareNetwork,
-  Compass
+  Compass,
+  PushPin
 } from '@phosphor-icons/react';
+import { isPinned, sortPinnedFirst } from '@/lib/atoms/pin';
 import { ResearchAtom, ResearchProject, AtomType } from '@/lib/types/research';
 import { AtomCard } from './AtomCard';
 import { ExportProjectModal } from './ExportProjectModal';
@@ -45,6 +47,7 @@ interface ProjectTimelineProps {
   atoms: ResearchAtom[];
   loading?: boolean;
   onDeleteAtom?: (id: string) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
   onOpenManualModal?: () => void;
   onCreateAtom?: (newAtom: {
     projectId: string;
@@ -134,6 +137,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   atoms,
   loading = false,
   onDeleteAtom,
+  onTogglePin,
   onOpenManualModal,
   onCreateAtom,
   workspaceMode = 'feed',
@@ -150,6 +154,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
+  // Pinned mode: show only pinned atoms. Pinned atoms always sit at the top of the feed either way.
+  const [pinnedOnly, setPinnedOnly] = useState(false);
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -223,7 +229,9 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   }, []);
 
   const filteredAtoms = useMemo(() => {
-    return atoms.filter((atom) => {
+    return sortPinnedFirst(atoms.filter((atom) => {
+      if (pinnedOnly && !isPinned(atom)) return false;
+
       // 1. Type filtering
       const matchesType = 
         filterType === 'all' || 
@@ -276,8 +284,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
       const matchOcr = atom.content.ocrText?.toLowerCase().includes(q);
 
       return matchText || matchTitle || matchUrl || matchDesc || matchMarkdown || matchHtml || matchTags || matchOcr;
-    });
-  }, [atoms, filterType, dateFilter, searchQuery, selectedTag, customStartDate, customEndDate]);
+    }));
+  }, [atoms, filterType, pinnedOnly, dateFilter, searchQuery, selectedTag, customStartDate, customEndDate]);
 
   const selectedAtomsList = useMemo(() => {
     return atoms.filter((a) => selectedIds.has(a.id));
@@ -421,6 +429,21 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Pinned mode toggle: next to the type filter. Click again to turn it off. */}
+              <button
+                type="button"
+                onClick={() => setPinnedOnly((on) => !on)}
+                aria-pressed={pinnedOnly}
+                title={pinnedOnly ? 'Showing pinned only. Click to show everything' : 'Show pinned only'}
+                className={`inline-flex items-center justify-center flex-shrink-0 rounded-lg px-2 py-1 border transition-colors cursor-pointer ${
+                  pinnedOnly
+                    ? 'bg-blue-50/80 dark:bg-[#1C1C20] border-[#325FEC] dark:border-[#518FFF] text-[#325FEC] dark:text-[#518FFF]'
+                    : 'bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] border-[#D9E1EC] dark:border-[#27272A] text-slate-500 dark:text-zinc-400'
+                }`}
+              >
+                <PushPin size={13} weight={pinnedOnly ? 'fill' : 'regular'} />
+              </button>
 
               {/* Type Filter Dropdown with Live Counts */}
               <div className="relative inline-block flex-shrink-0" ref={filterDropdownRef}>
@@ -639,7 +662,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
       </div>
 
       {/* Active Filter Status Bar */}
-      {workspaceMode === 'feed' && (searchQuery || filterType !== 'all' || dateFilter !== 'all' || selectedTag) && (
+      {workspaceMode === 'feed' && (searchQuery || filterType !== 'all' || pinnedOnly || dateFilter !== 'all' || selectedTag) && (
         <div className="px-3 py-1.5 md:px-5 bg-[#FAFBFD]/90 dark:bg-[#121214]/90 border-b border-[#D2DCEA] dark:border-[#27272A] flex items-center justify-between text-[11px] font-sans text-slate-600 dark:text-zinc-400">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-slate-800 dark:text-zinc-200">
@@ -649,6 +672,12 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700">
                 <span>"{searchQuery}"</span>
                 <button onClick={() => setSearchQuery('')} className="hover:text-red-500 font-bold ml-0.5">×</button>
+              </span>
+            )}
+            {pinnedOnly && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EEF3F8] dark:bg-[#18181B] text-slate-700 dark:text-zinc-300 border border-[#D9E1EC] dark:border-[#27272A]">
+                <span>pinned only</span>
+                <button onClick={() => setPinnedOnly(false)} className="hover:text-red-500 font-bold ml-0.5">×</button>
               </span>
             )}
             {filterType !== 'all' && (
@@ -675,6 +704,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             onClick={() => {
               setSearchQuery('');
               setFilterType('all');
+              setPinnedOnly(false);
               setDateFilter('all');
               setSelectedTag(null);
             }}
@@ -809,6 +839,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                       viewMode={viewMode === 'clean' ? 'clean' : 'detailed'}
                       searchQuery={searchQuery}
                       onDelete={onDeleteAtom}
+                      onTogglePin={onTogglePin}
                       selectable={isSelectMode || (isAISidebarOpen && aiSidebarTab === 'summarize')}
                       isSelected={selectedIds.has(atom.id)}
                       onToggleSelect={handleToggleSelect}

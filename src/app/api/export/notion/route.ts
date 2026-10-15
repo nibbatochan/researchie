@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorize } from '@/lib/auth/server';
 import { formatProjectToNotionBlocks } from '@/lib/export/notion';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 
 export async function POST(req: NextRequest) {
+  const auth = await authorize(req);
+  if (auth.response) return auth.response;
   try {
     const body = await req.json();
     const { apiKey, parentPageId, project, atoms, isDatabase, incremental } = body as {

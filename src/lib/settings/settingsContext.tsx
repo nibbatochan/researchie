@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { ResearchAtom } from '@/lib/types/research';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 export interface AppSettings {
   general: {
@@ -20,7 +21,6 @@ export interface AppSettings {
     defaultProjectId: string;
   };
   ai: {
-    customGroqApiKey: string;
     model: 'llama-3.3-70b-versatile' | 'deepseek-r1-distill-llama-70b' | 'mixtral-8x7b-32768' | 'gemma2-9b-it';
     ragChunkCount: number;
     temperature: number;
@@ -51,7 +51,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultProjectId: 'all',
   },
   ai: {
-    customGroqApiKey: '',
     model: 'llama-3.3-70b-versatile',
     ragChunkCount: 5,
     temperature: 0.2,
@@ -107,6 +106,12 @@ function formatBytes(bytes: number): string {
 }
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const prefs = usePrefs();
+  // The Notion token is a secret: on the tester site it is kept in memory only, never saved to the account or the browser.
+  const persistSettings = (value: any) => {
+    const toSave = prefs.inAccount ? { ...value, notion: { ...value?.notion, integrationToken: '' } } : value;
+    prefs.set(SETTINGS_STORAGE_KEY, JSON.stringify(toSave));
+  };
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [activeSettingsTab, setActiveSettingsTab] = useState<
@@ -116,9 +121,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const saved = prefs.get(SETTINGS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // An AI key pasted here by an older version must not stay in the browser. Keys now live on the server.
+        if (parsed?.ai && 'customGroqApiKey' in parsed.ai) {
+          delete parsed.ai.customGroqApiKey;
+          persistSettings(parsed);
+        }
         setSettings({
           general: { ...DEFAULT_SETTINGS.general, ...parsed.general },
           capture: { ...DEFAULT_SETTINGS.capture, ...parsed.capture },
@@ -135,7 +145,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const saveSettings = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
+      persistSettings(newSettings);
     } catch (err) {
       console.warn('Failed to save settings:', err);
     }
@@ -146,7 +156,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings((prev) => {
         const next = { ...prev, general: { ...prev.general, ...general } };
         try {
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+          persistSettings(next);
         } catch {}
         return next;
       });
@@ -159,7 +169,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings((prev) => {
         const next = { ...prev, capture: { ...prev.capture, ...capture } };
         try {
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+          persistSettings(next);
         } catch {}
         return next;
       });
@@ -172,7 +182,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings((prev) => {
         const next = { ...prev, ai: { ...prev.ai, ...ai } };
         try {
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+          persistSettings(next);
         } catch {}
         return next;
       });
@@ -185,7 +195,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setSettings((prev) => {
         const next = { ...prev, notion: { ...prev.notion, ...notion } };
         try {
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+          persistSettings(next);
         } catch {}
         return next;
       });

@@ -289,9 +289,15 @@
               </div>
               <div class="sp-btn-texts">
                 <strong>Summarize Page</strong>
-                <span>Generate a concise overview with key points</span>
+                <span>Write a summary of this page in the shape you pick</span>
               </div>
             </button>
+          </div>
+          <div class="sp-summary-modes" role="group" aria-label="Summary shape">
+            <button class="sp-summary-mode active" data-mode="auto" title="The shape follows the page">Auto</button>
+            <button class="sp-summary-mode" data-mode="bullets" title="Exactly 3 bullets">3 bullets</button>
+            <button class="sp-summary-mode" data-mode="detailed" title="Detailed breakdown">Detailed</button>
+            <button class="sp-summary-mode" data-mode="tables" title="Pull tables and comparisons from the page">Tables</button>
           </div>
         </div>
 
@@ -394,6 +400,7 @@
 
   </div>
 
+  <script src="auth.js"></script>
   <script src="blocks.js"></script>
   <script src="sidepanel.js"></script>
 </body>

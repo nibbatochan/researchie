@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getLocalAtoms } from '@/lib/data/researchStore';
 import { generateEmbedding, cosineSimilarity } from '@/lib/ai/embeddings';
@@ -15,6 +17,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
     const { query, projectId, threshold = 0.1, limit = 20 } = body;
@@ -29,8 +33,8 @@ export async function POST(request: Request) {
     // 1. Generate 768-d embedding for search query
     const queryVector = await generateEmbedding(query);
 
-    // 2. Try Supabase pgvector RPC
-    try {
+    // 2. Try Supabase pgvector RPC. Not in the tester deployment: match_atoms is not scoped to a user.
+    if (!AUTH_REQUIRED) try {
       const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('match_atoms', {
         query_embedding: queryVector,
         match_threshold: threshold,
@@ -63,7 +67,9 @@ export async function POST(request: Request) {
 
     // 3. Fallback: Fetch atoms and compute in-memory cosine similarity + lexical matching
     let allAtoms: any[] = [];
-    try {
+    if (AUTH_REQUIRED) {
+      allAtoms = (await cloud.listAtoms(auth.user.id, projectId || undefined)).map((a) => ({ ...a, embedding: null }));
+    } else try {
       let q = supabaseAdmin.from('atoms').select('*');
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
@@ -106,9 +112,11 @@ export async function POST(request: Request) {
       // local store fallback
     }
 
-    const local = getLocalAtoms(projectId);
-    const missingLocal = local.filter((la) => !allAtoms.some((da) => da.id === la.id));
-    allAtoms = [...allAtoms, ...missingLocal];
+    if (!AUTH_REQUIRED) {
+      const local = getLocalAtoms(projectId);
+      const missingLocal = local.filter((la) => !allAtoms.some((da) => da.id === la.id));
+      allAtoms = [...allAtoms, ...missingLocal];
+    }
 
     const STOP_WORDS = new Set([
       'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'when', 'at', 'by',

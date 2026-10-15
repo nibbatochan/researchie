@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
+import { isPublicHttpUrl } from '@/lib/security/publicUrl';
 import { getLocalAtoms, updateLocalAtom } from '@/lib/data/researchStore';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
+  const auth = await authorize(req);
+  if (auth.response) return auth.response;
   try {
     const body = await req.json();
     const { atomId, rawText, sourceUrl } = body;
@@ -12,10 +17,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Retrieve target atom from local store or Supabase
-    let atoms = getLocalAtoms();
-    let atom = atoms.find((a) => a.id === atomId);
+    let atom: any = AUTH_REQUIRED ? await cloud.getAtom(auth.user.id, atomId) : getLocalAtoms().find((a) => a.id === atomId);
 
-    if (supabaseAdmin && (!atom || !atom.content)) {
+    if (!AUTH_REQUIRED && supabaseAdmin && (!atom || !atom.content)) {
       try {
         const { data } = await supabaseAdmin
           .from('atoms')
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
     let surroundingParagraphs: string[] = atom.metadata?.surroundingParagraphs || [];
 
     let fetchedFromWeb = false;
-    if (targetUrl && (targetUrl.startsWith('http://') || targetUrl.startsWith('https://'))) {
+    if (targetUrl && (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) && (!AUTH_REQUIRED || isPublicHttpUrl(targetUrl))) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -81,6 +85,14 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch {}
+    }
+
+    if (AUTH_REQUIRED && !fetchedFromWeb && (!surroundingParagraphs || surroundingParagraphs.length === 0)) {
+      // The fallback below writes made-up text. In the tester deployment we say we could not read the page instead.
+      return NextResponse.json(
+        { success: false, error: 'Could not read the original page to rebuild the surrounding text.' },
+        { status: 422 }
+      );
     }
 
     if (!fetchedFromWeb && (!surroundingParagraphs || surroundingParagraphs.length === 0)) {
@@ -114,9 +126,13 @@ export async function POST(req: NextRequest) {
       contextRebuiltAt: new Date().toISOString(),
     };
 
-    updateLocalAtom(atomId, { metadata: updatedMetadata });
+    if (AUTH_REQUIRED) {
+      await cloud.updateAtom(auth.user.id, atomId, { metadata: updatedMetadata });
+    } else {
+      updateLocalAtom(atomId, { metadata: updatedMetadata });
+    }
 
-    if (supabaseAdmin) {
+    if (!AUTH_REQUIRED && supabaseAdmin) {
       try {
         await supabaseAdmin
           .from('atoms')

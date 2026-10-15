@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { aiService } from '@/lib/ai/service';
+import { authorize } from '@/lib/auth/server';
+import { resolveAI, aiErrorResponse } from '@/lib/ai/userAi';
+import { AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
 import type { PDFDocumentPage } from '@/lib/ai/pdfRetriever';
 import { retrievePassages, locateQuote, CONTEXT_BUDGET_CHARS } from '@/lib/ai/passages';
 import { AIServiceBusyError } from '@/lib/ai/types';
@@ -17,6 +20,13 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  const resolved = await resolveAI(auth.user);
+  if (resolved.response) return resolved.response;
+  const ai = resolved.ai;
+  // A saved document is looked up for this user only.
+  const lookupDoc = async (id: string) => (AUTH_REQUIRED ? cloud.getDocument(auth.user.id, id) : getDocumentById(id));
   try {
     const body = await request.json();
     const { pageText, context, question, pages, documentId, title, currentPage } = body;
@@ -43,7 +53,7 @@ export async function POST(request: Request) {
     } 
     // 2. If documentId provided, lookup stored document
     else if (documentId) {
-      const storedDoc = getDocumentById(documentId);
+      const storedDoc = await lookupDoc(documentId);
       if (storedDoc && Array.isArray(storedDoc.pages) && storedDoc.pages.length > 0) {
         resolvedPages = storedDoc.pages;
       }
@@ -89,7 +99,7 @@ export async function POST(request: Request) {
     // Passage-level retrieval: the model sees a few thousand characters of the most
     // relevant passages, each labelled with an id it can cite.
     let retrieval = retrievePassages(resolvedPages, question.trim(), { activeCurrentPage: currentPage });
-    const docTitle = title || (documentId ? getDocumentById(documentId)?.title : undefined) || 'Uploaded Document';
+    const docTitle = title || (documentId ? (await lookupDoc(documentId))?.title : undefined) || 'Uploaded Document';
     const retrievedPagesCount = new Set(retrieval.passages.map((p) => p.pageNumber)).size;
     const notFoundAnswer = 'This information is not found in the provided document.';
 
@@ -120,7 +130,7 @@ Answer directly from the passages. Cite passage ids and copy quotes verbatim.`;
 
     let result;
     try {
-      result = await aiService.askPageQuestion(retrieval.context, enhancedQuestion);
+      result = await ai.askPageQuestion(retrieval.context, enhancedQuestion);
     } catch (error) {
       if (!(error instanceof AIServiceBusyError && error.tooLarge)) throw error;
       // Too large for the model's limit: ask once more with half as many passages, chosen
@@ -129,7 +139,7 @@ Answer directly from the passages. Cite passage ids and copy quotes verbatim.`;
         activeCurrentPage: currentPage,
         budget: Math.floor(CONTEXT_BUDGET_CHARS / 2),
       });
-      result = await aiService.askPageQuestion(retrieval.context, enhancedQuestion);
+      result = await ai.askPageQuestion(retrieval.context, enhancedQuestion);
     }
 
     const isNotFound = /not found|not mentioned|does not (?:contain|provide|mention)|no information/i.test(result.answer || '');
@@ -205,6 +215,8 @@ Answer directly from the passages. Cite passage ids and copy quotes verbatim.`;
       }
     );
   } catch (error: any) {
+    const keyResponse = aiErrorResponse(error);
+    if (keyResponse) return keyResponse;
     if (error instanceof AIServiceBusyError) {
       return NextResponse.json(
         { success: false, error: error.message },

@@ -85,6 +85,7 @@
   }
 
   window.__RESEARCHIE_TOGGLE_DRAWER__ = toggleDrawer;
+  window.__RESEARCHIE_OPEN_DRAWER__ = openDrawer;
 
   // Listen for messages from the embedded iframe (e.g. close, trigger capture)
   window.addEventListener('message', (event) => {

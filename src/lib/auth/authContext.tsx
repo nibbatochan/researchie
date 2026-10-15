@@ -1,7 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { usePathname, useRouter } from 'next/navigation';
+
+// The session lives in an httpOnly cookie that only the server can read. This file never stores anything
+// about the user in the browser: it asks /api/auth/me who is signed in and keeps the answer in memory.
+//
+// Two modes, chosen by the server (AUTH_REQUIRED):
+//   authRequired = false  local development: one built-in demo user, no sign-in.
+//   authRequired = true   the tester deployment: real accounts, and no demo user.
 
 export interface UserProfile {
   id: string;
@@ -9,20 +16,27 @@ export interface UserProfile {
   name: string;
   avatarUrl?: string;
   provider: 'google' | 'apple' | 'facebook' | 'github' | 'email' | 'demo';
-  tier: 'free' | 'pro' | 'team';
+  /** Only the local demo user has a plan badge. */
+  tier?: 'free' | 'pro' | 'team';
   createdAt: string;
-  extensionToken: string;
 }
+
+type AuthResult = { success: boolean; message: string; needsConfirmation?: boolean };
 
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
+  /** True on the tester deployment, where signing in is required. */
+  authRequired: boolean;
   signInWithOAuth: (provider: 'google' | 'apple' | 'facebook' | 'github') => Promise<{ success: boolean; message?: string }>;
   signInWithEmail: (email: string) => Promise<{ success: boolean; message: string }>;
-  signInWithPassword: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
-  signUpWithPassword: (name: string, email: string, password: string, tier?: 'free' | 'pro' | 'team') => Promise<{ success: boolean; message: string }>;
+  signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
+  signUpWithPassword: (name: string, email: string, password: string) => Promise<AuthResult>;
+  /** Local development only. Does nothing when sign-in is required. */
   signInAsDemo: (tier?: 'free' | 'pro' | 'team') => void;
-  signOut: () => Promise<void>;
+  signOut: (opts?: { everywhere?: boolean }) => Promise<void>;
+  /** Re-read who is signed in. */
+  refresh: () => Promise<void>;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
 }
@@ -35,317 +49,148 @@ const DEFAULT_DEMO_USER: UserProfile = {
   provider: 'demo',
   tier: 'pro',
   createdAt: '2026-09-25T08:00:00Z',
-  extensionToken: 'rs_tok_live_9a87f2e1c3b4d5e6a7b8c9d0',
 };
+
+// Pages a signed-out visitor may open on the tester deployment.
+const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/share'];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function postJson(url: string, body: unknown): Promise<{ ok: boolean; data: any }> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin',
+    });
+    return { ok: res.ok, data: await res.json().catch(() => ({})) };
+  } catch {
+    return { ok: false, data: { error: 'Could not reach the server. Check your connection.' } };
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(DEFAULT_DEMO_USER);
+  const router = useRouter();
+  const pathname = usePathname();
+  // NEXT_PUBLIC_AUTH_REQUIRED only picks the first paint (so the demo user never flashes on the tester
+  // deployment); /api/auth/me below is what decides.
+  const startsRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED === 'true';
+  const [user, setUser] = useState<UserProfile | null>(startsRequired ? null : DEFAULT_DEMO_USER);
+  const [authRequired, setAuthRequired] = useState(startsRequired);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  useEffect(() => {
-    // 1. Check local session storage first
+  const refresh = useCallback(async () => {
     try {
-      const savedUser = localStorage.getItem('researchie_user_session');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      } else {
-        setUser(DEFAULT_DEMO_USER);
-      }
+      const res = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+      const data = await res.json();
+      setAuthRequired(Boolean(data.authRequired));
+      setUser(data.authRequired ? data.user : DEFAULT_DEMO_USER);
     } catch {
-      setUser(DEFAULT_DEMO_USER);
+      // Server unreachable: keep what we have rather than signing anyone out by accident.
     } finally {
       setLoading(false);
     }
-
-    // 2. Check Supabase auth if configured
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        const supabase = createClient();
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user) {
-            const profile: UserProfile = {
-              id: session.user.id,
-              email: session.user.email || 'user@researchie.ai',
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Researcher',
-              avatarUrl: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
-              provider: (session.user.app_metadata?.provider as any) || 'email',
-              tier: (session.user.user_metadata?.tier as any) || 'pro',
-              createdAt: session.user.created_at,
-              extensionToken: `rs_tok_${session.user.id.slice(0, 12)}_${Math.random().toString(36).slice(2, 8)}`,
-            };
-            setUser(profile);
-            localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-          }
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (session?.user) {
-            const profile: UserProfile = {
-              id: session.user.id,
-              email: session.user.email || 'user@researchie.ai',
-              name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Researcher',
-              avatarUrl: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
-              provider: (session.user.app_metadata?.provider as any) || 'email',
-              tier: (session.user.user_metadata?.tier as any) || 'pro',
-              createdAt: session.user.created_at,
-              extensionToken: `rs_tok_${session.user.id.slice(0, 12)}_${Math.random().toString(36).slice(2, 8)}`,
-            };
-            setUser(profile);
-            localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-          }
-        });
-
-        return () => subscription.unsubscribe();
-      }
-    } catch (err) {
-      console.warn('Supabase Auth init check error:', err);
-    }
   }, []);
 
-  // 1. Sign In With OAuth (Google, Apple, Facebook, GitHub)
-  const signInWithOAuth = useCallback(async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        const supabase = createClient();
-        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: provider as any,
-          options: {
-            redirectTo: `${origin}/auth/callback`,
-          },
-        });
-        if (error) {
-          console.warn('Supabase OAuth Error, falling back to instant provider authentication:', error.message);
-          // Fallback to instant mock OAuth profile for smooth testing
-          const mockProfile: UserProfile = {
-            id: `usr_${provider}_${Math.random().toString(36).slice(2, 9)}`,
-            email: `researcher@${provider === 'github' ? 'github.com' : 'googlemail.com'}`,
-            name: provider === 'google' ? 'Dr. Alex Rivera (Google)' : provider === 'github' ? 'Alex Chen (GitHub)' : 'Alex Rivera',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-            provider,
-            tier: 'pro',
-            createdAt: new Date().toISOString(),
-            extensionToken: `rs_tok_${provider}_${Math.random().toString(36).slice(2, 10)}`,
-          };
-          setUser(mockProfile);
-          localStorage.setItem('researchie_user_session', JSON.stringify(mockProfile));
-          setIsAuthModalOpen(false);
-          return { success: true };
-        }
-        return { success: true };
-      } else {
-        // Mock instant OAuth for local evaluation
-        const mockProfile: UserProfile = {
-          id: `usr_${provider}_${Math.random().toString(36).slice(2, 9)}`,
-          email: `alex.${provider}@researchie.ai`,
-          name: provider === 'google' ? 'Dr. Alex Rivera (Google)' : provider === 'github' ? 'Alex Chen (GitHub)' : provider === 'apple' ? 'Alex (Apple)' : 'Alex Rivera (Meta)',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          provider,
-          tier: 'pro',
-          createdAt: new Date().toISOString(),
-          extensionToken: `rs_tok_${provider}_${Math.random().toString(36).slice(2, 10)}`,
-        };
-        setUser(mockProfile);
-        localStorage.setItem('researchie_user_session', JSON.stringify(mockProfile));
-        setIsAuthModalOpen(false);
-        return { success: true };
-      }
-    } catch (err: any) {
-      return { success: false, message: err.message || 'OAuth sign in failed' };
-    }
-  }, []);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
-  // 2. Sign Up With Email & Password
-  const signUpWithPassword = useCallback(
-    async (name: string, email: string, password: string, tier: 'free' | 'pro' | 'team' = 'pro') => {
-      try {
-        if (!email.trim() || !password.trim()) {
-          return { success: false, message: 'Please provide both email and password' };
-        }
-
-        if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-          const supabase = createClient();
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: name,
-                tier,
-              },
-            },
-          });
-
-          if (error) {
-            // If Supabase errors (e.g. rate limit / network), create local account
-            console.warn('Supabase signUp error, saving local account:', error.message);
-          } else if (data.user) {
-            const profile: UserProfile = {
-              id: data.user.id,
-              email: data.user.email || email,
-              name: name || email.split('@')[0],
-              provider: 'email',
-              tier,
-              createdAt: data.user.created_at,
-              extensionToken: `rs_tok_${data.user.id.slice(0, 10)}_${Math.random().toString(36).slice(2, 8)}`,
-            };
-            setUser(profile);
-            localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-            setIsAuthModalOpen(false);
-            return { success: true, message: 'Account registered successfully!' };
-          }
-        }
-
-        // Local registration fallback
-        const profile: UserProfile = {
-          id: `usr_${Math.random().toString(36).slice(2, 9)}`,
-          email,
-          name: name || email.split('@')[0],
-          provider: 'email',
-          tier,
-          createdAt: new Date().toISOString(),
-          extensionToken: `rs_tok_${Math.random().toString(36).slice(2, 14)}`,
-        };
-        setUser(profile);
-        localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-        setIsAuthModalOpen(false);
-        return { success: true, message: 'Account registered and authenticated!' };
-      } catch (err: any) {
-        return { success: false, message: err.message || 'Registration failed' };
-      }
-    },
-    []
-  );
-
-  // 3. Sign In With Email & Password
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
-    try {
-      if (!email.trim() || !password.trim()) {
-        return { success: false, message: 'Please provide email and password' };
-      }
-
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        const supabase = createClient();
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          console.warn('Supabase login error, attempting local authentication:', error.message);
-        } else if (data.user) {
-          const profile: UserProfile = {
-            id: data.user.id,
-            email: data.user.email || email,
-            name: data.user.user_metadata?.full_name || email.split('@')[0],
-            provider: 'email',
-            tier: (data.user.user_metadata?.tier as any) || 'pro',
-            createdAt: data.user.created_at,
-            extensionToken: `rs_tok_${data.user.id.slice(0, 10)}_${Math.random().toString(36).slice(2, 8)}`,
-          };
-          setUser(profile);
-          localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-          setIsAuthModalOpen(false);
-          return { success: true, message: 'Signed in successfully!' };
+  // A session that ends while the app is open (expired, signed out in another tab) shows up as a 401 from
+  // our own API. Treat it as signed out, so the redirect below sends the user to the sign-in page.
+  useEffect(() => {
+    if (!authRequired) return;
+    const original = window.fetch;
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await original(...args);
+      if (res.status === 401) {
+        try {
+          const raw = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : (args[0] as Request).url;
+          const url = new URL(raw, window.location.origin);
+          const ours = url.origin === window.location.origin && url.pathname.startsWith('/api/');
+          if (ours && !url.pathname.startsWith('/api/auth/login') && !url.pathname.startsWith('/api/auth/signup')) setUser(null);
+        } catch {
+          // not a URL we can read: leave it
         }
       }
-
-      // Local password fallback
-      const profile: UserProfile = {
-        id: `usr_${Math.random().toString(36).slice(2, 9)}`,
-        email,
-        name: email.split('@')[0].replace('.', ' '),
-        provider: 'email',
-        tier: 'pro',
-        createdAt: new Date().toISOString(),
-        extensionToken: `rs_tok_${Math.random().toString(36).slice(2, 14)}`,
-      };
-      setUser(profile);
-      localStorage.setItem('researchie_user_session', JSON.stringify(profile));
-      setIsAuthModalOpen(false);
-      return { success: true, message: 'Signed in successfully!' };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Login failed' };
-    }
-  }, []);
-
-  // 4. Sign In With Magic Link
-  const signInWithEmail = useCallback(async (email: string) => {
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        const supabase = createClient();
-        const origin = typeof window !== 'undefined' ? window.location.origin : '';
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: `${origin}/auth/callback`,
-          },
-        });
-        if (error) {
-          return { success: false, message: error.message };
-        }
-        return { success: true, message: 'Magic link dispatched to your inbox!' };
-      } else {
-        const mockProfile: UserProfile = {
-          id: `usr_${Math.random().toString(36).slice(2, 9)}`,
-          email,
-          name: email.split('@')[0].replace('.', ' '),
-          provider: 'email',
-          tier: 'pro',
-          createdAt: new Date().toISOString(),
-          extensionToken: `rs_tok_${Math.random().toString(36).slice(2, 14)}`,
-        };
-        setUser(mockProfile);
-        localStorage.setItem('researchie_user_session', JSON.stringify(mockProfile));
-        setIsAuthModalOpen(false);
-        return { success: true, message: 'Signed in with email account!' };
-      }
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Failed to send magic link' };
-    }
-  }, []);
-
-  // 5. Sign In As Demo User / Switch Tier
-  const signInAsDemo = useCallback((tier: 'free' | 'pro' | 'team' = 'pro') => {
-    const demoUser: UserProfile = {
-      ...DEFAULT_DEMO_USER,
-      tier,
-      extensionToken: `rs_tok_${tier}_${Math.random().toString(36).slice(2, 10)}`,
+      return res;
     };
-    setUser(demoUser);
-    localStorage.setItem('researchie_user_session', JSON.stringify(demoUser));
-    setIsAuthModalOpen(false);
+    return () => {
+      window.fetch = original;
+    };
+  }, [authRequired]);
+
+  // On the tester deployment every page except the public ones needs a signed-in user.
+  useEffect(() => {
+    if (loading || !authRequired || user) return;
+    if (PUBLIC_PATHS.some((p) => pathname === p || pathname?.startsWith(p + '/'))) return;
+    router.replace('/login');
+  }, [loading, authRequired, user, pathname, router]);
+
+  const signInWithOAuth = useCallback(async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
+    // PLACEHOLDER: social sign-in is not built. Google is set up by hand in the Supabase dashboard later.
+    // When it is, start the flow from a server route (so the PKCE verifier cookie is httpOnly) and
+    // send the user to /auth/callback. Until then nothing here pretends to sign anyone in.
+    return {
+      success: false,
+      message: provider === 'google' ? 'Google sign-in is coming soon. Use email and password for now.' : 'This sign-in method is not available.',
+    };
   }, []);
 
-  // 6. Sign Out
-  const signOut = useCallback(async () => {
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-      }
-    } catch (err) {
-      console.warn('Supabase sign out error:', err);
-    } finally {
-      setUser(null);
-      localStorage.removeItem('researchie_user_session');
-    }
+  const signInWithEmail = useCallback(async () => {
+    return { success: false, message: 'Magic links are not available. Use email and password.' };
   }, []);
+
+  const signUpWithPassword = useCallback(async (name: string, email: string, password: string): Promise<AuthResult> => {
+    const { ok, data } = await postJson('/api/auth/signup', { name, email, password });
+    if (!ok || !data.success) return { success: false, message: data.error || 'Could not create the account.' };
+    if (data.needsConfirmation) {
+      return { success: true, needsConfirmation: true, message: 'Check your email and open the link to finish creating your account.' };
+    }
+    await refresh();
+    return { success: true, message: 'Account created.' };
+  }, [refresh]);
+
+  const signInWithPassword = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const { ok, data } = await postJson('/api/auth/login', { email, password });
+    if (!ok || !data.success) return { success: false, message: data.error || 'Could not log in.' };
+    await refresh();
+    return { success: true, message: 'Signed in.' };
+  }, [refresh]);
+
+  const signInAsDemo = useCallback((tier: 'free' | 'pro' | 'team' = 'pro') => {
+    if (authRequired) return;
+    setUser({ ...DEFAULT_DEMO_USER, tier });
+    setIsAuthModalOpen(false);
+  }, [authRequired]);
+
+  const signOut = useCallback(async (opts?: { everywhere?: boolean }) => {
+    if (authRequired) {
+      await postJson('/api/auth/logout', { everywhere: Boolean(opts?.everywhere) });
+      setUser(null);
+      // A full load, so nothing from the last account stays in memory.
+      window.location.assign('/login');
+      return;
+    }
+    // Local development has no session to end.
+    setUser(DEFAULT_DEMO_USER);
+  }, [authRequired]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        authRequired,
         signInWithOAuth,
         signInWithEmail,
         signInWithPassword,
         signUpWithPassword,
         signInAsDemo,
         signOut,
+        refresh,
         isAuthModalOpen,
         setIsAuthModalOpen,
       }}

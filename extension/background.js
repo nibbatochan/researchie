@@ -1,4 +1,5 @@
 // Researchie Chrome Extension Background Service Worker
+importScripts('auth.js'); // adds the saved token to requests to the connected server
 
 const CANDIDATE_ORIGINS = [
   'http://localhost:3001',
@@ -11,6 +12,10 @@ const CANDIDATE_ORIGINS = [
 let cachedWorkingOrigin = null;
 
 async function getWorkingApiBase() {
+  // A saved server address (popup -> Connect) wins over looking for a local one.
+  const saved = await chrome.storage.local.get(['serverUrl']);
+  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
+
   if (cachedWorkingOrigin) {
     try {
       const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1200) });
@@ -148,7 +153,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['content.js', 'blockPicker.js', 'cropper.js', 'qnaDrawer.js'],
+      files: ['projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js', 'qnaDrawer.js'],
     });
   } catch {}
 
@@ -204,7 +209,11 @@ async function saveAtomToPlatform(atomPayload) {
       body: JSON.stringify(completePayload),
     });
 
-    if (!res.ok) throw new Error(`Server status: ${res.status}`);
+    if (!res.ok) {
+      const err = new Error(`Server status: ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
 
     const data = await res.json();
     
@@ -217,23 +226,167 @@ async function saveAtomToPlatform(atomPayload) {
       projectTitle: storage.activeProjectTitle || 'Active Project' 
     };
   } catch (error) {
-    const { offlineQueue = [] } = await chrome.storage.local.get(['offlineQueue']);
-    offlineQueue.push({
-      ...atomPayload,
-      queuedAt: new Date().toISOString(),
-    });
-    await chrome.storage.local.set({ 
-      offlineQueue,
-      lastPushTime: new Date().toISOString() 
-    });
-
-    return { success: false, queued: true };
+    await enqueueOffline(atomPayload, error);
+    // 401 = no token or a refused one: it will not sync until the extension is connected.
+    return { success: false, queued: true, needsConnect: Boolean(error && error.status === 401) };
   }
 }
+
+// ==========================================================================
+// OFFLINE QUEUE
+// A save that fails (server down, no network, server error) is kept in chrome.storage.local.offlineQueue
+// and sent again when the connection is back: on an alarm every minute while something is waiting, when
+// the browser starts, when a page reports it is online, and from the Sync button. Only a response with
+// ok status counts as saved. A 4xx answer means the server will never accept that clip as it is, so the
+// clip stays in the queue marked `rejected` (nothing is thrown away) and only the Sync button retries it.
+// ==========================================================================
+
+const OFFLINE_ALARM = 'researchie-flush-offline';
+let flushInFlight = null;
+let queueLock = Promise.resolve();
+
+// Read-modify-write of the queue runs one at a time, so a save and a flush cannot overwrite each other.
+function withQueueLock(fn) {
+  const run = queueLock.then(fn, fn);
+  queueLock = run.catch(() => {});
+  return run;
+}
+
+function isPermanentStatus(status) {
+  return typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+async function readQueue() {
+  const { offlineQueue } = await chrome.storage.local.get(['offlineQueue']);
+  return Array.isArray(offlineQueue) ? offlineQueue : [];
+}
+
+async function enqueueOffline(atomPayload, error) {
+  await withQueueLock(async () => {
+    const storage = await chrome.storage.local.get(['activeProjectId']);
+    const queue = await readQueue();
+    const item = {
+      ...atomPayload,
+      // The project is fixed at the moment of the clip, so a later project switch cannot misfile it.
+      projectId: atomPayload.projectId || storage.activeProjectId || undefined,
+      queueId: crypto.randomUUID(),
+      queuedAt: new Date().toISOString(),
+    };
+    if (isPermanentStatus(error && error.status)) {
+      item.rejected = true;
+      item.lastError = `HTTP ${error.status}`;
+    }
+    queue.push(item);
+    await chrome.storage.local.set({ offlineQueue: queue, lastPushTime: new Date().toISOString() });
+  });
+  await syncOfflineAlarm();
+}
+
+// Keep the retry alarm on while something retryable is waiting, and off otherwise.
+async function syncOfflineAlarm() {
+  if (!chrome.alarms) return;
+  const waiting = (await readQueue()).some((item) => !item.rejected);
+  const existing = await chrome.alarms.get(OFFLINE_ALARM);
+  if (waiting && !existing) chrome.alarms.create(OFFLINE_ALARM, { delayInMinutes: 0.5, periodInMinutes: 1 });
+  if (!waiting && existing) await chrome.alarms.clear(OFFLINE_ALARM);
+}
+
+// One flush at a time. includeRejected is for the Sync button: the user is asking to try everything again.
+function flushOfflineQueue({ includeRejected = false } = {}) {
+  if (!flushInFlight) {
+    flushInFlight = doFlushOfflineQueue(includeRejected).finally(() => {
+      flushInFlight = null;
+    });
+  }
+  return flushInFlight;
+}
+
+async function doFlushOfflineQueue(includeRejected) {
+  // Items queued by older versions have no id; give them one so they can be matched afterwards.
+  const queue = await withQueueLock(async () => {
+    const items = await readQueue();
+    if (items.some((i) => !i.queueId)) {
+      items.forEach((i) => {
+        if (!i.queueId) i.queueId = crypto.randomUUID();
+      });
+      await chrome.storage.local.set({ offlineQueue: items });
+    }
+    return items;
+  });
+
+  const todo = queue.filter((i) => includeRejected || !i.rejected);
+  if (todo.length === 0) {
+    await syncOfflineAlarm();
+    return { synced: 0, remaining: queue.length, reachable: true };
+  }
+
+  const apiBase = await getWorkingApiBase();
+  const { activeProjectId } = await chrome.storage.local.get(['activeProjectId']);
+  const synced = new Set();
+  const changes = new Map();
+  let reachable = true;
+
+  for (const item of todo) {
+    const { queueId, queuedAt, rejected, lastError, ...payload } = item;
+    if (!payload.projectId) payload.projectId = activeProjectId || 'proj-ai-main';
+    try {
+      const res = await fetch(`${apiBase}/atoms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        synced.add(queueId);
+      } else if (isPermanentStatus(res.status)) {
+        changes.set(queueId, { rejected: true, lastError: `HTTP ${res.status}` });
+      } else {
+        // 5xx and other trouble: the server is unwell, so stop and try again later.
+        changes.set(queueId, { lastError: `HTTP ${res.status}` });
+        reachable = false;
+        break;
+      }
+    } catch {
+      reachable = false; // offline: stop at the first failure, the alarm tries again
+      break;
+    }
+  }
+
+  // Re-read the queue: clips saved while this flush ran must stay.
+  const remaining = await withQueueLock(async () => {
+    const latest = (await readQueue())
+      .filter((i) => !synced.has(i.queueId))
+      .map((i) => (changes.has(i.queueId) ? { ...i, ...changes.get(i.queueId) } : i));
+    await chrome.storage.local.set({ offlineQueue: latest });
+    return latest.length;
+  });
+  if (synced.size > 0) await chrome.storage.local.set({ lastPushTime: new Date().toISOString() });
+  await syncOfflineAlarm();
+  return { synced: synced.size, remaining, reachable };
+}
+
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === OFFLINE_ALARM) flushOfflineQueue();
+  });
+}
+chrome.runtime.onStartup.addListener(() => {
+  flushOfflineQueue();
+});
+// A service worker can wake on this event in some Chrome versions; the alarm covers the rest.
+self.addEventListener('online', () => {
+  flushOfflineQueue();
+});
+syncOfflineAlarm();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SAVE_ATOM') {
     saveAtomToPlatform(message.payload).then((res) => sendResponse(res));
+    return true;
+  }
+  if (message.action === 'FLUSH_OFFLINE_QUEUE') {
+    flushOfflineQueue({ includeRejected: Boolean(message.includeRejected) })
+      .then((result) => sendResponse({ success: true, ...result }))
+      .catch((err) => sendResponse({ success: false, error: String((err && err.message) || err) }));
     return true;
   }
   if (message.action === 'DELETE_ATOM') {
@@ -244,6 +397,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const apiBase = await getWorkingApiBase();
         const res = await fetch(`${apiBase}/atoms?id=${encodeURIComponent(message.atomId)}`, { method: 'DELETE' });
         sendResponse({ success: res.ok });
+      } catch (err) {
+        sendResponse({ success: false, error: String((err && err.message) || err) });
+      }
+    })();
+    return true;
+  }
+  // The in-page project menu lists every project so the user can change the destination without the popup.
+  if (message.action === 'LIST_PROJECTS') {
+    (async () => {
+      try {
+        const apiBase = await getWorkingApiBase();
+        const res = await fetch(`${apiBase}/projects`);
+        if (!res.ok) {
+          sendResponse({ success: false, error: `HTTP ${res.status}` });
+          return;
+        }
+        const json = await res.json();
+        sendResponse({ success: true, data: json.data || [] });
       } catch (err) {
         sendResponse({ success: false, error: String((err && err.message) || err) });
       }
@@ -263,7 +434,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const json = await res.json();
           sendResponse(json);
         } else {
-          sendResponse({ success: false, error: `HTTP ${res.status}` });
+          const failure = await res.json().catch(() => null);
+          sendResponse(failure && failure.error ? failure : { success: false, error: `HTTP ${res.status}` });
         }
       } catch (err) {
         sendResponse({ success: false, error: err.message });
@@ -284,7 +456,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const json = await res.json();
           sendResponse(json);
         } else {
-          sendResponse({ success: false, error: `HTTP ${res.status}` });
+          const failure = await res.json().catch(() => null);
+          sendResponse(failure && failure.error ? failure : { success: false, error: `HTTP ${res.status}` });
         }
       } catch (err) {
         sendResponse({ success: false, error: err.message });

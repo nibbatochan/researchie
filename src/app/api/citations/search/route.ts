@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { authorize } from '@/lib/auth/server';
 import { LOOKUP_CAP, LookupBudget } from '@/lib/citations/lookup.ts';
 import { citationResolver } from '@/lib/citations/server.ts';
 
 // Finds possible matches for a title the user typed. The user picks one; nothing is saved here.
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   let body: { query?: unknown };
   try {
     body = await request.json();

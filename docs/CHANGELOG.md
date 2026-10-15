@@ -1,5 +1,108 @@
 # Version Changelog
 
+## [v1.9.0] — 2026-10-15 (Tester deployment: accounts, per-user data, your own AI key)
+Everything below is switched on by `AUTH_REQUIRED=true`. With it off the app behaves as in v1.8.8. Setup and checks: `docs/TESTER_DEPLOYMENT.md`, `docs/TESTER_CHECKLIST.md`. Research behind the choices: `docs/research/auth-and-sharing.md`. Decisions 19 to 21.
+
+### Added
+- **Real accounts.** Sign-up, login and logout are server routes (`/api/auth/*`) using Supabase Auth, with the session in an httpOnly cookie. Email and password only; Google is a disabled "coming soon" button. No email confirmation needed. The demo user, the fake "local account" fallbacks and the instant-demo shortcut are gone on the tester site.
+- **Per-user data.** `src/lib/data/cloud.ts`: projects, clips and documents live in Supabase, every query filtered by the signed-in user. New users get a starter project. All data routes require a signed-in user (`authorize()`); the Python graph route is switched off; `share/[id]` shows a project only to its owner.
+- **Migration** `supabase/migrations/001_multi_user.sql` (not run for you): profiles linked to sign-ups, owner columns, `documents`, `user_settings`, `extension_tokens`, `user_ai_keys`, and row-level security on all of them. It also drops the three open "Public ... Access" policies that `schema.sql` created (they let the public anon key read and write every row; an earlier note here wrongly said RLS was missing) and deletes the three seeded demo projects.
+- **Your own AI key.** Settings -> AI: choose Groq (recommended), Cerebras, OpenRouter or Google AI Studio, paste a key, Save and connect, Test connection, Remove key. Stored encrypted (AES-256-GCM, bound to the user). Used for Q&A, summaries and synthesis. A missing, rejected or exhausted key gives a message and a link, never a mock answer. Each provider shows its free limits and a data note; Google's free-tier warning is red.
+- **Chrome extension connection.** Settings -> Account makes a token (shown once, only its hash stored, up to 5, revocable). The extension popup has a Connect section: server address and token, checked before saving. Requests carry the token as a bearer header (`extension/auth.js`). Extension 1.3.0.
+- **Preferences in the account.** Settings, citation style, panel width, canvas layout, video player choice and export names are saved to `user_settings` instead of the browser. The Notion token is kept in memory only. Document caches are not written to the browser on the tester site.
+- Tests: `tests/cloud-isolation.test.mjs` (user A cannot read, write or delete user B's data), `auth-tokens`, `ai-keys`, `public-url`; `e2e/18-auth-gate.spec.ts` (signed-out gate, 8 cases, runs when `AUTH_BASE_URL` points at an accounts-required server).
+
+### Fixed
+- Sign-in no longer succeeds with any password when Supabase errors; sign-out no longer returns on reload.
+- `rebuild-context` no longer invents surrounding text when the page cannot be fetched (tester mode), and it will not fetch localhost or private addresses. OCR accepts only image data or public https images (tester mode).
+- Extension toasts said "Sent to <project>" even when the clip was only queued; they now say what happened.
+- The old "Groq key" field saved a secret to `localStorage` and was never used; it is removed and any saved value is deleted on load.
+
+### Deployed 2026-10-15
+- Live at `https://researchie-testers.vercel.app` (Vercel Hobby, project `researchie-testers`, uploaded with the CLI, not from GitHub). Supabase: a new testers project with `schema.sql` and `001_multi_user.sql` applied and checked (7 tables with RLS on, no open policies; an outsider's insert is refused). Email confirmation off.
+- **Next.js 15.1.4 -> 15.5.28, React 19.3.1.** Vercel refused to deploy 15.1.4 as a vulnerable version. Type check, production build, the 74 e2e tests and the 8 signed-out gate tests (also run against the live site) pass.
+- `.vercelignore` keeps `.claude`, tests, design assets and build output out of the upload.
+- `npm audit` still reports 13 vulnerabilities (6 moderate, 7 high) in other packages; not looked at yet.
+
+### Not done
+- Sharing, invites and roles between accounts; delete account; a saved-accounts switcher; Google sign-in; per-user Notion token storage.
+- The migration is run on the testers project, but signed-in use has not been checked by hand: sign-up, login, the cloud data routes, the AI key routes and the extension token. Covered so far by unit tests with a fake database and by the signed-out gate test; the signed-in paths are on `docs/TESTER_CHECKLIST.md`.
+- Server-side OCR and PDF parsing on Vercel are untested.
+- Sign-up is open to anyone who finds the address (SCOPE p27).
+
+## [v1.8.8] — 2026-10-15 (Offline queue sends itself, and stops losing clips)
+### Added
+- **Automatic flush.** `extension/background.js` now owns the offline queue. It sends waiting clips on a `chrome.alarms` alarm every minute (on only while something retryable waits), at browser start, and on the `online` event. New permission: `alarms`. The side panel also asks for a flush when the page gets its `online` event, and its Sync button uses the same background code, so only one flush runs at a time.
+- **Rejected clips are kept.** A 4xx answer (except 408 and 429) marks the clip `rejected` with `lastError`. The alarm skips it. The Sync button retries it.
+
+### Fixed
+- **The old flush deleted clips on any HTTP error.** It treated only a thrown `fetch` as failure, so a 400 or 500 response removed the clip from the queue as if it had synced. Now only an ok response counts as synced.
+- **Queued clips had no project.** The project was added only on the success path, and the server rejects a clip without one. The project is now stored with the clip when it is taken, so a later project switch cannot misfile it.
+- **A clip saved during a flush could be overwritten.** Queue changes now run one at a time and the flush re-reads the queue before writing.
+- **Fake "Saved to offline queue" toasts.** The side panel's Save to Project and Page link, and the popup's page link, said they queued but only caught the error. They now save through the background, which queues. The popup and panel also no longer show "saved" for an error response.
+
+### Tests
+- `e2e/17-extension-offline-queue.spec.ts`, on the real extension's background worker with the real app: server down then back, 500 and 400 answers, Sync button retry, a clip saved during a flush. 3 of 3 pass.
+
+### Not done
+- The alarm firing on its own, a real network drop and the browser `online` event were not tested; the test calls the same flush function the alarm calls. Not run in a normal Chrome profile.
+- If a save reaches the server but the reply is lost, the clip is sent twice. There is no duplicate check.
+- The panel's queue count includes rejected clips and does not say which are rejected.
+
+## [v1.8.7] — 2026-10-15 (Video embeds on link clips)
+### Added
+- **Inline video player.** A saved link that points at one video (YouTube, Vimeo, Dailymotion, Loom) shows a player on the clip card, in the feed view and the full view. `src/lib/video/embed.ts` turns watch, share, shorts, live and unlisted-Vimeo URLs into the provider's official embed URL. YouTube uses `youtube-nocookie.com`. Timestamps (`t=1m30s`, `start=`, `#t=`) become the start time. A YouTube playlist link gives a playlist player.
+- **Player / Link toggle and Minimize** on the card. The choice is kept per clip in this browser (`localStorage`), so there is no database change.
+- **Fallback.** If YouTube reports a private, removed or embed-disabled video, or the player has not loaded after 12 seconds, the card shows "This video can't play here" with an "Open the original" link. An "Open the original" link also sits under every player.
+- **Safety and speed.** The iframe is sandboxed (scripts, same-origin, presentation and popups only; no forms, no top navigation) and mounts only when the card is within 200px of the screen.
+- The saved URL is never changed. The embed URL is worked out at render time, so citations, exports and the share page still use the original link.
+- Tests: `tests/video-embed.test.mjs` (8 unit tests: URL forms, timestamps, playlists, lookalike hosts, injected IDs) and `e2e/16-video-embed.spec.ts` (3 cases with the provider hosts stubbed). All pass.
+
+### Not done
+- Not checked against live YouTube or Vimeo, or in the real Chrome extension flow. The e2e uses stubbed hosts.
+- Embed-disabled detection for Vimeo and the other providers relies on the 12-second timeout only.
+- The Player / Link choice does not follow the user to another browser.
+- Twitch, TikTok and X video are not supported.
+
+## [v1.8.6] — 2026-10-15 (Project menu and Ask AI on every capture box)
+### Added
+- **Destination in the confirmation popups.** The DOM block, image and screenshot dialogs now show "Sends to <project>" above the Send button, with the same three-dot menu as the selection pill. "Change to…" lists every project and sets the active project, so the next send goes there. The row updates at once.
+- **Ask AI in the menu.** The three-dot menu on the selection pill and on the three dialogs has an "Ask AI" item. It opens the Q&A drawer and never closes it (`window.__RESEARCHIE_OPEN_DRAWER__` in `qnaDrawer.js`).
+- Shared code: `mountDestinationRow`, `installPageStyle` and `openAskAi` in `extension/projectMenu.js`. The dialogs sit in the page, not a shadow root, so the menu styles are added to the page head once.
+- Tests: three new cases in `e2e/15-extension-project-menu.spec.ts` (block, image, screenshot) on the real extension. 4 of 4 pass.
+### Not done
+- Ask AI does not pass the selection or captured block to the drawer yet; it only opens it.
+- Not checked in a normal Chrome profile on a real site.
+
+---
+
+## [v1.8.5] — 2026-10-15 (Pin atoms; switch project from the selection pill)
+### Added
+- **Pin atoms.** Each card has a pin icon in its icon row, next to Cite and Delete. Clicking it moves the card to the top of the feed, like a pinned chat; the newest pin sits first. The pin is stored as `metadata.pinnedAt`, so no database change is needed (`src/lib/atoms/pin.ts`, `PATCH /api/atoms` accepts `pinned`). The card moves at once and goes back if the save fails.
+- **Pinned mode.** A pin icon in the feed header, next to the type filter, shows pinned atoms only. Click it again, or use the "pinned only" chip or "Reset all", to turn it off.
+- **Switch project without the popup.** On the text selection pill, hovering Send shows a tooltip with the destination ("Send to Project / Sub-project"). A three-dot menu next to "+ Tag" has "Change to…", listing every project with sub-projects indented and the current one ticked. Choosing one sets the same active project the popup sets, so both stay in step. The menu is a shared module (`extension/projectMenu.js`, plus a `LIST_PROJECTS` message in `background.js`) that the block, image and screenshot capture boxes will reuse.
+- Tests: `tests/pin.test.mjs` (6), `e2e/14-pin-atoms.spec.ts` (pin, reload, unpin, pinned-only mode), and `e2e/15-extension-project-menu.spec.ts`, which loads the real extension into a throwaway Chromium profile and checks the tooltip, the menu list and the change of project. 192 unit tests pass; tsc clean.
+### Not done
+- The same menu on the block, image and screenshot capture boxes, with the destination in their confirmation popup (`p2b`), and "Ask AI" in the menu (`p3`).
+- Choosing a project in the menu changes the active project for later clips too; it does not send the selection.
+
+---
+
+## [v1.8.4] — 2026-10-15 (Page summaries that are real summaries; document clean-up)
+### Fixed
+- **"Summarize page" in the side panel never worked.** It called `/api/ai/page-summary`, a route that does not exist, and sent a message `background.js` does not handle, so it always showed "Page contains about N words". It now calls the real `/api/ai/summarize` route through `background.js`, and shows an honest "could not reach the AI service" message if that fails.
+### Enhanced
+- **The summary is written from the page, with no fixed template.** The old prompt forced four sections (summary, findings, metrics, implications), and the offline fallback made up generic "implications" text. The new prompt (`src/lib/ai/summaryPrompt.ts`) tells the model to use only the page text, add no facts, advice or implications the page does not state, and pick the shape the content calls for.
+- **Four shapes, chosen with chips under the Summarize button:** Auto (shape follows the page), 3 bullets, Detailed, Tables (pulls tables and comparisons from the page, or says none were found). Pages longer than 15,000 characters are cut and the summary says so.
+- **Offline fallback is honest.** With no model, the summary is the page's own first sentences, labelled as such. Nothing is written that the page does not contain. The popup shows the written summary as is.
+- Checked live against Groq on the stored PLOS ONE paper: Auto gave prose, 3 bullets gave exactly 3, Tables gave two real tables (participants, manuscript dates). 9 new tests in `tests/summary-prompt.test.mjs`; 186 unit tests pass; tsc clean.
+### Changed
+- **Documents:** 13 documents were deleted at the owner's request. Kept: the PLOS ONE paper and "Just Enough Research". The 5 demo documents were also removed from the seed list in `src/lib/data/sampleDocuments.ts`, so they do not return. e2e 06 now asks its document questions of "Just Enough Research" (page 9, the Segway passage) and waits and retries when the free Groq tier answers busy. e2e 12 clicked "Resume Reading" the moment the card appeared, which did nothing once the library had one document; it now waits a moment first. Full e2e run: 62 pass.
+### Not done
+- The side panel flow (chips, summary, "+ Save to Project") has not been run in real Chrome. `scripts/testGroundingBaseline.cjs` still names the removed `doc-dots-openai-spec` document.
+
+---
+
 ## [v1.8.3] — 2026-10-14 (Citations: report number, agency, web update date and place)
 ### Enhanced
 - **Reports.** A Crossref report keeps its report number. Crossref has no report-number field: checked on 100 live report records, the number is in alternative-id (e.g. CMU-CS-03-214), so that is where it is read (DOIs and URLs in that list are ignored). Vancouver adds "Report No.: ..." after the year; APA adds "(Report No. ...)" after the title; BibTeX puts it in the number field. Two real DOIs (10.21236/ada461282, 10.36967/2297289) were run end to end through both styles.

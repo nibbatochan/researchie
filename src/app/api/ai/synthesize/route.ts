@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { aiService } from '@/lib/ai/service';
+import { authorize } from '@/lib/auth/server';
+import { resolveAI, aiErrorResponse } from '@/lib/ai/userAi';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -13,6 +14,11 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  const resolved = await resolveAI(auth.user);
+  if (resolved.response) return resolved.response;
+  const ai = resolved.ai;
   try {
     const body = await request.json();
     const { atoms, instruction } = body;
@@ -30,14 +36,16 @@ export async function POST(request: Request) {
         }))
       : [];
 
-    if (normalizedAtoms.length > 0 && aiService.synthesizeAtoms) {
+    if (normalizedAtoms.length > 0 && ai.synthesizeAtoms) {
       try {
-        const result = await aiService.synthesizeAtoms(normalizedAtoms, instruction);
+        const result = await ai.synthesizeAtoms!(normalizedAtoms, instruction);
         return NextResponse.json({
           success: true,
           data: result,
         });
       } catch (aiErr) {
+        const keyResponse = aiErrorResponse(aiErr);
+        if (keyResponse) return keyResponse;
         console.warn('aiService.synthesizeAtoms failed, falling back to local synthesis engine:', aiErr);
       }
     }

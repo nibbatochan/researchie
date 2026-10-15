@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unavailableInTesterMode } from '@/lib/auth/server';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
@@ -7,6 +8,8 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 export async function GET(request: Request) {
+  const blocked = unavailableInTesterMode('The knowledge graph');
+  if (blocked) return blocked;
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') || 'proj-rag-production-systems';
@@ -59,6 +62,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const blocked = unavailableInTesterMode('The knowledge graph');
+  if (blocked) return blocked;
   try {
     const body = await request.json();
     const projectId = body.projectId || 'proj-rag-production-systems';

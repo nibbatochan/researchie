@@ -1563,3 +1563,26 @@ body.sidepanel-root {
   padding: 8px 10px;
 }
 
+/* Summary shape chips under "Summarize Page" */
+.sp-summary-modes {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sp-summary-mode {
+  flex: 1;
+  padding: 4px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+.sp-summary-mode:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.sp-summary-mode.active {
+  background: var(--brand-soft);
+  border-color: var(--brand-border);
+  color: var(--text-primary);
+}

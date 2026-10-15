@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getLocalProjects, getLocalAtoms } from '@/lib/data/researchStore';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
 
 export async function GET(
   request: Request,
@@ -8,6 +10,18 @@ export async function GET(
 ) {
   try {
     const { projectId } = await context.params;
+
+    if (AUTH_REQUIRED) {
+      // Sharing between accounts is not built yet, so only the owner can open a project's page.
+      const auth = await authorize(request);
+      if (auth.response) return auth.response;
+      const project = (await cloud.listProjects(auth.user.id)).find((p) => p.id === projectId);
+      if (!project) {
+        return NextResponse.json({ success: false, error: 'Research stream not found or is private' }, { status: 404 });
+      }
+      const atoms = await cloud.listAtoms(auth.user.id, projectId);
+      return NextResponse.json({ success: true, data: { project, atoms } });
+    }
 
     // 1. Fetch project metadata
     let project = null;
@@ -99,6 +113,9 @@ export async function POST(
   context: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    if (AUTH_REQUIRED) {
+      return NextResponse.json({ success: false, error: 'Sharing is not available yet.', code: 'UNAVAILABLE' }, { status: 501 });
+    }
     const { projectId } = await context.params;
     const body = await request.json();
 

@@ -1,6 +1,13 @@
+import type { SummaryMode } from './summaryPrompt';
+
 export interface AISummaryResult {
   bulletTakeaways: string[];
   summary: string;
+  // The written summary in Markdown. Its shape follows the page and the chosen mode, not a template.
+  markdown?: string;
+  mode?: SummaryMode;
+  // True when no model answered and the text is the page's own first sentences.
+  extractiveOnly?: boolean;
   keyEntities?: string[];
   keyFindings?: string[];
   metricsAndData?: string[];
@@ -32,6 +39,23 @@ export class AIServiceBusyError extends Error {
   }
 }
 
+// The user's own key is missing, refused, or out of quota. Routes turn this into a message that tells the
+// user what to do; it is never swallowed into a fake answer.
+export class AIKeyError extends Error {
+  readonly code: 'NO_KEY' | 'INVALID_KEY' | 'RATE_LIMITED';
+  readonly retryAfterSec?: number;
+  /** Where the user can get or manage a key for the provider they chose. */
+  readonly helpUrl?: string;
+
+  constructor(code: 'NO_KEY' | 'INVALID_KEY' | 'RATE_LIMITED', message: string, retryAfterSec?: number, helpUrl?: string) {
+    super(message);
+    this.name = 'AIKeyError';
+    this.code = code;
+    this.retryAfterSec = retryAfterSec;
+    this.helpUrl = helpUrl;
+  }
+}
+
 export interface AIQnAResult {
   answer: string;
   citations: AICitation[];
@@ -53,7 +77,7 @@ export interface AISynthesisResult {
 }
 
 export interface AIServiceAdapter {
-  summarizePage(pageText: string, pageTitle: string): Promise<AISummaryResult>;
+  summarizePage(pageText: string, pageTitle: string, mode?: SummaryMode): Promise<AISummaryResult>;
   askPageQuestion(pageText: string, question: string): Promise<AIQnAResult>;
   synthesizeAtoms?(
     atoms: Array<{

@@ -151,6 +151,26 @@
       </div>
     </section>
 
+    <!-- Connect to the web app (tester site) -->
+    <section class="section connect-section" id="connect-section">
+      <div class="section-label">CONNECT ACCOUNT</div>
+      <div class="connect-status" id="connect-status">Local mode (not connected)</div>
+      <details id="connect-details">
+        <summary>Server address and token</summary>
+        <label class="connect-field">Server address
+          <input id="connect-server" type="url" placeholder="https://your-site.vercel.app" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="connect-field">Token
+          <input id="connect-token" type="password" placeholder="rst_..." autocomplete="off" spellcheck="false">
+        </label>
+        <div class="connect-row">
+          <button type="button" id="connect-save">Connect</button>
+          <button type="button" id="connect-clear" class="secondary">Disconnect</button>
+        </div>
+        <div class="connect-msg" id="connect-msg" role="status"></div>
+      </details>
+    </section>
+
     <!-- Footer Status -->
     <footer class="footer">
       <div class="footer-links">
@@ -161,7 +181,9 @@
 
   <div class="toast hidden" id="toast"></div>
 
+  <script src="auth.js"></script>
   <script src="blocks.js"></script>
   <script src="popup.js"></script>
+  <script src="connect.js"></script>
 </body>
 </html>

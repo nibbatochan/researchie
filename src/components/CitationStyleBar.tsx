@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from '@phosphor-icons/react';
 import type { CitationRecord } from '@/lib/citations/types';
 import { citationText, type CitationCopyKind } from '@/lib/citations/client.ts';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 export const CITATION_STYLES: ReadonlyArray<{ kind: CitationCopyKind; label: string; hint: string }> = [
   { kind: 'line', label: 'Vancouver', hint: 'Medical journals (ICMJE / NLM)' },
@@ -36,19 +37,20 @@ async function writeToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** The chosen style, kept in this browser. The first render always uses Vancouver. */
+/** The chosen style, kept with the account (or in this browser in local mode). The first render always uses Vancouver. */
 export function useCitationStyle(): [CitationCopyKind, (kind: CitationCopyKind) => void] {
+  const prefs = usePrefs();
   const [style, setStyle] = useState<CitationCopyKind>('line');
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
+      const saved = prefs.get(STORAGE_KEY);
       if (CITATION_STYLES.some((s) => s.kind === saved)) setStyle(saved as CitationCopyKind);
     } catch {}
   }, []);
   const choose = (kind: CitationCopyKind) => {
     setStyle(kind);
     try {
-      window.localStorage.setItem(STORAGE_KEY, kind);
+      prefs.set(STORAGE_KEY, kind);
     } catch {}
   };
   return [style, choose];

@@ -26,6 +26,8 @@ import {
 } from '@phosphor-icons/react';
 import { useSettings } from '@/lib/settings/settingsContext';
 import { useAuth } from '@/lib/auth/authContext';
+import { AiProviderSettings } from './AiProviderSettings';
+import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 
 interface SettingsModalProps {
@@ -49,23 +51,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
     exportAllDataAsJson,
   } = useSettings();
 
-  const { user, signInAsDemo } = useAuth();
+  const { user, signInAsDemo, authRequired } = useAuth();
 
-  const [showGroqKey, setShowGroqKey] = useState(false);
   const [showNotionToken, setShowNotionToken] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
 
   if (!isSettingsModalOpen) return null;
 
   const storage = calculateStorageUsage(atoms);
-
-  const handleCopyToken = () => {
-    if (!user) return;
-    navigator.clipboard.writeText(user.extensionToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  };
 
   const triggerSaveNotification = () => {
     setSaveToast(true);
@@ -313,28 +306,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                     />
                   </div>
 
-                  {/* Extension Pairing Token */}
-                  {user && (
-                    <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-zinc-200">
-                          <Key size={14} className="text-[#325FEC]" />
-                          <span>Chrome Extension Pairing Token</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleCopyToken}
-                          className="px-2.5 py-1 bg-[#325FEC]/10 hover:bg-[#325FEC]/20 text-[#325FEC] dark:text-[#518FFF] rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          {copiedToken ? <Check size={12} weight="bold" /> : <Copy size={12} />}
-                          <span>{copiedToken ? 'Copied' : 'Copy Token'}</span>
-                        </button>
-                      </div>
-                      <code className="block p-2 rounded-lg bg-[#F4F6F9] dark:bg-[#202024] font-mono text-[11px] text-slate-600 dark:text-zinc-400 select-all break-all">
-                        {user.extensionToken}
-                      </code>
-                    </div>
-                  )}
+                  <ExtensionConnectionSettings />
                 </div>
               </div>
             )}
@@ -369,32 +341,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                     </select>
                   </div>
 
-                  {/* Custom Groq Key (BYOK) */}
-                  <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Groq API Key (Optional BYOK)</span>
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-400">Leave blank to use Researchie's built-in Pro AI gateway.</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowGroqKey(!showGroqKey)}
-                        className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
-                      >
-                        {showGroqKey ? <EyeSlash size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    <input
-                      type={showGroqKey ? 'text' : 'password'}
-                      placeholder="gsk_..."
-                      value={settings.ai.customGroqApiKey}
-                      onChange={(e) => {
-                        updateAiSettings({ customGroqApiKey: e.target.value });
-                        triggerSaveNotification();
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none font-mono"
-                    />
-                  </div>
+                  {/* Bring your own AI key */}
+                  <AiProviderSettings />
 
                   {/* RAG Chunk Count Slider */}
                   <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
@@ -603,9 +551,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-xs text-slate-900 dark:text-white">{user.name}</span>
-                            <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">
-                              {user.tier}
-                            </span>
+                            {user.tier && (<span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">{user.tier}</span>)}
                           </div>
                           <span className="text-xs text-slate-500 dark:text-zinc-400">{user.email}</span>
                         </div>
@@ -619,12 +565,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                     </div>
                   )}
 
-                  {/* Switch Persona Fast Buttons */}
+                  {/* Local development only: the tester deployment has no demo tiers. */}
+                  {!authRequired && (
                   <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Quick Persona & Tier Switcher</span>
-                    <span className="text-[11px] text-slate-500 dark:text-zinc-400 block">Switch permission tier instantly for testing:</span>
+                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Quick Persona &amp; Tier Switcher</span>
                     <div className="flex gap-2 pt-1">
-                      {(['pro', 'team', 'free'] as const).map((tier) => (
+                      {(["pro", "team", "free"] as const).map((tier) => (
                         <button
                           key={tier}
                           type="button"
@@ -634,8 +580,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize border transition-all cursor-pointer ${
                             user?.tier === tier
-                              ? 'bg-[#325FEC] text-white border-[#325FEC] shadow-xs'
-                              : 'bg-[#F4F6F9] dark:bg-[#202024] text-slate-700 dark:text-zinc-300 border-[#D2DCEA] dark:border-[#27272A] hover:border-[#325FEC]'
+                              ? "bg-[#325FEC] text-white border-[#325FEC] shadow-xs"
+                              : "bg-[#F4F6F9] dark:bg-[#202024] text-slate-700 dark:text-zinc-300 border-[#D2DCEA] dark:border-[#27272A] hover:border-[#325FEC]"
                           }`}
                         >
                           {tier} Account
@@ -643,6 +589,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                       ))}
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
             )}

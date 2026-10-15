@@ -3,6 +3,7 @@ import './globals.css';
 import { AgentationWrapper } from '@/components/AgentationWrapper';
 import { ThemeProvider } from '@/lib/theme';
 import { AuthProvider } from '@/lib/auth/authContext';
+import { PrefsProvider } from '@/lib/prefs/prefsContext';
 import { SettingsProvider } from '@/lib/settings/settingsContext';
 
 export const metadata: Metadata = {
@@ -44,10 +45,12 @@ export default function RootLayout({
       <body className="antialiased min-h-screen selection:bg-blue-500/20">
         <ThemeProvider>
           <AuthProvider>
-            <SettingsProvider>
-              {children}
-              <AgentationWrapper />
-            </SettingsProvider>
+            <PrefsProvider>
+              <SettingsProvider>
+                {children}
+                <AgentationWrapper />
+              </SettingsProvider>
+            </PrefsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

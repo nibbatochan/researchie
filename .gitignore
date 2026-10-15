@@ -40,3 +40,12 @@ next-env.d.ts
 .research-store.json
 .documents-store.json
 .cognee-graph-*.json
+
+# second dev server build output (accounts-required smoke test)
+.next-*/
+
+# built extension zips
+release/
+
+.vercel
+.env*

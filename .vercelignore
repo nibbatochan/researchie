@@ -1,0 +1,10 @@
+.claude
+release
+test-results
+playwright-report
+brand-ui-showcase
+brand-ui-kit
+e2e
+tests
+.next*
+*.log

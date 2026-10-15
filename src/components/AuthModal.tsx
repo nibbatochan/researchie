@@ -1,84 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Sparkle, EnvelopeSimple, ArrowRight, CheckCircle, LockSimple, ShieldCheck } from '@phosphor-icons/react';
+import React from 'react';
+import Link from 'next/link';
+import { X, ShieldCheck } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
 import { ResearchieLogo } from './ResearchieLogo';
 
-/**
- * Official Social Vector Logos
- */
-const GoogleIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-    />
-  </svg>
-);
-
-const FacebookIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#1877F2">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-  </svg>
-);
-
-const AppleIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.93-2.85-.9.04-2 .6-2.64 1.35-.56.65-1.06 1.72-.93 2.73 1.01.08 2.03-.48 2.64-1.23z" />
-  </svg>
-);
-
-const GitHubIcon = () => (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-    <path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-    />
-  </svg>
-);
-
+// Opened from the "Sign in" button when nobody is signed in. Accounts use email and password on the
+// sign-in page; the old social buttons, magic link and demo shortcut are gone.
 export const AuthModal: React.FC = () => {
-  const { isAuthModalOpen, setIsAuthModalOpen, signInWithOAuth, signInWithEmail, signInAsDemo } = useAuth();
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const { isAuthModalOpen, setIsAuthModalOpen } = useAuth();
 
   if (!isAuthModalOpen) return null;
-
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-
-    setIsSubmitting(true);
-    setMessage(null);
-    const res = await signInWithEmail(email);
-    setIsSubmitting(false);
-
-    if (res.success) {
-      setMessage({ text: res.message, type: 'success' });
-    } else {
-      setMessage({ text: res.message, type: 'error' });
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div className="w-full max-w-md bg-[#FAFBFD] dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-popIn">
-        {/* Header */}
         <div className="p-6 pb-4 border-b border-[#D9E1EC] dark:border-[#27272A] bg-white dark:bg-[#18181B] relative">
           <button
             onClick={() => setIsAuthModalOpen(false)}
@@ -92,131 +29,35 @@ export const AuthModal: React.FC = () => {
             <div className="w-8 h-8 rounded-xl bg-[#325FEC] flex items-center justify-center p-1.5 text-white shadow-xs">
               <ResearchieLogo className="w-full h-full text-white" />
             </div>
-            <span className="font-display font-bold text-base text-[#0F172A] dark:text-white">
-              researchie
-            </span>
+            <span className="font-display font-bold text-base text-[#0F172A] dark:text-white">researchie</span>
           </div>
 
-          <h2 className="font-display font-bold text-lg text-[#0F172A] dark:text-white">
-            Sign In & Sync Across Devices
-          </h2>
+          <h2 className="font-display font-bold text-lg text-[#0F172A] dark:text-white">Sign in to your workspace</h2>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-            Pair your Chrome extension and access your research timeline from any browser.
+            Your clips, projects and documents are private to your account.
           </p>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-4 font-sans text-xs">
-          {/* Social OAuth Buttons */}
-          <div className="space-y-2">
-            {/* Google */}
-            <button
-              type="button"
-              onClick={() => signInWithOAuth('google')}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 bg-white dark:bg-[#1C1C20] hover:bg-slate-50 dark:hover:bg-[#25252A] text-[#0F172A] dark:text-white font-medium border border-[#D9E1EC] dark:border-[#27272A] rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              <GoogleIcon />
-              <span>Continue with Google</span>
-            </button>
-
-            {/* Apple */}
-            <button
-              type="button"
-              onClick={() => signInWithOAuth('apple')}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 bg-black text-white hover:bg-zinc-900 font-medium rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              <AppleIcon />
-              <span>Continue with Apple</span>
-            </button>
-
-            {/* Facebook / Meta */}
-            <button
-              type="button"
-              onClick={() => signInWithOAuth('facebook')}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 bg-[#1877F2] text-white hover:bg-[#166FE5] font-medium rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              <FacebookIcon />
-              <span>Continue with Facebook</span>
-            </button>
-
-            {/* GitHub */}
-            <button
-              type="button"
-              onClick={() => signInWithOAuth('github')}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 bg-[#24292E] text-white hover:bg-[#1B1F23] font-medium rounded-xl shadow-xs transition-all cursor-pointer"
-            >
-              <GitHubIcon />
-              <span>Continue with GitHub</span>
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-[#D9E1EC] dark:border-[#27272A]" />
-            <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-slate-400 dark:text-zinc-500">
-              Or with email
-            </span>
-            <div className="flex-grow border-t border-[#D9E1EC] dark:border-[#27272A]" />
-          </div>
-
-          {/* Email Magic Link Form */}
-          <form onSubmit={handleEmailSubmit} className="space-y-2">
-            <div className="relative flex items-center">
-              <EnvelopeSimple size={15} className="absolute left-3 text-slate-400" />
-              <input
-                type="email"
-                required
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs text-[#0F172A] dark:text-white placeholder-slate-400 outline-none transition-colors"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting || !email.trim()}
-              className="w-full py-2 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <span>{isSubmitting ? 'Sending Link...' : 'Send Magic Sign-In Link'}</span>
-              <ArrowRight size={13} weight="bold" />
-            </button>
-          </form>
-
-          {message && (
-            <div
-              className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
-                message.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
-              }`}
-            >
-              {message.type === 'success' ? <CheckCircle size={14} weight="bold" /> : <LockSimple size={14} />}
-              <span>{message.text}</span>
-            </div>
-          )}
-
-          {/* Fast Track / Demo Access */}
-          <div className="pt-2 border-t border-[#D9E1EC] dark:border-[#27272A] flex items-center justify-between text-[11px]">
-            <span className="text-slate-500 dark:text-zinc-400">Want to test instantly?</span>
-            <button
-              type="button"
-              onClick={() => signInAsDemo('pro')}
-              className="font-semibold text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer flex items-center gap-1"
-            >
-              <Sparkle size={12} weight="fill" />
-              <span>Use Pro Demo Account</span>
-            </button>
-          </div>
+        <div className="p-6 flex gap-2 font-sans text-xs">
+          <Link
+            href="/login"
+            onClick={() => setIsAuthModalOpen(false)}
+            className="flex-1 text-center py-2.5 bg-[#325FEC] hover:bg-[#274AC4] text-white font-semibold rounded-xl shadow-xs transition-all"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/login?tab=register"
+            onClick={() => setIsAuthModalOpen(false)}
+            className="flex-1 text-center py-2.5 bg-white dark:bg-[#1C1C20] hover:bg-slate-50 dark:hover:bg-[#25252A] text-[#0F172A] dark:text-white font-semibold border border-[#D9E1EC] dark:border-[#27272A] rounded-xl shadow-xs transition-all"
+          >
+            Create account
+          </Link>
         </div>
 
-        {/* Footer info */}
-        <div className="px-6 py-3 bg-[#EEF3F8] dark:bg-[#18181B] border-t border-[#D9E1EC] dark:border-[#27272A] flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-500">
-          <div className="flex items-center gap-1">
-            <ShieldCheck size={13} className="text-emerald-500" />
-            <span>End-to-end encrypted session tokens</span>
-          </div>
-          <span>PRD Phase 4</span>
+        <div className="px-6 py-3 bg-[#EEF3F8] dark:bg-[#18181B] border-t border-[#D9E1EC] dark:border-[#27272A] flex items-center gap-1 text-[10px] text-slate-500 dark:text-zinc-500">
+          <ShieldCheck size={13} className="text-emerald-500" />
+          <span>Secure cookie session. Passwords are handled by Supabase Auth.</span>
         </div>
       </div>
     </div>

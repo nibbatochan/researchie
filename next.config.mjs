@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets a second dev server (for example accounts-required mode) run beside the first: NEXT_DIST_DIR=.next-auth
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   // pdf-parse bundles its own pdf.js, which breaks when webpack bundles it for the server
   // (TypeError: Object.defineProperty called on non-object). Load it from node_modules instead.

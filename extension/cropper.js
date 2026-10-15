@@ -158,6 +158,10 @@
     activeDialog = dialog;
 
     const tagInput = dialog.querySelector('#img-tag-input');
+    // Where it will go, with the three-dot menu to change it or ask AI.
+    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
+      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
+    }
     tagInput?.focus();
 
     dialog.querySelector('#btn-img-cancel').addEventListener('click', () => {
@@ -208,6 +212,10 @@
               directImageFetch(payload);
             } else {
               const atomId = res?.data?.id;
+          if (!atomId) {
+            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            return;
+          }
               const projTitle = res?.projectTitle || activeProjTitle;
               showToastWithUndo(`Sent image to ${projTitle}`, atomId);
             }
@@ -237,7 +245,7 @@
           }
         } catch {}
       }
-      showToast('Sent image (queued for sync)');
+      showToast('Could not reach the server. Reload this page and try again.');
     }
 
     dialog.querySelector('#btn-img-confirm').addEventListener('click', confirmSend);
@@ -397,6 +405,10 @@
     activeDialog = dialog;
 
     const tagInput = dialog.querySelector('#crop-tag-input');
+    // Where it will go, with the three-dot menu to change it or ask AI.
+    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
+      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
+    }
     tagInput?.focus();
 
     dialog.querySelector('#btn-crop-cancel').addEventListener('click', () => {
@@ -436,6 +448,10 @@
         },
         (res) => {
           const atomId = res?.data?.id;
+          if (!atomId) {
+            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            return;
+          }
           const projTitle = res?.projectTitle || activeProjTitle;
           showToastWithUndo(`Sent screenshot to ${projTitle}`, atomId);
         }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Researchie — In-Situ Knowledge Capture & Send",
-  "version": "1.2.5",
+  "version": "1.3.0",
   "description": "Capture text highlights, links, DOM blocks, and image crops with live W3C deep links directly into your Researchie project timeline.",
   "permissions": [
     "activeTab",
@@ -9,7 +9,8 @@
     "storage",
     "contextMenus",
     "scripting",
-    "sidePanel"
+    "sidePanel",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -24,6 +25,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "projectMenu.js",
         "content.js",
         "blockPicker.js",
         "cropper.js",

@@ -31,6 +31,7 @@ import { formatProjectToNotionMarkdown } from '@/lib/export/notion';
 import { downloadFile } from '@/lib/export/download';
 import { PdfExportPanel } from './PdfExportPanel';
 import { FilePdf as FilePdfIcon } from '@phosphor-icons/react';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 
 interface ExportProjectModalProps {
   isOpen: boolean;
@@ -149,12 +150,13 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
   const [notionError, setNotionError] = useState<string | null>(null);
   const [rememberNotionToken, setRememberNotionToken] = useState(true);
 
-  // Load saved Notion settings from localStorage
+  const prefs = usePrefs();
+  // Load saved export settings. The Notion token is a secret, so on the tester site it is never saved anywhere.
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedKey = localStorage.getItem('researchie_notion_api_key');
-      const savedPageId = localStorage.getItem('researchie_notion_page_id');
-      const savedVault = localStorage.getItem('researchie_obsidian_vault_name');
+      const savedKey = prefs.inAccount ? null : prefs.get('researchie_notion_api_key');
+      const savedPageId = prefs.get('researchie_notion_page_id');
+      const savedVault = prefs.get('researchie_obsidian_vault_name');
       if (savedKey) setNotionApiKey(savedKey);
       if (savedPageId) setNotionPageId(savedPageId);
       if (savedVault) setVaultName(savedVault);
@@ -227,7 +229,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
   // Open Directly in Obsidian via URI protocol
   const handleOpenInObsidian = () => {
     if (typeof window !== 'undefined' && vaultName) {
-      localStorage.setItem('researchie_obsidian_vault_name', vaultName);
+      prefs.set('researchie_obsidian_vault_name', vaultName);
     }
     const uri = getObsidianUri(vaultName || 'Research', project.title, obsidianMarkdown);
     window.location.href = uri;
@@ -246,8 +248,8 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
     setNotionSyncStats(null);
 
     if (rememberNotionToken && typeof window !== 'undefined') {
-      localStorage.setItem('researchie_notion_api_key', notionApiKey.trim());
-      localStorage.setItem('researchie_notion_page_id', notionPageId.trim());
+      if (!prefs.inAccount) prefs.set('researchie_notion_api_key', notionApiKey.trim());
+      prefs.set('researchie_notion_page_id', notionPageId.trim());
     }
 
     try {

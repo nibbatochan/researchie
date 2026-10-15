@@ -591,3 +591,16 @@ input:checked + .slider:before {
 }
 
 .toast.hidden { display: none; }
+
+/* Connect account */
+.connect-status { font-size: 11px; color: #A1A1AA; margin-bottom: 6px; }
+.connect-status.connected { color: #34D399; }
+.connect-section summary { cursor: pointer; font-size: 11px; color: #A1A1AA; }
+.connect-field { display: block; margin-top: 8px; font-size: 10px; color: #A1A1AA; }
+.connect-field input { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px 8px; background: #18181B; border: 1px solid #27272A; border-radius: 6px; color: #FAFAFA; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+.connect-row { display: flex; gap: 6px; margin-top: 8px; }
+.connect-row button { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid #325FEC; background: #325FEC; color: #fff; font-size: 11px; cursor: pointer; }
+.connect-row button.secondary { background: transparent; border-color: #27272A; color: #A1A1AA; }
+.connect-msg { margin-top: 6px; font-size: 10px; }
+.connect-msg.ok { color: #34D399; }
+.connect-msg.error { color: #F87171; }

@@ -17,11 +17,11 @@ test.describe('Researchie AI & Document AI Grounding Verification', () => {
   });
 
   test('2. Verify Document AI Grounding & Strict Citation Matching', async ({ request }) => {
-    // 2A: Fact lookup in Page 2 of doc-dots-openai-spec
+    // 2A: Fact lookup in page 9 of doc-just-enough-research (the Segway passage)
     const qnaRes = await request.post('/api/ai/qna', {
       data: {
-        documentId: 'doc-dots-openai-spec',
-        question: 'According to Page 2 of the OpenAI Dots specification, which enterprise tools integrate via OAuth 2.1 and what is the cost of ChatGPT Pro?',
+        documentId: 'doc-just-enough-research',
+        question: 'According to page 9 of Just Enough Research, how did the Segway compare with a car and with a commuter bicycle?',
       },
     });
     expect(qnaRes.ok()).toBeTruthy();
@@ -29,20 +29,21 @@ test.describe('Researchie AI & Document AI Grounding Verification', () => {
     expect(qnaJson.success).toBe(true);
 
     const answer = qnaJson.data.answer.toLowerCase();
-    expect(answer).toContain('google workspace');
-    expect(answer).toContain('slack');
-    expect(answer).toContain('200');
-    expect(qnaJson.data.sourcePageNumber).toBe(2);
+    expect(answer).toContain('car');
+    expect(answer).toContain('bicycle');
+    expect(answer).toContain('ten times');
+    expect(qnaJson.data.sourcePageNumber).toBe(9);
     expect(qnaJson.data.citations.length).toBeGreaterThan(0);
-    expect(qnaJson.data.citations[0].quote).toContain('OAuth 2.1');
+    expect(qnaJson.data.citations[0].quote).toContain('slower than a car');
 
-    // 2B: Negative unanswerable question (must state not found, zero false citations)
-    const negativeRes = await request.post('/api/ai/qna', {
-      data: {
-        documentId: 'doc-dots-openai-spec',
-        question: 'What is the stock ticker symbol and current market capitalization of OpenAI?',
-      },
-    });
+    // 2B: Negative unanswerable question (must state not found, zero false citations).
+    // Each question sends about 20 pages to the model, and the free tier limits tokens per minute,
+    // so wait and retry when the second question comes back busy.
+    let negativeRes = await request.post('/api/ai/qna', { data: { documentId: 'doc-just-enough-research', question: 'What is the stock ticker symbol and current market capitalization of OpenAI?' } });
+    for (let attempt = 0; attempt < 3 && !negativeRes.ok(); attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+      negativeRes = await request.post('/api/ai/qna', { data: { documentId: 'doc-just-enough-research', question: 'What is the stock ticker symbol and current market capitalization of OpenAI?' } });
+    }
     expect(negativeRes.ok()).toBeTruthy();
     const negJson = await negativeRes.json();
     expect(negJson.success).toBe(true);

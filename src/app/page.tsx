@@ -14,6 +14,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ShareProjectModal } from '@/components/ShareProjectModal';
 import { ResearchProject, ResearchAtom, AtomType, ProjectSharingSettings } from '@/lib/types/research';
+import { withPinned, savePinned } from '@/lib/atoms/pin';
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ResearchProject[]>([]);
@@ -254,6 +255,19 @@ export default function DashboardPage() {
     }
   };
 
+  // Pin or unpin an atom. The card moves at once; if the save fails it goes back.
+  const handleTogglePin = async (id: string, pinned: boolean) => {
+    const setPin = (value: boolean) =>
+      setAtoms((prev) => prev.map((a) => (a.id === id ? { ...a, metadata: withPinned(a.metadata, value) } : a)));
+    setPin(pinned);
+    try {
+      await savePinned(id, pinned);
+    } catch (err) {
+      console.error('Failed to save pin:', err);
+      setPin(!pinned);
+    }
+  };
+
   const handleUndoDeleteAtom = async (restoredAtom: ResearchAtom) => {
     // Restore atom to local state
     setAtoms((prev) => {
@@ -415,6 +429,7 @@ export default function DashboardPage() {
             atoms={atoms}
             loading={loadingAtoms}
             onDeleteAtom={handleDeleteAtom}
+            onTogglePin={handleTogglePin}
             onOpenManualModal={() => setIsManualClipOpen(true)}
             onCreateAtom={handleCreateAtom}
             workspaceMode={workspaceMode}

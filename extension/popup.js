@@ -9,6 +9,10 @@ const CANDIDATE_ORIGINS = [
 let cachedWorkingOrigin = null;
 
 async function getWorkingApiBase() {
+  // A saved server address (popup -> Connect) wins over looking for a local one.
+  const saved = await chrome.storage.local.get(['serverUrl']);
+  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
+
   if (cachedWorkingOrigin) {
     try {
       const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1000) });
@@ -177,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ['content.js', 'blockPicker.js', 'cropper.js'],
+        files: ['projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js'],
       });
     } catch {}
   }
@@ -226,20 +230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           tags: ['web-link', domain.replace(/\..+$/, '')],
         };
 
-        const apiBase = await getWorkingApiBase();
-        try {
-          const res = await fetch(`${apiBase}/atoms`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          if (res.ok) {
-            showToast('Page link saved to project!');
-          } else {
-            showToast('Failed to save link');
-          }
-        } catch {
+        // The background saves it, or keeps it in the offline queue when the server can't be reached.
+        const result = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
+        if (result && result.success) {
+          showToast('Page link saved to project!');
+        } else if (result && result.queued) {
           showToast('Saved to offline queue');
+        } else {
+          showToast('Failed to save link');
         }
       } else if (mode === 'block') {
         chrome.tabs.sendMessage(tab.id, { action: 'TRIGGER_BLOCK_PICKER' });
@@ -297,6 +295,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res.ok) {
         const json = await res.json();
         const data = json.data || {};
+        // The route now returns a written Markdown summary (shape follows the page). Show it as written.
+        if (data.markdown) {
+          currentSummaryData = { tab, summary: data.markdown, keyFindings: [], metricsAndData: [], implications: [] };
+          summaryBox.innerHTML = `
+            <div class="summary-section-card">
+              <div style="color:#FAFAFA;line-height:1.5;font-size:12.5px;white-space:pre-wrap;">${escapeHtml(data.markdown)}</div>
+            </div>
+          `;
+          return;
+        }
         const summary = data.summary || 'Summary unavailable.';
         const keyFindings = data.keyFindings || data.bulletTakeaways || [];
         const metricsAndData = data.metricsAndData || [];
@@ -360,7 +368,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tagVal = summaryTagInput?.value.trim();
     const tags = tagVal ? [tagVal.replace(/^#/, '')] : ['summary', 'brief'];
 
-    const mdContent = `### Summary\n${summary}\n\n### Key Takeaways\n${keyFindings.map((f) => `- ${f}`).join('\n')}`;
+    const mdContent = keyFindings.length > 0
+      ? `### Summary\n${summary}\n\n### Key Takeaways\n${keyFindings.map((f) => `- ${f}`).join('\n')}`
+      : summary;
     const storage = await chrome.storage.local.get(['activeProjectId']);
 
     const payload = {

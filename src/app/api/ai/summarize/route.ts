@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { aiService } from '@/lib/ai/service';
+import { authorize } from '@/lib/auth/server';
+import { resolveAI, aiErrorResponse } from '@/lib/ai/userAi';
+import { parseSummaryMode } from '@/lib/ai/summaryPrompt';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -13,6 +15,11 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  const resolved = await resolveAI(auth.user);
+  if (resolved.response) return resolved.response;
+  const ai = resolved.ai;
   try {
     const body = await request.json();
     const { pageText, pageTitle } = body;
@@ -29,8 +36,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const formatInstruction = `\n\nINSTRUCTIONS: Summarize the following clearly structured markdown. Use headings (##, ###), bold key concepts, bulleted takeaways, and concise language. Ensure scannability.`;
-    const result = await aiService.summarizePage(pageText + formatInstruction, pageTitle || 'Web Article');
+    const result = await ai.summarizePage(pageText, pageTitle || body.title || 'Web Article', parseSummaryMode(body.mode));
 
     return NextResponse.json(
       {
@@ -44,6 +50,8 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
+    const keyResponse = aiErrorResponse(error);
+    if (keyResponse) return keyResponse;
     return NextResponse.json(
       { success: false, error: 'Failed to summarize page context' },
       {

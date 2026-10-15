@@ -14,6 +14,10 @@ const CANDIDATE_ORIGINS = [
 let cachedWorkingOrigin = null;
 
 async function getWorkingApiBase() {
+  // A saved server address (popup -> Connect) wins over looking for a local one.
+  const saved = await chrome.storage.local.get(['serverUrl']);
+  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
+
   if (cachedWorkingOrigin) {
     try {
       const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1000) });
@@ -414,7 +418,7 @@ async function refreshActiveTabContext() {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['content.js'],
+        files: ['projectMenu.js', 'content.js'],
       });
     } catch {}
 
@@ -596,73 +600,50 @@ function renderFilteredAtoms() {
 // PAGE AI (SUMMARIZE + Q&A) WITH DIRECT "SAVE TO PROJECT"
 // ==========================================================================
 
+// The mode picks the shape of the summary: auto (shape follows the page), bullets, detailed, tables.
+let selectedSummaryMode = 'auto';
+
 async function handleSummarizePage() {
   if (isAiLoading) return;
   isAiLoading = true;
   appendLoadingBubble();
 
+  const payload = {
+    pageText: activeTabInfo.mainContent || activeTabInfo.title,
+    pageTitle: activeTabInfo.title,
+    mode: selectedSummaryMode,
+  };
+
   try {
-    const pageContext = activeTabInfo.mainContent || activeTabInfo.title;
-
-    // Background messaging fallback
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      const bgResp = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          action: 'AI_SUMMARIZE_PAGE',
-          payload: {
-            pageText: pageContext,
-            title: activeTabInfo.title,
-            url: activeTabInfo.url,
-          }
-        }, resolve);
-      });
-
-      if (bgResp && bgResp.success && bgResp.data) {
-        removeLoadingBubble();
-        isAiLoading = false;
-        const d = bgResp.data;
-        let responseMd = `### ${d.title || activeTabInfo.title}\n\n${d.executiveSummary || d.summary || ''}\n\n`;
-        if (Array.isArray(d.keyTakeaways) && d.keyTakeaways.length > 0) {
-          responseMd += `**Key Points:**\n` + d.keyTakeaways.map(t => `- ${t}`).join('\n') + '\n\n';
-        }
-        appendChatMessage('assistant', responseMd, d.citations || []);
-        return;
-      }
-    }
-
-    const apiBase = await getWorkingApiBase();
-    const res = await fetch(`${apiBase}/ai/page-summary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pageText: pageContext,
-        title: activeTabInfo.title,
-        url: activeTabInfo.url,
-      }),
+    let json = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'AI_SUMMARIZE', payload }, (resp) => resolve(chrome.runtime.lastError ? null : resp));
     });
+    if (!json || !json.success) {
+      const apiBase = await getWorkingApiBase();
+      const res = await fetch(`${apiBase}/ai/summarize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      json = res.ok ? await res.json() : null;
+    }
 
     removeLoadingBubble();
     isAiLoading = false;
 
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data) {
-        const d = json.data;
-        let responseMd = `### ${d.title || activeTabInfo.title}\n\n${d.executiveSummary || d.summary || ''}\n\n`;
-        if (Array.isArray(d.keyTakeaways) && d.keyTakeaways.length > 0) {
-          responseMd += `**Key Points:**\n` + d.keyTakeaways.map(t => `- ${t}`).join('\n') + '\n\n';
-        }
-        appendChatMessage('assistant', responseMd, d.citations || []);
-        return;
-      }
+    const d = json && json.success ? json.data : null;
+    const markdown = d && (d.markdown || d.summary);
+    if (markdown) {
+      appendChatMessage('assistant', `### ${activeTabInfo.title}\n\n${markdown}`);
+      return;
     }
   } catch (err) {
     console.warn('Summarize error:', err);
+    removeLoadingBubble();
+    isAiLoading = false;
   }
 
-  removeLoadingBubble();
-  isAiLoading = false;
-  appendChatMessage('assistant', `**Summary for ${activeTabInfo.title}:**\n- Page contains about ${activeTabInfo.wordCount} words across ${activeTabInfo.headings.length} sections.\n- Key sections cover: ${activeTabInfo.headings.slice(0, 3).join(', ') || activeTabInfo.title}.`);
+  appendChatMessage('assistant', 'Could not reach the AI service, so there is no summary. Check that the Researchie app is running, then try again.');
 }
 
 async function sendUserChatMessage() {
@@ -794,24 +775,23 @@ function appendChatMessage(role, text, citations = []) {
       saveProjectBtn.addEventListener('click', async () => {
         saveProjectBtn.disabled = true;
         saveProjectBtn.textContent = 'Saving...';
+        const payload = {
+          projectId: activeProjectId,
+          type: 'note',
+          title: `Page AI: ${activeTabInfo.title.slice(0, 45)}`,
+          content: {
+            text: text,
+            markdownContent: text,
+            description: `Synthesized by Researchie AI from ${activeTabInfo.title}`,
+          },
+          metadata: {
+            sourceUrl: activeTabInfo.url,
+            pageTitle: activeTabInfo.title,
+          },
+          tags: ['ai-page-insight', 'page-ai'],
+        };
         try {
           const apiBase = await getWorkingApiBase();
-          const payload = {
-            projectId: activeProjectId,
-            type: 'note',
-            title: `Page AI: ${activeTabInfo.title.slice(0, 45)}`,
-            content: {
-              text: text,
-              markdownContent: text,
-              description: `Synthesized by Researchie AI from ${activeTabInfo.title}`,
-            },
-            metadata: {
-              sourceUrl: activeTabInfo.url,
-              pageTitle: activeTabInfo.title,
-            },
-            tags: ['ai-page-insight', 'page-ai'],
-          };
-
           const res = await fetch(`${apiBase}/atoms`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -828,9 +808,11 @@ function appendChatMessage(role, text, citations = []) {
             showToast('Failed to save');
           }
         } catch (err) {
-          saveProjectBtn.textContent = '+ Save to Project';
-          saveProjectBtn.disabled = false;
-          showToast('Saved to offline queue');
+          // Offline: the background keeps it in the queue and sends it when the connection returns.
+          const queued = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
+          saveProjectBtn.textContent = queued && (queued.success || queued.queued) ? '✓ Queued' : '+ Save to Project';
+          saveProjectBtn.disabled = Boolean(queued && (queued.success || queued.queued));
+          showToast(queued && (queued.success || queued.queued) ? 'Saved to offline queue' : 'Failed to save');
         }
       });
     }
@@ -906,17 +888,15 @@ async function triggerCapture(mode) {
         tags: ['web-link', activeTabInfo.domain.replace(/\..+$/, '')],
       };
 
-      try {
-        const apiBase = await getWorkingApiBase();
-        await fetch(`${apiBase}/atoms`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+      // The background saves it, or keeps it in the offline queue when the server can't be reached.
+      const result = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
+      if (result && result.success) {
         showToast('Page link saved');
         loadProjectAtoms();
-      } catch {
+      } else if (result && result.queued) {
         showToast('Saved to offline queue');
+      } else {
+        showToast('Failed to save link');
       }
     }
   }
@@ -1064,6 +1044,13 @@ function setupEventListeners() {
     });
   }
 
+  document.querySelectorAll('.sp-summary-mode').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      selectedSummaryMode = chip.dataset.mode || 'auto';
+      document.querySelectorAll('.sp-summary-mode').forEach((c) => c.classList.toggle('active', c === chip));
+    });
+  });
+
   if (elements.btnAiSummarizeTab) {
     elements.btnAiSummarizeTab.addEventListener('click', () => {
       handleSummarizePage();
@@ -1146,31 +1133,32 @@ async function flushOfflineQueue() {
   }
 
   showToast(`Syncing ${queue.length} items...`);
-  const apiBase = await getWorkingApiBase();
-  const failed = [];
+  // The background sends the queue (it also does this on its own), so one flush runs at a time.
+  // The button retries everything, including clips the server refused earlier.
+  const result = await chrome.runtime.sendMessage({ action: 'FLUSH_OFFLINE_QUEUE', includeRejected: true }).catch(() => null);
+  const after = (await chrome.storage.local.get(['offlineQueue'])).offlineQueue || [];
+  updateOfflineQueueCount(after);
 
-  for (const item of queue) {
-    try {
-      await fetch(`${apiBase}/atoms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
-      });
-    } catch {
-      failed.push(item);
-    }
-  }
-
-  await chrome.storage.local.set({ offlineQueue: failed });
-  updateOfflineQueueCount(failed);
-
-  if (failed.length === 0) {
+  if (!result || !result.success) {
+    showToast('Could not sync. Try again.');
+  } else if (after.length === 0) {
     showToast('All offline items synced!');
     loadProjectAtoms();
   } else {
-    showToast(`${failed.length} items still offline`);
+    if (result.synced > 0) loadProjectAtoms();
+    showToast(`${after.length} item${after.length === 1 ? '' : 's'} still waiting`);
   }
 }
+
+// When the browser regains its connection, send anything waiting without the user pressing Sync.
+window.addEventListener('online', () => {
+  chrome.runtime.sendMessage({ action: 'FLUSH_OFFLINE_QUEUE' }).then((r) => {
+    if (r && r.synced > 0) {
+      showToast(`Synced ${r.synced} offline item${r.synced === 1 ? '' : 's'}`);
+      loadProjectAtoms();
+    }
+  }).catch(() => {});
+});
 
 // ==========================================================================
 // UTILITIES

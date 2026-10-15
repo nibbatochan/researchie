@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getLocalProjects, createLocalProject, deleteLocalProject } from '@/lib/data/researchStore';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { cloud } from '@/lib/data/cloudStore';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -13,7 +15,13 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  if (AUTH_REQUIRED) {
+    const data = await cloud.listProjects(auth.user.id);
+    return NextResponse.json({ success: true, source: 'supabase', data });
+  }
   try {
     // Try querying Supabase
     const { data, error } = await supabaseAdmin
@@ -67,6 +75,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
     if (!body.title || !body.title.trim()) {
@@ -84,6 +94,12 @@ export async function POST(request: Request) {
       parentId: body.parentId || null,
       folderIcon: body.folderIcon || undefined,
     };
+
+    if (AUTH_REQUIRED) {
+      const created = await cloud.createProject(auth.user.id, payload);
+      if (!created) return NextResponse.json({ success: false, error: 'Could not create the project.' }, { status: 400 });
+      return NextResponse.json({ success: true, source: 'supabase', data: created }, { status: 201 });
+    }
 
     // Try inserting into Supabase
     try {
@@ -142,6 +158,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -151,6 +169,12 @@ export async function DELETE(request: Request) {
         { success: false, error: 'Project ID is required' },
         { status: 400 }
       );
+    }
+
+    if (AUTH_REQUIRED) {
+      const removed = await cloud.deleteProject(auth.user.id, id);
+      if (!removed) return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'Project and associated atoms deleted successfully' });
     }
 
     // Try Supabase delete

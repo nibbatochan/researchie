@@ -214,6 +214,11 @@
   `;
   shadow.appendChild(style);
 
+  // Styles for the in-page project menu and the Send tooltip (extension/projectMenu.js).
+  const menuStyle = document.createElement('style');
+  menuStyle.textContent = (window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.CSS) || '';
+  shadow.appendChild(menuStyle);
+
   let currentBtn = null;
   let activeSelectedText = '';
   let isTagFormOpen = false;
@@ -619,6 +624,10 @@
             directFetchFallback(payload);
           } else {
             const atomId = response?.data?.id;
+          if (!atomId) {
+            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+            return;
+          }
             const projTitle = response?.projectTitle || activeProjTitle;
             showToastWithUndo(`Sent quote to ${projTitle}`, atomId);
           }
@@ -650,7 +659,7 @@
         }
       } catch {}
     }
-    showToast('Sent quote (queued for sync)');
+    showToast('Could not reach the server. Reload this page and try again.');
   }
 
   function checkSelectionAndRender() {
@@ -693,6 +702,8 @@
       </div>
       <div class="selection-divider" id="pill-divider"></div>
       <button class="selection-tag-trigger" id="pill-tag-trigger" title="Add tag and send">+ Tag</button>
+      <div class="selection-divider" id="pill-divider-menu"></div>
+      <span id="pill-menu-slot"></span>
       <div class="selection-tag-form" id="pill-tag-form">
         <input class="selection-tag-input" id="pill-tag-input" placeholder="Tag (e.g. pricing)" autocomplete="off" spellcheck="false" />
         <button class="selection-tag-submit" id="pill-tag-submit">Send</button>
@@ -724,6 +735,21 @@
     const tagInput = container.querySelector('#pill-tag-input');
     const tagSubmit = container.querySelector('#pill-tag-submit');
     const tagCancel = container.querySelector('#pill-tag-cancel');
+    const menuDivider = container.querySelector('#pill-divider-menu');
+    const menuSlot = container.querySelector('#pill-menu-slot');
+
+    // Where Send will go, and a way to change it without opening the popup.
+    const PM = window.__RESEARCHIE_PROJECT_MENU__;
+    if (PM) {
+      menuSlot.appendChild(PM.buildMenu({
+        extraItems: [{ label: 'Ask AI', onClick: PM.openAskAi }],
+        onChange: (dest) => showToast(`Sending to ${PM.destinationLabel(dest)}`),
+      }));
+      PM.attachTooltip(container, arrowBtn, async () => PM.destinationLabel(await PM.loadDestination()));
+    } else {
+      menuDivider.style.display = 'none';
+      menuSlot.style.display = 'none';
+    }
 
     // Track mouse over pill to prevent selectionchange from closing it prematurely
     container.addEventListener('mouseenter', () => {
@@ -774,6 +800,8 @@
       arrowBtn.style.display = 'none';
       divider.style.display = 'none';
       tagTrigger.style.display = 'none';
+      menuDivider.style.display = 'none';
+      menuSlot.style.display = 'none';
       tagForm.classList.add('active');
       setTimeout(() => {
         tagInput.focus();
@@ -936,6 +964,10 @@
     if (chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }, (response) => {
         const atomId = response?.data?.id;
+          if (!atomId) {
+            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+            return;
+          }
         showToastWithUndo(`Saved link to ${activeProjTitle} (Alt+L)`, atomId);
       });
     } else {
@@ -1117,7 +1149,11 @@
           if (chrome.runtime.lastError) {
             directFetchFallback(payload);
           } else {
-            showToastWithUndo('Saved image to project', response?.data?.id);
+            if (!response?.data?.id) {
+              showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+            } else {
+              showToastWithUndo('Saved image to project', response.data.id);
+            }
           }
         });
         sentViaRuntime = true;

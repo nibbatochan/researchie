@@ -1,5 +1,6 @@
-import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult, AIServiceBusyError } from '../types';
+import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult, AIServiceBusyError, AIKeyError } from '../types';
 import { MockAIAdapter } from './mock';
+import { SUMMARY_SYSTEM_PROMPT, type SummaryMode, buildSummaryPrompt, truncationNote } from '../summaryPrompt';
 
 export class GroqAIAdapter implements AIServiceAdapter {
   private apiKey: string;
@@ -9,16 +10,21 @@ export class GroqAIAdapter implements AIServiceAdapter {
   private mockFallback = new MockAIAdapter();
 
   private timeoutMs: number;
+  // Strict = a user's own key: a refused or exhausted key is reported, never replaced by a fake answer.
+  private strict: boolean;
+  private keysUrl?: string;
 
   constructor(
     apiKey: string,
     model = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
     baseUrl = 'https://api.groq.com/openai/v1',
-    options: { fallbackModels?: string[]; timeoutMs?: number } = {},
+    options: { fallbackModels?: string[]; timeoutMs?: number; strict?: boolean; keysUrl?: string } = {},
   ) {
     this.apiKey = apiKey;
     this.model = model;
     this.timeoutMs = options.timeoutMs ?? 25000;
+    this.strict = options.strict ?? false;
+    this.keysUrl = options.keysUrl;
     this.fallbackModels = options.fallbackModels ?? [
       'qwen/qwen3.8-27b',
       'openai/gpt-oss-120b',
@@ -45,6 +51,8 @@ export class GroqAIAdapter implements AIServiceAdapter {
     let lastError: any = null;
     let sawTooLarge = false;
     let sawRateLimit = false;
+    let sawUnauthorized = false;
+    let retryAfterSec: number | undefined;
 
     for (const modelName of modelsToTry) {
       try {
@@ -69,12 +77,26 @@ export class GroqAIAdapter implements AIServiceAdapter {
         const errText = await res.text();
         lastError = new Error(`Groq [${modelName}] error ${res.status}: ${errText}`);
         if (res.status === 413 || (res.status === 400 && /length|large|token|context/i.test(errText))) sawTooLarge = true;
-        if (res.status === 429) sawRateLimit = true;
+        if (res.status === 429) {
+          sawRateLimit = true;
+          const retry = Number(res.headers.get('retry-after'));
+          if (Number.isFinite(retry) && retry > 0) retryAfterSec = Math.ceil(retry);
+        }
         // If 401 Unauthorized, no need to cycle further
-        if (res.status === 401) break;
+        if (res.status === 401 || res.status === 403) {
+          sawUnauthorized = true;
+          break;
+        }
       } catch (err) {
         lastError = err;
       }
+    }
+
+    if (this.strict && sawUnauthorized) {
+      throw new AIKeyError('INVALID_KEY', 'The provider rejected your API key.', undefined, this.keysUrl);
+    }
+    if (this.strict && sawRateLimit) {
+      throw new AIKeyError('RATE_LIMITED', 'Your provider free limit is used up for now.', retryAfterSec, this.keysUrl);
     }
 
     const finalError: any = lastError || new Error('All Groq model attempts failed');
@@ -83,63 +105,34 @@ export class GroqAIAdapter implements AIServiceAdapter {
     throw finalError;
   }
 
-  async summarizePage(pageText: string, pageTitle: string): Promise<AISummaryResult> {
+  async summarizePage(pageText: string, pageTitle: string, mode: SummaryMode = 'auto'): Promise<AISummaryResult> {
     try {
-      const prompt = `Analyze this web page text and generate a structured executive brief for product research.
-Return a strict JSON object with:
-1. "summary": A clear executive overview (2-3 sentences detailing document core thesis, significance, and architecture).
-2. "keyFindings": Array of 4 to 6 high-signal, specific factual findings and core arguments from the text.
-3. "metricsAndData": Array of concrete metrics, statistics, percentages, benchmarks, latency, or unit economics mentioned in the text.
-4. "implications": Array of 2 to 3 strategic takeaways or implications for product design and engineering.
-5. "bulletTakeaways": Array of 4 to 6 concise takeaways.
-
-Page Title: ${pageTitle}
-Page Text:
-${pageText.slice(0, 15000)}`;
-
       const data = await this.callChatCompletion({
         messages: [
-          {
-            role: 'system',
-            content: 'You are an expert AI research assistant. You produce high-density, analytical executive briefs. Output valid JSON only.',
-          },
-          { role: 'user', content: prompt },
+          { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+          { role: 'user', content: buildSummaryPrompt(mode, pageTitle, pageText) },
         ],
-        response_format: { type: 'json_object' },
         temperature: 0.2,
       });
 
-      const rawContent = data.choices?.[0]?.message?.content || '{}';
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(this.cleanJsonString(rawContent));
-      } catch {
-        parsed = { summary: rawContent, keyFindings: [rawContent.slice(0, 120)] };
-      }
+      // Some models put their reasoning in <think> tags; the reader only wants the summary.
+      const markdown = String(data.choices?.[0]?.message?.content || '')
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .trim();
+      if (!markdown) throw new Error('Groq returned an empty summary');
 
-      const summary = parsed.summary || `Executive brief for ${pageTitle}.`;
-      const keyFindings = Array.isArray(parsed.keyFindings) && parsed.keyFindings.length > 0
-        ? parsed.keyFindings
-        : (parsed.bulletTakeaways || [`Core analysis synthesized from ${pageTitle}.`]);
-      const metricsAndData = Array.isArray(parsed.metricsAndData) ? parsed.metricsAndData : [];
-      const implications = Array.isArray(parsed.implications) ? parsed.implications : [];
-
+      const written = markdown + truncationNote(pageText);
       return {
-        summary,
-        bulletTakeaways: keyFindings,
-        keyFindings,
-        metricsAndData: metricsAndData.length > 0 ? metricsAndData : undefined,
-        implications: implications.length > 0 ? implications : undefined,
-        structuredBrief: {
-          overview: summary,
-          keyFindings,
-          metricsAndData,
-          implications,
-        },
+        summary: written,
+        markdown: written,
+        mode,
+        bulletTakeaways: markdown.split('\n').filter((l) => /^\s*[-*]\s+/.test(l)).map((l) => l.replace(/^\s*[-*]\s+/, '')),
       };
     } catch (error) {
-      console.warn('Groq summarizePage error, falling back to local deterministic engine:', error);
-      return this.mockFallback.summarizePage(pageText, pageTitle);
+      if (error instanceof AIKeyError) throw error;
+      if (this.strict) throw new AIServiceBusyError();
+      console.warn('Groq summarizePage error, falling back to the page sentences:', error);
+      return this.mockFallback.summarizePage(pageText, pageTitle, mode);
     }
   }
 
@@ -212,6 +205,7 @@ Return a strict JSON object with:
     try {
       return await this.askOnce(pageText, question);
     } catch (error: any) {
+      if (error instanceof AIKeyError) throw error;
       // A size error goes back to the route, which retries with fewer of the most relevant
       // passages. Cutting the end here would drop later pages, such as the one asked about.
       if (error?.sawTooLarge) throw new AIServiceBusyError(undefined, true);
@@ -320,6 +314,8 @@ Return a strict JSON object with:
         citationsUsed: parsed.citationsUsed || [],
       };
     } catch (error) {
+      if (error instanceof AIKeyError) throw error;
+      if (this.strict) throw new AIServiceBusyError();
       console.warn('Groq synthesizeAtoms error, falling back to local deterministic engine:', error);
       return this.mockFallback.synthesizeAtoms(atoms, instruction);
     }

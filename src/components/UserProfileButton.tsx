@@ -1,13 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import {
   User,
   SignOut,
-  Key,
-  Copy,
-  Check,
   CaretDown,
   UserSwitch
 } from '@phosphor-icons/react';
@@ -16,7 +12,6 @@ import { useAuth } from '@/lib/auth/authContext';
 export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isCollapsed = false }) => {
   const { user, setIsAuthModalOpen, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,13 +23,6 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleCopyToken = () => {
-    if (!user) return;
-    navigator.clipboard.writeText(user.extensionToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  };
 
   if (!user) {
     return (
@@ -88,9 +76,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1">
                   <span className="font-semibold text-xs text-[#0F172A] dark:text-white truncate">{user.name}</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">
-                    {user.tier}
-                  </span>
+                  {user.tier && (<span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">{user.tier}</span>)}
                 </div>
                 <span className="text-[10px] text-slate-500 dark:text-zinc-400 truncate block">{user.email}</span>
               </div>
@@ -99,24 +85,16 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
             <div className="py-2 space-y-1">
               <button
                 type="button"
-                onClick={handleCopyToken}
-                className="w-full flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] hover:border-[#325FEC] text-left transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-300">
-                  <Key size={13} className="text-[#325FEC]" />
-                  <span className="text-[11px] font-medium">Extension Token</span>
-                </div>
-                {copiedToken ? <Check size={13} className="text-emerald-500 font-bold" /> : <Copy size={13} className="text-slate-400" />}
-              </button>
-
-              <Link
-                href="/login"
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setIsOpen(false);
+                  signOut();
+                }}
+                title="Ends this session and opens the sign-in page"
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
               >
                 <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
-                <span>Switch Accounts</span>
-              </Link>
+                <span>Switch account</span>
+              </button>
 
               <button
                 type="button"
@@ -158,9 +136,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
           <div className="min-w-0 text-left">
             <div className="flex items-center gap-1">
               <span className="font-semibold text-xs text-[#0F172A] dark:text-white truncate">{user.name}</span>
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">
-                {user.tier}
-              </span>
+              {user.tier && (<span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 font-bold uppercase">{user.tier}</span>)}
             </div>
             <span className="text-[10px] text-slate-500 dark:text-zinc-400 truncate block">{user.email}</span>
           </div>
@@ -171,48 +147,20 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
 
       {isOpen && (
         <div className="absolute left-0 bottom-12 w-full bg-[#FAFBFD] dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs font-sans animate-popIn">
-          <div className="pb-2 border-b border-[#D9E1EC] dark:border-[#27272A] space-y-1.5">
-            {/* Extension Pairing Token Box */}
-            <div className="p-2 rounded-xl bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] space-y-1">
-              <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
-                <span className="font-semibold text-slate-700 dark:text-zinc-200 flex items-center gap-1">
-                  <Key size={12} className="text-[#325FEC]" />
-                  <span>Extension Sync Token</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyToken}
-                  className="font-mono text-[#325FEC] dark:text-[#518FFF] hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  {copiedToken ? (
-                    <>
-                      <Check size={11} className="text-emerald-500" />
-                      <span>Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={11} />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <code className="text-[9.5px] font-mono text-slate-600 dark:text-zinc-400 truncate block bg-black/5 dark:bg-white/5 p-1 rounded">
-                {user.extensionToken}
-              </code>
-            </div>
-          </div>
-
           {/* Action Links */}
           <div className="pt-2 space-y-1">
-            <Link
-              href="/login"
-              onClick={() => setIsOpen(false)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-            >
-              <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
-              <span>Switch Accounts</span>
-            </Link>
+            <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  signOut();
+                }}
+                title="Ends this session and opens the sign-in page"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
+              >
+                <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
+                <span>Switch account</span>
+              </button>
 
             <button
               type="button"

@@ -6,6 +6,7 @@ export interface ProvenanceMetadata {
   citation?: CitationRecord; // resolved on demand; see src/lib/citations/metadata.ts
   pageIdentifiers?: { doi?: string; pmid?: string }; // read from the page's citation meta tags at clip time
   pageInfo?: { url: string; title?: string; siteName?: string; author?: string; published?: string; updated?: string }; // web-source fallback
+  pinnedAt?: string; // set when the atom is pinned to the top of the feed; see src/lib/atoms/pin.ts
   sourceUrl: string;
   pageTitle: string;
   domainFavicon?: string;
