@@ -30,7 +30,7 @@ Statuses: not started, in progress, blocked, done, dropped.
     - [done] Delete InlineClipInserter.tsx and lib/cn.ts {h2}
     - [done] Replace lucide-react with Phosphor in PDFReaderView.tsx {h3}
     - [done] Gitignore .documents-store.json and .cognee-graph-*.json (graph files untracked, uncommitted) {h4}
-    - [in progress] Commit work after f0bd60f — e2e edits already committed (f04062e, e296a2b). Everything since v1.8.4 is uncommitted (summaries, pin, project menu, offline queue, video embeds, accounts, AI keys, docs). Owner said commit later. Before any push: fresh key scan, and do not push main or cleanup/2026-10-09 without a scrub {h5}
+    - [in progress] Commit work after f0bd60f. Committed locally as e7bf5c7 (everything up to v1.9.0, key scan clean). v1.9.1 fixes are a second local commit. Nothing is pushed: before any push do a fresh key scan, and do not push main or cleanup/2026-10-09 without a scrub {h5}
     - [not started] Real-Chrome checks of work only tested in a headless test Chromium: side panel summary chips, "+ Save to Project", update-date capture, the new dialog menus, the video player on live YouTube and Vimeo, the offline-queue alarm and a real network drop, the extension Connect section {p24}
     - [not started] scripts/testGroundingBaseline.cjs is stale (names the removed doc-dots-openai-spec) {p25}
   - [not started] PRD gaps {p1}
@@ -54,12 +54,12 @@ Statuses: not started, in progress, blocked, done, dropped.
       - [not started] Saved-accounts switcher in the sidebar (one httpOnly cookie per account); today "Switch account" signs out {p18}
       - [not started] Google sign-in. Owner sets it up by hand in Supabase; the login button is a disabled placeholder and the wiring point is signInWithOAuth in authContext.tsx {p19}
       - [not started] Notion token per user, stored encrypted like the AI key (today it lives in memory only on the tester site) {p20}
-      - [not started] Duplicate clips when a save reaches the server but the reply is lost and the extension retries (no duplicate check) {p21}
-      - [not started] Deleting a project with "keep clips" does not move the clips (existing bug, page.tsx handleConfirmDeleteProject; the PATCH ignores projectId) {p22}
+      - [done] Duplicate clips when a save reaches the server but the reply is lost: the extension gives each clip an id before its first try, and the server returns the saved clip when it sees the same id from the same user. v1.9.1, unit-tested; not run on the live site {p21}
+      - [done] Deleting a project with "keep clips" now moves the clips (and documents) of the project and its sub-projects to a chosen project on the server, in the same request as the delete; the app picks the parent, another top-level project, or a new "Unfiled clips" project. Sub-projects are deleted on the server too. v1.9.1, unit tests and e2e 19. Local mode moves clips but not documents {p22}
       - [not started] Retire the local file store so each route has one code path (today AUTH_REQUIRED picks between two) {p23}
-      - [not started] Look at the 13 npm audit findings (6 moderate, 7 high) reported after the Next.js upgrade {p26}
-      - [not started] Sign-up is open on a public address: anyone who finds the URL can register and use up the free 500 MB database. Add an invite code or an email allow-list before the link goes beyond the testers {p27}
-      - [not started] Default model names for Cerebras, OpenRouter and Google AI Studio were not checked against the providers' live model lists; try each provider with a real key and fix the defaults {p28}
+      - [in progress] npm audit: 13 findings down to 12 with the non-breaking fix. The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tooling; left until after the demo, then decide {p26}
+      - [done] Sign-up gate: set SIGNUP_INVITE_CODE on Vercel and sign-up asks for it; wrong guesses are limited per address. v1.9.1, unit-tested and checked on a local server. Still to do: set the variable on Vercel and redeploy, then try a sign-up {p27}
+      - [done] Default model names checked against the providers' lists: OpenRouter now openrouter/free (the old name no longer exists), Google now gemini-3.8-flash (2.5 is limited to earlier users), Groq fallbacks trimmed to listed production models. Still to do: try each provider with a real key {p28}
     - [not started] Rewrite the PRD to match the real stack (Cloudflare R2, Gemini 1.5, shadcn, TypeScript extension are not used) and every decision from 2026-10-14: in-flow project switching, Ask AI in the menu, real summaries, pinning, no drag reorder, no plan limits, team sharing blocked on auth {p11}
 
 ## Scope changes
@@ -83,6 +83,7 @@ Statuses: not started, in progress, blocked, done, dropped.
 - 2026-10-15 — Scope change: added p14 (tester deployment) and p15 (delete account, not built). Owner needs 5 to 10 testers within a week. p8 stays blocked: accounts now exist, sharing between them is not built.
 - 2026-10-15 — p16 and p17 started: Supabase testers project set up and checked, app deployed to Vercel. Next.js 15.1.4 to 15.5.28.
 - 2026-10-15 — Unfinished work listed: p16 and p17 (live setup, Vercel) under p14; p8 sharing moved from blocked to not started; p15, p18 to p23 added under p14; p24 (real-Chrome checks) and p25 (stale script) added under h1; h5 reworded.
+- 2026-10-15 — Owner asked to commit and start the required changes. Committed e7bf5c7. Done: p21, p22, p27, p28; p26 partly (13 to 12). Also fixed: local-mode PATCH erased a clip's title and tags when pinning (updateLocalAtom copied undefined fields); e2e 05 made safe against clicking before the page hydrates.
 - 2026-10-15 — Limits reviewed with the owner. Added p26 (npm audit), p27 (open sign-up), p28 (unchecked default model names). Corrected an earlier claim: schema.sql had row-level security on but with open "Public ... Access" policies; 001_multi_user.sql now drops them and the three seeded demo projects.
 - 2026-10-15 — Owner chose to keep p5 and fix it. p5 done (v1.8.8).
 - 2026-10-15 — Scope change: added and finished p13, video embeds (v1.8.7).

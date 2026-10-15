@@ -125,11 +125,24 @@ export function makeCloud(db: Db) {
     return mapProject(data);
   }
 
-  async function deleteProject(userId: string, projectId: string): Promise<boolean> {
+  /**
+   * Deletes a project and its sub-projects. With moveTo, their clips and documents are moved to that project
+   * first (it must be the user's own and outside the deleted family); without it they are deleted too.
+   * Returns false when the project is not the user's or the target is not usable. Nothing changes in that case.
+   */
+  async function deleteProject(userId: string, projectId: string, moveTo?: string): Promise<boolean> {
     if (!(await ownsProject(userId, projectId))) return false;
-    await db.from('atoms').delete().eq('project_id', projectId).eq('user_id', userId);
-    await db.from('documents').delete().eq('project_id', projectId).eq('user_id', userId);
-    await db.from('projects').delete().eq('id', projectId).eq('user_id', userId);
+    const family = await projectFamily(userId, projectId);
+    if (moveTo) {
+      if (family.includes(moveTo) || !(await ownsProject(userId, moveTo))) return false;
+      await db.from('atoms').update({ project_id: moveTo }).eq('user_id', userId).in('project_id', family);
+      await db.from('documents').update({ project_id: moveTo }).eq('user_id', userId).in('project_id', family);
+    }
+    for (const id of family) {
+      await db.from('atoms').delete().eq('project_id', id).eq('user_id', userId);
+      await db.from('documents').delete().eq('project_id', id).eq('user_id', userId);
+      await db.from('projects').delete().eq('id', id).eq('user_id', userId);
+    }
     return true;
   }
 
@@ -166,7 +179,11 @@ export function makeCloud(db: Db) {
     });
     let result = await db.from('atoms').insert(row(atom.id)).select().single();
     if (result.error?.code === '23505') {
-      // The id is taken (maybe by someone else's atom). Plain insert, so nothing is overwritten: use a new id.
+      // The extension gives every clip an id before its first try. If that id is already this user's atom, the
+      // earlier try went through and only its reply was lost: return it instead of saving a second copy.
+      const mine = await getAtom(userId, atom.id);
+      if (mine) return mine;
+      // The id is taken by someone else's atom. Plain insert, so nothing is overwritten: use a new id.
       result = await db.from('atoms').insert(row(newId('atom'))).select().single();
     }
     return result.data ? mapAtom(result.data) : null;

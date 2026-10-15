@@ -43,3 +43,17 @@ test('credential validation', () => {
   assert.equal(validateCredentials(undefined, 'longenough').ok, false);
   assert.equal(validateCredentials('a@b.co', 'x'.repeat(201)).ok, false);
 });
+
+test('the invite code gate: open when unset, exact match when set', async () => {
+  const { inviteCodeMatches } = await import('../src/lib/auth/tokens.ts');
+  assert.equal(inviteCodeMatches(undefined, undefined), true);
+  assert.equal(inviteCodeMatches('anything', ''), true);
+  assert.equal(inviteCodeMatches('anything', '   '), true);
+  assert.equal(inviteCodeMatches('open-sesame-42', 'open-sesame-42'), true);
+  assert.equal(inviteCodeMatches('  open-sesame-42 ', 'open-sesame-42'), true); // stray spaces from copy and paste
+  assert.equal(inviteCodeMatches('open-sesame-43', 'open-sesame-42'), false);
+  assert.equal(inviteCodeMatches('OPEN-SESAME-42', 'open-sesame-42'), false); // case matters
+  assert.equal(inviteCodeMatches('', 'open-sesame-42'), false);
+  assert.equal(inviteCodeMatches(undefined, 'open-sesame-42'), false);
+  assert.equal(inviteCodeMatches(12345, 'open-sesame-42'), false);
+});

@@ -276,9 +276,12 @@ export function updateLocalAtom(id: string, updates: Partial<ResearchAtom>): Res
   const index = atoms.findIndex((a) => a.id === id);
   if (index === -1) return null;
 
+  // A field that is not being changed arrives as undefined (a pin request sends no title or tags). Copying
+  // it over would erase the real value, so only fields that were actually given are applied.
+  const given = Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined));
   atoms[index] = {
     ...atoms[index],
-    ...updates,
+    ...given,
   };
 
   globalStore.__RESEARCH_ATOMS_STORE__ = atoms;

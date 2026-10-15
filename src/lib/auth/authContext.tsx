@@ -28,10 +28,12 @@ interface AuthContextType {
   loading: boolean;
   /** True on the tester deployment, where signing in is required. */
   authRequired: boolean;
+  /** True when creating an account needs an invite code. */
+  inviteRequired: boolean;
   signInWithOAuth: (provider: 'google' | 'apple' | 'facebook' | 'github') => Promise<{ success: boolean; message?: string }>;
   signInWithEmail: (email: string) => Promise<{ success: boolean; message: string }>;
   signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
-  signUpWithPassword: (name: string, email: string, password: string) => Promise<AuthResult>;
+  signUpWithPassword: (name: string, email: string, password: string, inviteCode?: string) => Promise<AuthResult>;
   /** Local development only. Does nothing when sign-in is required. */
   signInAsDemo: (tier?: 'free' | 'pro' | 'team') => void;
   signOut: (opts?: { everywhere?: boolean }) => Promise<void>;
@@ -78,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startsRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED === 'true';
   const [user, setUser] = useState<UserProfile | null>(startsRequired ? null : DEFAULT_DEMO_USER);
   const [authRequired, setAuthRequired] = useState(startsRequired);
+  const [inviteRequired, setInviteRequired] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -86,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
       const data = await res.json();
       setAuthRequired(Boolean(data.authRequired));
+      setInviteRequired(Boolean(data.inviteRequired));
       setUser(data.authRequired ? data.user : DEFAULT_DEMO_USER);
     } catch {
       // Server unreachable: keep what we have rather than signing anyone out by accident.
@@ -143,8 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, message: 'Magic links are not available. Use email and password.' };
   }, []);
 
-  const signUpWithPassword = useCallback(async (name: string, email: string, password: string): Promise<AuthResult> => {
-    const { ok, data } = await postJson('/api/auth/signup', { name, email, password });
+  const signUpWithPassword = useCallback(async (name: string, email: string, password: string, inviteCode?: string): Promise<AuthResult> => {
+    const { ok, data } = await postJson('/api/auth/signup', { name, email, password, inviteCode });
     if (!ok || !data.success) return { success: false, message: data.error || 'Could not create the account.' };
     if (data.needsConfirmation) {
       return { success: true, needsConfirmation: true, message: 'Check your email and open the link to finish creating your account.' };
@@ -184,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         loading,
         authRequired,
+        inviteRequired,
         signInWithOAuth,
         signInWithEmail,
         signInWithPassword,

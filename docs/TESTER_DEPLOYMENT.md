@@ -35,6 +35,8 @@ The free plan has **no automatic backups** and pauses a project after **1 week w
 | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase. Server only. Never prefix it `NEXT_PUBLIC_`. |
 | `KEY_ENCRYPTION_SECRET` | 32 or more random characters. Make one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. **Back it up**: if it is lost or changed, every saved AI key becomes unreadable and users must paste theirs again. |
 
+   **Recommended:** also set `SIGNUP_INVITE_CODE` to a long random string (for example `node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))"`). Sign-up then asks for it, so only people you give the code to can make an account; 8 wrong guesses lock an address out for 10 minutes. Leave it unset and anyone who finds the address can register and use up the free database. Changing it needs a redeploy and does not affect accounts that already exist.
+
    Do **not** set `GROQ_API_KEY`: in this mode it is ignored, and leaving it out keeps your own key out of reach.
 3. Deploy. Put the address in Supabase's Site URL (step 1.3).
 4. Hobby plan notes: functions may run up to 300 s; request and response bodies are capped at **4.5 MB**; usage allowances are shared by all your Hobby projects; the plan is for personal, non-commercial use.

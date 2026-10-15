@@ -1,6 +1,6 @@
 // Extension tokens and the request checks that need no database. Kept free of imports from the app so
 // it can be unit-tested on its own.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const TOKEN_PREFIX = 'rst_';
 
@@ -34,6 +34,19 @@ export function isCrossSiteWrite(method: string, originHeader: string | null | u
   } catch {
     return true;
   }
+}
+
+/**
+ * The sign-up gate. With no code configured (SIGNUP_INVITE_CODE unset) everyone passes. With one, the code
+ * must match. Both sides are hashed first so the comparison takes the same time whatever was typed.
+ */
+export function inviteCodeMatches(provided: unknown, expected: string | undefined): boolean {
+  const want = (expected ?? '').trim();
+  if (!want) return true;
+  if (typeof provided !== 'string') return false;
+  const a = createHash('sha256').update(provided.trim()).digest();
+  const b = createHash('sha256').update(want).digest();
+  return timingSafeEqual(a, b);
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

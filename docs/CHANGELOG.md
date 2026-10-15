@@ -1,5 +1,21 @@
 # Version Changelog
 
+## [v1.9.1] — 2026-10-15 (Tester follow-ups: invite code, model names, retries, keep-clips)
+### Added
+- **Invite code for sign-up.** Set `SIGNUP_INVITE_CODE` and the sign-up form asks for it; without the right code the server refuses (403) before it talks to Supabase. Eight wrong guesses lock an address out for 10 minutes (per server instance). Unset, sign-up stays open. `/api/auth/me` reports `inviteRequired`. Needs the variable set on Vercel and a redeploy.
+
+### Fixed
+- **Provider default models.** OpenRouter's default `openai/gpt-oss-120b:free` no longer exists; the default is now `openrouter/free`. Google's `gemini-2.5-flash` is only served to accounts that used it before, so new testers are given `gemini-3.8-flash` (Google's own compatibility example). Groq's fallback list no longer includes the preview-only `qwen/qwen3.8-27b` or the unlisted `allam-2-7b`. Checked against each provider's model list on 2026-10-15; an invalid model still shows as an error, and the Model box lets a user type another.
+- **Duplicate clips on retry.** The extension gives each clip an id before its first try; if the server already has that id for the same user it returns the saved clip instead of making a second one.
+- **Delete project, keep clips.** The old code fired the moves without waiting and the server ignored them, so the clips were deleted with the project. `DELETE /api/projects?id=X&moveTo=Y` now moves the clips and documents of the project and its sub-projects to Y first, then deletes them; a target that is not yours or is inside the deleted project is refused. The app picks the parent, another top-level project, or a new "Unfiled clips" project. Sub-projects are now deleted on the server too (they were left behind in Supabase). Local mode moves clips but not documents.
+- `npm audit fix` (non-breaking only): 13 findings down to 12. The rest need major upgrades (Tailwind 4, Next 16) and are mostly in build tooling; left for later.
+
+### Tests
+- Unit: invite code, failure limiter, retry idempotency, keep-clips and family delete in the data layer (232 total). E2E: `19-delete-project-keep-clips` (3), and a gated case in `18-auth-gate` that needs a server started with `SIGNUP_INVITE_CODE`.
+
+### Not done
+- None of this has run on the live site yet: set `SIGNUP_INVITE_CODE`, redeploy, and try a tester sign-up. Provider defaults still need a real key per provider.
+
 ## [v1.9.0] — 2026-10-15 (Tester deployment: accounts, per-user data, your own AI key)
 Everything below is switched on by `AUTH_REQUIRED=true`. With it off the app behaves as in v1.8.8. Setup and checks: `docs/TESTER_DEPLOYMENT.md`, `docs/TESTER_CHECKLIST.md`. Research behind the choices: `docs/research/auth-and-sharing.md`. Decisions 19 to 21.
 

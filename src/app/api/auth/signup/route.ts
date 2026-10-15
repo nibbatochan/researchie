@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { AUTH_REQUIRED } from '@/lib/auth/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { validateCredentials } from '@/lib/auth/tokens';
+import { inviteCodeMatches, validateCredentials } from '@/lib/auth/tokens';
+import { makeFailureLimiter } from '@/lib/auth/rateLimit';
+
+// SIGNUP_INVITE_CODE, when set, is required to create an account. Wrong codes are counted per address.
+const inviteFailures = makeFailureLimiter(8, 10 * 60 * 1000);
 
 const FRIENDLY: Record<string, string> = {
   user_already_exists: 'An account with this email already exists. Log in instead.',
@@ -16,6 +20,19 @@ export async function POST(request: Request) {
   if (!AUTH_REQUIRED) return NextResponse.json({ success: false, error: 'Accounts are off in this mode.', code: 'AUTH_DISABLED' }, { status: 404 });
   try {
     const body = await request.json().catch(() => ({}));
+
+    const invite = process.env.SIGNUP_INVITE_CODE;
+    if (invite && invite.trim()) {
+      const who = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+      if (inviteFailures.blocked(who)) {
+        return NextResponse.json({ success: false, error: 'Too many wrong invite codes. Wait a few minutes and try again.' }, { status: 429 });
+      }
+      if (!inviteCodeMatches(body.inviteCode, invite)) {
+        inviteFailures.fail(who);
+        return NextResponse.json({ success: false, error: 'That invite code is not right. Ask the person who invited you.', code: 'INVITE_INVALID' }, { status: 403 });
+      }
+    }
+
     const checked = validateCredentials(body.email, body.password);
     if (!checked.ok) return NextResponse.json({ success: false, error: checked.error }, { status: 400 });
     const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) : '';

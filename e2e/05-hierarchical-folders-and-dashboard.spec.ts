@@ -76,12 +76,15 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
     // Open Documents from Dashboard button or sidebar
     const docsNavBtn = page.locator('button:has-text("Document Library"), button:has-text("Docs")').first();
     await expect(docsNavBtn).toBeVisible({ timeout: 10000 });
-    await docsNavBtn.click();
-    await page.waitForTimeout(600);
 
-    // 1. Verify "Most Recently Viewed Document" Hero Card
+    // 1. Verify "Most Recently Viewed Document" Hero Card.
+    // The button can be on screen before the page has hydrated, and a click before that does nothing, so the
+    // click is retried until the Documents view shows up.
     const recentDocHero = page.locator('text=/Most Recently Viewed Document|Active Reading|Document Vault/i').first();
-    await expect(recentDocHero).toBeVisible({ timeout: 10000 });
+    await expect(async () => {
+      await docsNavBtn.click();
+      await expect(recentDocHero).toBeVisible({ timeout: 4000 });
+    }).toPass({ timeout: 40000 });
 
     // 2. Verify "All Project Documents" section below the hero
     const allDocsHeader = page.locator('text=/All Project Documents|Project Documents/i').first();

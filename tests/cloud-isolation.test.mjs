@@ -73,6 +73,15 @@ test('reusing an atom id never overwrites or exposes another user\'s atom', asyn
   assert.equal(await cloud.getAtom(BOB, 'same'), null);
 });
 
+test('a retried save with the same id gives back the first atom instead of a second copy', async () => {
+  const { cloud, alice, db } = await setup();
+  const first = await cloud.insertAtom(ALICE, atom('retry-1', alice.id, { title: 'clip' }));
+  const again = await cloud.insertAtom(ALICE, atom('retry-1', alice.id, { title: 'clip' }));
+  assert.equal(first.id, 'retry-1');
+  assert.equal(again.id, 'retry-1');
+  assert.equal(db.tables.atoms.filter((a) => a.user_id === ALICE).length, 1);
+});
+
 test('sub-projects are included when listing a parent, but only your own', async () => {
   const { cloud, alice, bob } = await setup();
   const child = await cloud.createProject(ALICE, { title: 'child', parentId: alice.id });
@@ -126,4 +135,34 @@ test('documents are private to their owner', async () => {
   assert.deepEqual((await cloud.listDocuments(ALICE)).map((d) => d.id), ['d1']);
   assert.equal(await cloud.deleteDocument(BOB, 'd1'), false);
   assert.equal(await cloud.deleteDocument(ALICE, 'd1'), true);
+});
+
+test('deleting a project can keep its clips: they move first, and the sub-projects go with it', async () => {
+  const { cloud, alice, bob } = await setup();
+  const parent = await cloud.createProject(ALICE, { title: 'to delete' });
+  const child = await cloud.createProject(ALICE, { title: 'child', parentId: parent.id });
+  await cloud.insertAtom(ALICE, atom('k1', parent.id));
+  await cloud.insertAtom(ALICE, atom('k2', child.id));
+  await cloud.addDocument(ALICE, { id: 'kd', projectId: child.id, title: 'Doc', pages: [] });
+
+  // A target that is not yours, or is inside the deleted family, changes nothing.
+  assert.equal(await cloud.deleteProject(ALICE, parent.id, bob.id), false);
+  assert.equal(await cloud.deleteProject(ALICE, parent.id, child.id), false);
+  assert.equal((await cloud.listAtoms(ALICE)).length, 2);
+
+  assert.equal(await cloud.deleteProject(ALICE, parent.id, alice.id), true);
+  assert.deepEqual((await cloud.listAtoms(ALICE, alice.id)).map((a) => a.id).sort(), ['k1', 'k2']);
+  assert.equal((await cloud.getDocument(ALICE, 'kd')).projectId, alice.id);
+  assert.deepEqual((await cloud.listProjects(ALICE)).map((p) => p.id), [alice.id]); // parent and child are gone
+});
+
+test('deleting without a target deletes the clips too, and never touches another user', async () => {
+  const { cloud, alice, bob } = await setup();
+  const extra = await cloud.createProject(ALICE, { title: 'extra' });
+  await cloud.insertAtom(ALICE, atom('g1', extra.id));
+  await cloud.insertAtom(BOB, atom('g2', bob.id));
+  assert.equal(await cloud.deleteProject(ALICE, extra.id), true);
+  assert.equal((await cloud.listAtoms(ALICE)).length, 0);
+  assert.equal((await cloud.listAtoms(BOB)).length, 1);
+  assert.equal(await cloud.deleteProject(BOB, alice.id), false);
 });

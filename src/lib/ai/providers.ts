@@ -31,7 +31,8 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     baseUrl: 'https://api.groq.com/openai/v1',
     defaultModel: 'openai/gpt-oss-120b',
     keysUrl: 'https://console.groq.com/keys',
-    fallbackModels: ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'allam-2-7b'],
+    // Production models in Groq's list (checked 2026-10-15). qwen/qwen3.8-27b is preview-only and allam-2-7b is no longer listed.
+    fallbackModels: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'],
     keyCheck: { url: 'https://api.groq.com/openai/v1/models' },
     freeTier: 'Fast. The free tier has rate limits that apply per Groq account, not per key, so each person should use their own Groq account.',
     privacy: {
@@ -59,7 +60,9 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     id: 'openrouter',
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'openai/gpt-oss-120b:free',
+    // openrouter/free picks a currently available free model for you. Named free models come and go (the one
+    // used here at first no longer exists), so a fixed name would break; type one in the Model box to pin it.
+    defaultModel: 'openrouter/free',
     keysUrl: 'https://openrouter.ai/keys',
     fallbackModels: null,
     keyCheck: { url: 'https://openrouter.ai/api/v1/key' },
@@ -73,7 +76,9 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     id: 'google',
     label: 'Google AI Studio (Gemini)',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-2.5-flash',
+    // Google's own OpenAI-compatibility example uses this model. gemini-2.5-flash is still served but only to
+    // accounts that used the 2.5 models before, so a new tester could not use it.
+    defaultModel: 'gemini-3.8-flash',
     keysUrl: 'https://aistudio.google.com/apikey',
     fallbackModels: null,
     keyCheck: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/models' },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getLocalProjects, createLocalProject, deleteLocalProject } from '@/lib/data/researchStore';
+import { getLocalProjects, getLocalAtoms, updateLocalAtom, createLocalProject, deleteLocalProject } from '@/lib/data/researchStore';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { cloud } from '@/lib/data/cloudStore';
 
@@ -171,10 +171,29 @@ export async function DELETE(request: Request) {
       );
     }
 
+    // moveTo = keep the clips: they are moved to that project and the rest is deleted.
+    const moveTo = searchParams.get('moveTo') || undefined;
     if (AUTH_REQUIRED) {
-      const removed = await cloud.deleteProject(auth.user.id, id);
+      if (moveTo && !(await cloud.ownsProject(auth.user.id, moveTo))) {
+        return NextResponse.json({ success: false, error: 'The project to keep the clips in was not found' }, { status: 400 });
+      }
+      const removed = await cloud.deleteProject(auth.user.id, id, moveTo);
       if (!removed) return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
       return NextResponse.json({ success: true, message: 'Project and associated atoms deleted successfully' });
+    }
+
+    if (moveTo) {
+      // Keep the clips: move them out of this project and its sub-projects before anything is deleted.
+      const doomed = new Set([id, ...getLocalProjects().filter((p) => p.parentId === id).map((p) => p.id)]);
+      if (doomed.has(moveTo)) {
+        return NextResponse.json({ success: false, error: 'Choose a project outside the one being deleted' }, { status: 400 });
+      }
+      for (const atom of getLocalAtoms().filter((a) => doomed.has(a.projectId))) {
+        updateLocalAtom(atom.id, { projectId: moveTo } as any);
+      }
+      try {
+        await supabaseAdmin.from('atoms').update({ project_id: moveTo }).in('project_id', Array.from(doomed));
+      } catch {}
     }
 
     // Try Supabase delete

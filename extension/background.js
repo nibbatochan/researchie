@@ -171,6 +171,9 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 });
 
 async function saveAtomToPlatform(atomPayload) {
+  // A fixed id before the first try means a retry of a save whose reply was lost is recognised by the
+  // server as the same clip, not saved twice.
+  if (!atomPayload.id) atomPayload.id = 'atom-' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
   try {
     const apiBase = await getWorkingApiBase();
     const storage = await chrome.storage.local.get(['activeProjectId', 'activeProjectTitle']);

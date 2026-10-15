@@ -306,31 +306,45 @@ export default function DashboardPage() {
 
   const handleConfirmDeleteProject = async (projectId: string, moveAtomsToUnfiled = false) => {
     try {
+      let moveTo: string | undefined;
       if (moveAtomsToUnfiled) {
-        // Move all affected atoms to parent/unfiled before deleting project
-        const affected = atoms.filter((a) => a.projectId === projectId);
-        for (const atom of affected) {
-          fetch('/api/atoms', {
-            method: 'PATCH',
+        // Keep the clips: they go to the parent project, or to another top-level project, or to a new
+        // "Unfiled clips" project when there is nothing else. The server moves them in the same request
+        // that deletes the project, so none are lost between the two.
+        const doomed = new Set([projectId, ...projects.filter((p) => p.parentId === projectId).map((p) => p.id)]);
+        const target = projects.find((p) => p.id === projectId);
+        moveTo = target?.parentId || projects.find((p) => !doomed.has(p.id) && !p.parentId)?.id;
+        if (!moveTo) {
+          const made = await fetch('/api/projects', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: atom.id, projectId: 'proj-ai-main' }),
-          }).catch(() => {});
+            body: JSON.stringify({ title: 'Unfiled clips', description: 'Clips kept from a deleted project.' }),
+          });
+          const json = await made.json().catch(() => null);
+          if (!made.ok || !json?.data?.id) throw new Error('Could not make a project to keep the clips in');
+          moveTo = json.data.id as string;
+          setProjects((prev) => [...prev, json.data]);
         }
       }
 
-      const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(
+        `/api/projects?id=${encodeURIComponent(projectId)}${moveTo ? `&moveTo=${encodeURIComponent(moveTo)}` : ''}`,
+        { method: 'DELETE' }
+      );
 
       if (res.ok) {
+        const doomedIds = new Set([projectId, ...projects.filter((p) => p.parentId === projectId).map((p) => p.id)]);
         setProjects((prev) => {
-          const remaining = prev.filter((p) => p.id !== projectId && p.parentId !== projectId);
+          const remaining = prev.filter((p) => !doomedIds.has(p.id));
           if (remaining.length > 0 && activeProjectId === projectId) {
             setActiveProjectId(remaining[0].id);
           }
           return remaining;
         });
-        if (activeProjectId === projectId && !moveAtomsToUnfiled) {
+        if (moveTo) {
+          // Show the moved clips under their new project at once.
+          setAtoms((prev) => prev.map((a) => (doomedIds.has(a.projectId) ? { ...a, projectId: moveTo as string } : a)));
+        } else if (activeProjectId === projectId) {
           setAtoms([]);
         }
       }

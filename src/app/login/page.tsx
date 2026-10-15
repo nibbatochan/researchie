@@ -47,6 +47,7 @@ function LoginContent() {
   const {
     user,
     authRequired,
+    inviteRequired,
     signInWithOAuth,
     signInWithPassword,
     signUpWithPassword,
@@ -57,6 +58,7 @@ function LoginContent() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -93,7 +95,7 @@ function LoginContent() {
     if (!email || !password) return;
     setIsLoading(true);
     setMessage(null);
-    const res = await signUpWithPassword(name, email, password);
+    const res = await signUpWithPassword(name, email, password, inviteCode);
     setIsLoading(false);
     if (res.success && res.needsConfirmation) {
       setMessage({ text: res.message, type: 'success' });
@@ -309,6 +311,26 @@ function LoginContent() {
                   </button>
                 </div>
               </div>
+
+              {inviteRequired && (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
+                    Invite code
+                  </label>
+                  <div className="relative flex items-center">
+                    <LockSimple size={15} className="absolute left-3 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      autoComplete="off"
+                      placeholder="From the person who invited you"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs text-[#0F172A] dark:text-white placeholder-slate-400 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"

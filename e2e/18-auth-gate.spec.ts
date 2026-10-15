@@ -74,6 +74,19 @@ test.describe('18. Signed-out visitors on the accounts-required site', () => {
     expect((await wrong.json()).error).toBe('Email or password is incorrect.');
   });
 
+  // Only when the server was started with SIGNUP_INVITE_CODE=<the same value as AUTH_INVITE_CODE>.
+  test('with an invite code set, sign-up is refused without it and passes the gate with it', async ({ request }) => {
+    test.skip(!process.env.AUTH_INVITE_CODE, 'set AUTH_INVITE_CODE to the code the server was started with');
+    expect(((await (await request.get(url('/api/auth/me'))).json()) as { inviteRequired: boolean }).inviteRequired).toBe(true);
+    const missing = await request.post(url('/api/auth/signup'), { data: { email: 'a@example.invalid', password: 'longenough1' } });
+    expect(missing.status()).toBe(403);
+    expect((await missing.json()).code).toBe('INVITE_INVALID');
+    // Right code, deliberately bad email: it gets past the gate (400 for the email) and creates no account.
+    const past = await request.post(url('/api/auth/signup'), { data: { email: 'not-an-email', password: 'longenough1', inviteCode: process.env.AUTH_INVITE_CODE } });
+    expect(past.status()).toBe(400);
+    expect((await past.json()).error).toBe('Enter a valid email address.');
+  });
+
   test('logout works with no session and sets no session', async ({ request }) => {
     const res = await request.post(url('/api/auth/logout'), { data: {} });
     expect(res.ok()).toBeTruthy();

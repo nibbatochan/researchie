@@ -4,14 +4,17 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 // What the web app asks on load: is sign-in required here, and who is signed in.
 export async function GET() {
-  if (!AUTH_REQUIRED) return NextResponse.json({ authRequired: false, user: null });
+  // inviteRequired tells the sign-up form to ask for the invite code (SIGNUP_INVITE_CODE is set).
+  const inviteRequired = Boolean(process.env.SIGNUP_INVITE_CODE?.trim());
+  if (!AUTH_REQUIRED) return NextResponse.json({ authRequired: false, inviteRequired: false, user: null });
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) return NextResponse.json({ authRequired: true, user: null });
+    if (error || !data.user) return NextResponse.json({ authRequired: true, inviteRequired, user: null });
     const u = data.user;
     return NextResponse.json({
       authRequired: true,
+      inviteRequired,
       user: {
         id: u.id,
         email: u.email ?? '',
@@ -22,6 +25,6 @@ export async function GET() {
       },
     });
   } catch {
-    return NextResponse.json({ authRequired: true, user: null });
+    return NextResponse.json({ authRequired: true, inviteRequired, user: null });
   }
 }
