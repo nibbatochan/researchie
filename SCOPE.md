@@ -158,9 +158,10 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Left: Try each provider with a real key.
   - [in progress] Product plan {S-53}
         | What: Features not built yet and the plan documents.
-    - [not started] Share a project with other accounts {S-54}
+    - [in progress] Share a project with other accounts {S-54}
           | What: Figma-style sharing: a link with can view or can edit, invite by email with a role, a member list (owner, editor, viewer), the owner changes or removes access, and Request access with approve or deny, all enforced on the server.
-          | Left: Needs new tables (project_members, project_invites, share_links, access_requests). Start after the live check (S-41).
+          | Done: Design written for your approval: docs/SHARING_DESIGN.md (roles owner/editor/viewer, four new tables, every check on the server in the data layer, build in four steps).
+          | Left: Your answers to its three open questions, then build step 1 (data and permissions). Needs new tables (project_members, project_invites, share_links, access_requests).
     - [done] Rewrite the PRD to match what was built {S-55}
           | What: docs/RESEARCH_TOOL_PRD.md named tools that are not used (Cloudflare R2, Gemini 1.5, shadcn, a TypeScript extension).
           | Done: Rewritten as version 2.0.0 on 2026-10-16: features marked built or planned, phases with their status, pricing marked undecided, the real stack, and the privacy rules now in force.
