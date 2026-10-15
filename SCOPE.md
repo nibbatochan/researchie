@@ -115,11 +115,12 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Decided: One-time code comes from an authenticator app (TOTP), set up once in Settings. No mail service needed.
           | Plan: Delete the user's projects (their clips and documents go with them), then the profile (settings, tokens, AI keys cascade), then the login. The projects table only clears the owner on profile delete, so it must be deleted first.
           | Done: Built. Authenticator app set-up in Settings (Account & Security); delete needs password, a current code and DELETE. Migration 002_account_mfa.sql; otpauth package; 5 unit tests.
-          | Left: Run migration 002 on the testers project before deploy. Then test on the live site (not tested against Supabase here). Without the migration the set-up step fails.
+          | Done too: Migration 002 run on the testers project; deployed to https://researchie-testers.vercel.app on 2026-10-16 (/api/auth/totp answers 401 when signed out, so the route is live).
+          | Left: Try it by hand on the live site with a throwaway account (set up the authenticator app, then delete). Not tested against Supabase yet.
     - [done] Switch between saved accounts from the sidebar {S-44}
           | What: The profile menu lists the other email addresses you signed in with on this browser. Picking one signs you out and opens the sign-in page with that address filled in; you type the password. "Use another account" signs out. A small x forgets an address.
           | Decided: Only addresses are remembered (in this browser), never passwords or sessions. Accounts are not kept signed in side by side.
-          | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Not tried on the live site.
+          | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Deployed 2026-10-16; not tried by hand on the live site yet.
     - [not started] Sign in with Google {S-45}
           | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
           | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
