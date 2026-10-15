@@ -49,8 +49,8 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: .documents-store.json and the .cognee-graph files are ignored or untracked.
     - [in progress] Commit the work and push it {S-24}
           | What: Save the work to git, and later push it.
-          | Done: Committed locally as e7bf5c7 (up to v1.9.0), e9a7db9 (v1.9.1) and 968f7f4 (extension 1.5.0, v1.9.3). Key scans were clean each time.
-          | Left: Push, after your yes: run a fresh key scan first, and do not push main or cleanup/2026-10-09 without a scrub.
+          | Done: Committed and pushed `feat/canvas-pdf-ui-and-citation-core` to origin up to 59a1691 (v1.9.5), after a fresh key scan over the whole range (only fake test strings matched). The site deploys with the Vercel CLI, not from GitHub, so the push does not deploy.
+          | Left: Do not push main or cleanup/2026-10-09 without a scrub.
     - [done] Try the extension in your real Chrome {S-25}
           | What: Everything so far was tested in a test browser. Try it by hand in your own Chrome.
           | Done: You tried 1.4.0 and 1.5.0 by hand on the local server: token connect, disconnected send, Set project panel, shared dialogs, side panel connect, Link toast. All worked.
