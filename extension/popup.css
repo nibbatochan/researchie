@@ -323,8 +323,13 @@ input:checked + .slider:before {
   border-color: #3F3F46;
 }
 
+.sub-project-group {
+  margin: 2px 0 2px 12px;
+  padding-left: 8px;
+  border-left: 2px solid #27272A;
+}
+
 .sub-project-option {
-  padding-left: 20px;
   color: #A1A1AA;
   font-size: 11px;
 }
@@ -334,18 +339,20 @@ input:checked + .slider:before {
   color: #FAFAFA;
 }
 
-.sub-project-branch {
-  color: #71717A;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-}
-
 .project-folder-icon {
-  font-size: 12px;
+  display: inline-flex;
+  color: #518FFF;
 }
 
 .project-option:hover {
   background: #18181B;
+}
+
+.project-option.active-selected {
+  background: transparent;
+  border: 1px solid #518FFF;
+  color: #FAFAFA;
+  font-weight: 600;
 }
 
 .project-option.active {
@@ -604,3 +611,18 @@ input:checked + .slider:before {
 .connect-msg { margin-top: 6px; font-size: 10px; }
 .connect-msg.ok { color: #34D399; }
 .connect-msg.error { color: #F87171; }
+
+/* Connect account: the link icon in the header and its panel */
+.icon-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; margin-right: 8px; background: transparent; border: 1px solid #27272A; border-radius: 8px; color: #A1A1AA; cursor: pointer; }
+.icon-btn:hover, .icon-btn[aria-expanded="true"] { background: #18181B; color: #FAFAFA; }
+.conn-dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 9999px; border: 2px solid #09090B; background: #52525B; }
+.conn-dot.on { background: #34D399; }
+.conn-dot.off { background: #F59E0B; }
+.connect-panel { border: 1px solid #27272A; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #121214; }
+.connect-panel.hidden { display: none; }
+.connect-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.connect-close { background: transparent; border: none; color: #71717A; cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 6px; }
+.connect-close:hover { background: #18181B; color: #FAFAFA; }
+.connect-target { margin-top: 4px; min-height: 12px; font-size: 10px; color: #A1A1AA; }
+.connect-target.error { color: #F87171; }
+.connect-help { margin-top: 8px; font-size: 10px; color: #71717A; }

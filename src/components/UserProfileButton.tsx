@@ -8,6 +8,7 @@ import {
   UserSwitch
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
+import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 
 export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isCollapsed = false }) => {
   const { user, setIsAuthModalOpen, signOut } = useAuth();
@@ -83,6 +84,8 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
             </div>
 
             <div className="py-2 space-y-1">
+              <ExtensionConnectionSettings compact />
+
               <button
                 type="button"
                 onClick={() => {
@@ -149,7 +152,9 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
         <div className="absolute left-0 bottom-12 w-full bg-[#FAFBFD] dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs font-sans animate-popIn">
           {/* Action Links */}
           <div className="pt-2 space-y-1">
-            <button
+            <ExtensionConnectionSettings compact />
+
+              <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);

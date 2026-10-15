@@ -4,10 +4,51 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const TOKEN_PREFIX = 'rst_';
 
-/** A new token. The plain text is shown to the user once; only the hash is stored. */
-export function generateExtensionToken(): { token: string; hash: string; last4: string } {
-  const token = TOKEN_PREFIX + randomBytes(32).toString('base64url');
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+/**
+ * A new token. The plain text is shown to the user once; only the hash is stored.
+ * With an origin, the token ends in ".<that address, encoded>", so the extension needs only the token: it reads
+ * the server address from it. The address is not a secret and does not make the token easier to guess.
+ */
+export function generateExtensionToken(origin?: string): { token: string; hash: string; last4: string } {
+  const secret = randomBytes(32).toString('base64url');
+  const token = TOKEN_PREFIX + secret + (origin ? '.' + Buffer.from(origin, 'utf8').toString('base64url') : '');
   return { token, hash: hashToken(token), last4: token.slice(-4) };
+}
+
+/** The pairing token of a local server: it only tells the extension where the server is. Nothing is stored. */
+export function localPairingToken(origin: string): string {
+  return `${TOKEN_PREFIX}local.${Buffer.from(origin, 'utf8').toString('base64url')}`;
+}
+
+/**
+ * The server address inside a token, or null when there is none or it is not an address the extension may
+ * send clips to (https anywhere, or http only for this computer).
+ */
+export function originFromToken(token: string | null | undefined): string | null {
+  if (!token || !token.startsWith(TOKEN_PREFIX)) return null;
+  const dot = token.lastIndexOf('.');
+  if (dot < 0) return null;
+  try {
+    const decoded = Buffer.from(token.slice(dot + 1), 'base64url').toString('utf8');
+    const url = new URL(decoded);
+    const local = LOCAL_HOSTS.includes(url.hostname);
+    if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) return null;
+    if (url.username || url.password || url.origin !== decoded) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+/** This server's own public address, from the request's headers (it is behind a proxy on Vercel). */
+export function requestOrigin(headers: { get(name: string): string | null }): string | null {
+  const host = (headers.get('x-forwarded-host') || headers.get('host') || '').split(',')[0].trim();
+  if (!host) return null;
+  const hostname = host.replace(/:\d+$/, '').toLowerCase();
+  const proto = (headers.get('x-forwarded-proto') || '').split(',')[0].trim() || (LOCAL_HOSTS.includes(hostname) ? 'http' : 'https');
+  return `${proto}://${host}`;
 }
 
 export function hashToken(token: string): string {

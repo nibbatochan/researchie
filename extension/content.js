@@ -33,7 +33,7 @@
       position: fixed;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
       z-index: 2147483647;
       animation: popIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
       pointer-events: auto !important;
@@ -41,7 +41,7 @@
       background: #09090B;
       border: 1px solid #27272A;
       border-radius: 9999px;
-      padding: 3px 6px;
+      padding: 3px 4px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.08);
     }
     .selection-arrow-btn {
@@ -86,11 +86,6 @@
       color: #FAFAFA;
       flex-shrink: 0;
     }
-    .selection-divider {
-      width: 1px;
-      height: 14px;
-      background: #27272A;
-    }
     .selection-tag-trigger {
       display: inline-flex;
       align-items: center;
@@ -121,8 +116,8 @@
       display: inline-flex;
     }
     .selection-tag-input {
-      background: #121214;
-      border: 1px solid #27272A;
+      background: #18181B;
+      border: none;
       border-radius: 6px;
       color: #FAFAFA;
       font-family: 'JetBrains Mono', monospace;
@@ -134,7 +129,7 @@
       user-select: text !important;
     }
     .selection-tag-input:focus {
-      border-color: #52525B;
+      background: #1F1F23;
     }
     .selection-tag-input::placeholder {
       color: #71717A;
@@ -625,7 +620,7 @@
           } else {
             const atomId = response?.data?.id;
           if (!atomId) {
-            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+            { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(response, showToast); else showToast('Could not save. Try again.'); }
             return;
           }
             const projTitle = response?.projectTitle || activeProjTitle;
@@ -700,9 +695,7 @@
         </span>
         <span class="btn-label">Send</span>
       </div>
-      <div class="selection-divider" id="pill-divider"></div>
-      <button class="selection-tag-trigger" id="pill-tag-trigger" title="Add tag and send">+ Tag</button>
-      <div class="selection-divider" id="pill-divider-menu"></div>
+      <button class="selection-tag-trigger" id="pill-tag-trigger" title="Add a tag and send" aria-label="Add a tag and send">+ Tag</button>
       <span id="pill-menu-slot"></span>
       <div class="selection-tag-form" id="pill-tag-form">
         <input class="selection-tag-input" id="pill-tag-input" placeholder="Tag (e.g. pricing)" autocomplete="off" spellcheck="false" />
@@ -729,25 +722,22 @@
     container.style.left = `${Math.round(left)}px`;
 
     const arrowBtn = container.querySelector('#pill-arrow-btn');
-    const divider = container.querySelector('#pill-divider');
     const tagTrigger = container.querySelector('#pill-tag-trigger');
     const tagForm = container.querySelector('#pill-tag-form');
     const tagInput = container.querySelector('#pill-tag-input');
     const tagSubmit = container.querySelector('#pill-tag-submit');
     const tagCancel = container.querySelector('#pill-tag-cancel');
-    const menuDivider = container.querySelector('#pill-divider-menu');
     const menuSlot = container.querySelector('#pill-menu-slot');
 
     // Where Send will go, and a way to change it without opening the popup.
     const PM = window.__RESEARCHIE_PROJECT_MENU__;
     if (PM) {
+      tagTrigger.innerHTML = PM.ICON.tag(14);
       menuSlot.appendChild(PM.buildMenu({
-        extraItems: [{ label: 'Ask AI', onClick: PM.openAskAi }],
-        onChange: (dest) => showToast(`Sending to ${PM.destinationLabel(dest)}`),
+        onChange: (dest) => showToast(`Set to ${PM.destinationLabel(dest)}`),
       }));
       PM.attachTooltip(container, arrowBtn, async () => PM.destinationLabel(await PM.loadDestination()));
     } else {
-      menuDivider.style.display = 'none';
       menuSlot.style.display = 'none';
     }
 
@@ -798,9 +788,7 @@
       evt.stopPropagation();
       isTagFormOpen = true;
       arrowBtn.style.display = 'none';
-      divider.style.display = 'none';
       tagTrigger.style.display = 'none';
-      menuDivider.style.display = 'none';
       menuSlot.style.display = 'none';
       tagForm.classList.add('active');
       setTimeout(() => {
@@ -965,7 +953,7 @@
       chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }, (response) => {
         const atomId = response?.data?.id;
           if (!atomId) {
-            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+            { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(response, showToast); else showToast('Could not save. Try again.'); }
             return;
           }
         showToastWithUndo(`Saved link to ${activeProjTitle} (Alt+L)`, atomId);
@@ -1150,7 +1138,7 @@
             directFetchFallback(payload);
           } else {
             if (!response?.data?.id) {
-              showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(response)) || 'Could not save. Try again.');
+              { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(response, showToast); else showToast('Could not save. Try again.'); }
             } else {
               showToastWithUndo('Saved image to project', response.data.id);
             }
@@ -1185,6 +1173,9 @@
       sendResponse({ selection });
     } else if (message.action === 'TRIGGER_IMAGE_SELECTOR') {
       startImageSelector();
+      sendResponse({ success: true });
+    } else if (message.action === 'SHOW_TOAST') {
+      showToast(message.text || '');
       sendResponse({ success: true });
     }
   });

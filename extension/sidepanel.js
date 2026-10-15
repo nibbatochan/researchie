@@ -167,6 +167,11 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
         activeProjectId = changes.activeProjectId.newValue;
         loadWorkspaceState().then(() => loadProjectAtoms());
       }
+      // Connecting or disconnecting: refresh the status, the project list and the feed.
+      if (changes.authToken || changes.serverUrl) {
+        checkBridgeConnection();
+        loadProjects().then(() => loadProjectAtoms());
+      }
       if (changes.lastPushTime) {
         loadProjectAtoms();
       }
@@ -305,57 +310,30 @@ function renderProjectMenuItems() {
     }
   });
 
-  let html = '';
-  parentProjects.forEach(parent => {
-    const isParentSelected = parent.id === activeProjectId;
-    const color = parent.color || parent.color_badge || '#325FEC';
-    const initials = (parent.title || 'P').slice(0, 2).toUpperCase();
-    const children = subprojectMap.get(parent.id) || [];
-
-    // Parent Project header item (compact secondary label)
-    html += `
-      <div class="sp-project-item ${isParentSelected ? 'active' : ''}" data-id="${parent.id}" data-title="${escapeHtml(parent.title)}" data-color="${color}" data-parent-id="">
-        <span class="sp-proj-avatar" style="background-color: ${color};">${initials}</span>
-        <div class="sp-proj-info">
-          <div class="sp-item-parent-badge">📁 MAIN WORKSPACE</div>
-          <div class="sp-item-title parent-title">${escapeHtml(parent.title)}</div>
-          <div class="sp-item-desc">${escapeHtml(parent.description || '')}</div>
-        </div>
+  const FOLDER = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" fill-opacity="0.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>';
+  const projectRow = (p, extraClass, parentId, withFolder) => {
+    const color = p.color || p.color_badge || '#325FEC';
+    return `
+      <div class="sp-project-item ${extraClass} ${p.id === activeProjectId ? 'active' : ''}" data-id="${p.id}" data-title="${escapeHtml(p.title)}" data-color="${color}" data-parent-id="${parentId}">
+        ${withFolder ? `<span class="sp-folder-ico">${FOLDER}</span>` : ''}
+        <div class="sp-item-title ${withFolder ? 'parent-title' : 'sub-title'}">${escapeHtml(p.title)}</div>
       </div>
     `;
+  };
 
-    // Subprojects (Prominent, Bold, Larger)
-    children.forEach(sub => {
-      const isSubSelected = sub.id === activeProjectId;
-      const subColor = sub.color || sub.color_badge || color;
-      html += `
-        <div class="sp-project-item subproject ${isSubSelected ? 'active' : ''}" data-id="${sub.id}" data-title="${escapeHtml(sub.title)}" data-color="${subColor}" data-parent-id="${parent.id}">
-          <div class="sp-sub-indicator">↳</div>
-          <div class="sp-proj-info">
-            <div class="sp-item-title sub-title">${escapeHtml(sub.title)}</div>
-            <div class="sp-item-desc">${escapeHtml(sub.description || '')}</div>
-          </div>
-          ${isSubSelected ? '<span class="sp-check-mark">✓</span>' : ''}
-        </div>
-      `;
-    });
+  let html = '';
+  parentProjects.forEach(parent => {
+    html += projectRow(parent, 'parent', '', true);
+    const children = subprojectMap.get(parent.id) || [];
+    if (children.length > 0) {
+      html += '<div class="sp-sub-group">' + children.map(sub => projectRow(sub, 'subproject', parent.id, false)).join('') + '</div>';
+    }
   });
 
   // Any orphaned subprojects
   const renderedIds = new Set([...parentProjects.map(p => p.id), ...Array.from(subprojectMap.values()).flat().map(p => p.id)]);
-  const orphans = allProjects.filter(p => !renderedIds.has(p.id));
-  orphans.forEach(p => {
-    const isSelected = p.id === activeProjectId;
-    const color = p.color || p.color_badge || '#325FEC';
-    html += `
-      <div class="sp-project-item ${isSelected ? 'active' : ''}" data-id="${p.id}" data-title="${escapeHtml(p.title)}" data-color="${color}">
-        <span class="sp-proj-avatar" style="background-color: ${color};">${(p.title || 'P').slice(0, 2).toUpperCase()}</span>
-        <div class="sp-proj-info">
-          <div class="sp-item-title sub-title">${escapeHtml(p.title)}</div>
-          <div class="sp-item-desc">${escapeHtml(p.description || '')}</div>
-        </div>
-      </div>
-    `;
+  allProjects.filter(p => !renderedIds.has(p.id)).forEach(p => {
+    html += projectRow(p, 'parent', '', true);
   });
 
   elements.projectItems.innerHTML = html;
@@ -554,7 +532,7 @@ function renderFilteredAtoms() {
           targetJumpUrl = `${baseUrl}#:~:text=${encodeURIComponent(words)}`;
         }
       }
-      jumpAction = `<a href="${escapeHtml(targetJumpUrl)}" target="_blank" class="sp-jump-btn" title="Open source in context">Jump ↗</a>`;
+      jumpAction = `<a href="${escapeHtml(targetJumpUrl)}" target="_blank" class="sp-jump-btn" title="Open source in context">Jump <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:3px"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></a>`;
     }
 
     html += `
@@ -569,7 +547,7 @@ function renderFilteredAtoms() {
           <div class="sp-card-tags">${tagsHtml}</div>
           <div class="sp-card-actions">
             ${jumpAction}
-            <button class="sp-del-btn" data-id="${atom.id}" title="Delete clip">✕</button>
+            <button class="sp-del-btn" data-id="${atom.id}" title="Delete clip" aria-label="Delete clip"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
           </div>
         </div>
       </div>
@@ -731,7 +709,7 @@ function appendChatMessage(role, text, citations = []) {
   let citationsHtml = '';
   if (Array.isArray(citations) && citations.length > 0) {
     citationsHtml = `<div style="margin-top: 6px;">` + citations.map(c => 
-      `<span class="sp-citation-chip" title="${escapeHtml(c.quote || c.text || '')}">📌 ${escapeHtml(c.sourceTitle || c.title || 'Source')}</span>`
+      `<span class="sp-citation-chip" title="${escapeHtml(c.quote || c.text || '')}"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:4px;vertical-align:-1px"><path d="M12 17v5"></path><path d="M9 3h6l-1 7 3 3H7l3-3-1-7z"></path></svg>${escapeHtml(c.sourceTitle || c.title || 'Source')}</span>`
     ).join('') + `</div>`;
   }
 
@@ -799,18 +777,18 @@ function appendChatMessage(role, text, citations = []) {
           });
 
           if (res.ok) {
-            saveProjectBtn.textContent = '✓ Saved!';
+            saveProjectBtn.textContent = 'Saved';
             showToast('Saved to project timeline');
             loadProjectAtoms();
           } else {
-            saveProjectBtn.textContent = '+ Save to Project';
+            saveProjectBtn.textContent = 'Save to Project';
             saveProjectBtn.disabled = false;
             showToast('Failed to save');
           }
         } catch (err) {
           // Offline: the background keeps it in the queue and sends it when the connection returns.
           const queued = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
-          saveProjectBtn.textContent = queued && (queued.success || queued.queued) ? '✓ Queued' : '+ Save to Project';
+          saveProjectBtn.textContent = queued && (queued.success || queued.queued) ? 'Queued' : 'Save to Project';
           saveProjectBtn.disabled = Boolean(queued && (queued.success || queued.queued));
           showToast(queued && (queued.success || queued.queued) ? 'Saved to offline queue' : 'Failed to save');
         }
@@ -1096,6 +1074,14 @@ async function checkBridgeConnection() {
   const apiBase = await getWorkingApiBase();
   if (elements.bridgeStatus) elements.bridgeStatus.textContent = apiBase.replace(/\/api$/, '');
   
+  const hasToken = await chrome.storage.local.get(['serverUrl', 'authToken']).then((v) => Boolean(v.serverUrl && v.authToken)).catch(() => false);
+  if (!hasToken) {
+    if (elements.syncStatusText) elements.syncStatusText.textContent = 'Not connected';
+    const dot = elements.syncIndicator && elements.syncIndicator.querySelector('.sp-pulse-dot');
+    if (dot) dot.style.backgroundColor = 'var(--accent-amber)';
+    return;
+  }
+
   try {
     const res = await fetch(`${apiBase}/projects`, { signal: AbortSignal.timeout(1500) });
     if (res.ok) {

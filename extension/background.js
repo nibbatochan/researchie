@@ -170,10 +170,28 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   }
 });
 
+// Connected means a token and the server it came from are saved (popup -> the link icon). Until then nothing
+// is sent: a clip is held in the extension and the page shows a prompt to connect.
+async function isConnected() {
+  const { authToken, serverUrl } = await chrome.storage.local.get(['authToken', 'serverUrl']);
+  return Boolean(authToken && serverUrl);
+}
+const NOT_CONNECTED = { success: false, code: 'NOT_CONNECTED', error: 'Not connected. Connect your account to use this.' };
+
 async function saveAtomToPlatform(atomPayload) {
   // A fixed id before the first try means a retry of a save whose reply was lost is recognised by the
   // server as the same clip, not saved twice.
   if (!atomPayload.id) atomPayload.id = 'atom-' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  if (!(await isConnected())) {
+    // Held, not lost: it is sent by itself once the extension is connected. (A very large screenshot can
+    // exceed what the browser lets an extension store; then it is not held, and the prompt says so.)
+    try {
+      await enqueueOffline(atomPayload, null);
+      return { success: false, queued: true, needsConnect: true };
+    } catch {
+      return { success: false, queued: false, needsConnect: true, error: 'Not connected, and this clip is too large to hold. Connect and clip it again.' };
+    }
+  }
   try {
     const apiBase = await getWorkingApiBase();
     const storage = await chrome.storage.local.get(['activeProjectId', 'activeProjectTitle']);
@@ -288,7 +306,7 @@ async function enqueueOffline(atomPayload, error) {
 // Keep the retry alarm on while something retryable is waiting, and off otherwise.
 async function syncOfflineAlarm() {
   if (!chrome.alarms) return;
-  const waiting = (await readQueue()).some((item) => !item.rejected);
+  const waiting = (await isConnected()) && (await readQueue()).some((item) => !item.rejected);
   const existing = await chrome.alarms.get(OFFLINE_ALARM);
   if (waiting && !existing) chrome.alarms.create(OFFLINE_ALARM, { delayInMinutes: 0.5, periodInMinutes: 1 });
   if (!waiting && existing) await chrome.alarms.clear(OFFLINE_ALARM);
@@ -316,6 +334,9 @@ async function doFlushOfflineQueue(includeRejected) {
     }
     return items;
   });
+
+  // Nothing is sent while the extension is not connected; the clips stay in the queue.
+  if (!(await isConnected())) return { synced: 0, remaining: queue.length, reachable: false, needsConnect: true };
 
   const todo = queue.filter((i) => includeRejected || !i.rejected);
   if (todo.length === 0) {
@@ -375,6 +396,12 @@ if (chrome.alarms) {
 chrome.runtime.onStartup.addListener(() => {
   flushOfflineQueue();
 });
+// Saving a token (popup -> Connect) sends the clips that were held while the extension was not connected.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.authToken && changes.authToken.newValue) {
+    flushOfflineQueue().then(() => syncOfflineAlarm());
+  }
+});
 // A service worker can wake on this event in some Chrome versions; the alarm covers the rest.
 self.addEventListener('online', () => {
   flushOfflineQueue();
@@ -384,6 +411,23 @@ syncOfflineAlarm();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'SAVE_ATOM') {
     saveAtomToPlatform(message.payload).then((res) => sendResponse(res));
+    return true;
+  }
+  // A page asks for the popup so the person can paste a token. The popup opens on its Connect panel.
+  if (message.action === 'OPEN_CONNECT') {
+    (async () => {
+      await chrome.storage.local.set({ connectPrompt: true });
+      let opened = false;
+      try {
+        if (chrome.action && typeof chrome.action.openPopup === 'function') {
+          await chrome.action.openPopup();
+          opened = true;
+        }
+      } catch {
+        // Chrome only opens a popup in some situations; the page then tells the person where to click.
+      }
+      sendResponse({ opened });
+    })();
     return true;
   }
   if (message.action === 'FLUSH_OFFLINE_QUEUE') {
@@ -409,6 +453,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // The in-page project menu lists every project so the user can change the destination without the popup.
   if (message.action === 'LIST_PROJECTS') {
     (async () => {
+      if (!(await isConnected())) return sendResponse(NOT_CONNECTED);
       try {
         const apiBase = await getWorkingApiBase();
         const res = await fetch(`${apiBase}/projects`);
@@ -426,6 +471,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.action === 'AI_SUMMARIZE') {
     (async () => {
+      if (!(await isConnected())) return sendResponse(NOT_CONNECTED);
       try {
         const apiBase = await getWorkingApiBase();
         const res = await fetch(`${apiBase}/ai/summarize`, {
@@ -448,6 +494,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.action === 'AI_QNA') {
     (async () => {
+      if (!(await isConnected())) return sendResponse(NOT_CONNECTED);
       try {
         const apiBase = await getWorkingApiBase();
         const res = await fetch(`${apiBase}/ai/qna`, {

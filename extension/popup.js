@@ -232,13 +232,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // The background saves it, or keeps it in the offline queue when the server can't be reached.
         const result = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
+        let linkMessage;
         if (result && result.success) {
-          showToast('Page link saved to project!');
+          linkMessage = 'Page link saved to project';
+        } else if (result && result.needsConnect) {
+          linkMessage = 'Not connected. Link held until you connect';
         } else if (result && result.queued) {
-          showToast('Saved to offline queue');
+          linkMessage = 'Saved offline. It will send when the connection returns';
         } else {
-          showToast('Failed to save link');
+          linkMessage = 'Could not save the link. Try again';
         }
+        showToast(linkMessage);
+        chrome.tabs.sendMessage(tab.id, { action: 'SHOW_TOAST', text: linkMessage }).catch(() => {});
       } else if (mode === 'block') {
         chrome.tabs.sendMessage(tab.id, { action: 'TRIGGER_BLOCK_PICKER' });
         window.close();
@@ -559,9 +564,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const parentOpt = document.createElement('div');
       parentOpt.className = `project-option parent-project-option ${isParentActive ? 'active-selected' : ''}`;
       parentOpt.innerHTML = `
-        <span class="project-folder-icon">📁</span>
-        <span class="option-text" style="font-weight:${isParentActive ? '700' : '500'}">${escapeHtml(parentProj.title)}</span>
-        ${isParentActive ? '<span style="color:#10B981;font-weight:bold;margin-left:auto;">✓</span>' : ''}
+        <span class="project-folder-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span>
+        <span class="option-text">${escapeHtml(parentProj.title)}</span>
       `;
       parentOpt.addEventListener('click', () => {
         selectProject(parentProj, null);
@@ -570,22 +574,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       projectListOptions.appendChild(parentOpt);
 
       const subProjects = subMap.get(parentProj.id) || [];
+      if (subProjects.length === 0) return;
+      const subGroup = document.createElement('div');
+      subGroup.className = 'sub-project-group';
       subProjects.forEach((subProj) => {
         const isSubActive = subProj.id === currentActiveId;
         const subOpt = document.createElement('div');
         subOpt.className = `project-option sub-project-option ${isSubActive ? 'active-selected' : ''}`;
-        subOpt.innerHTML = `
-          <span class="sub-project-branch">↳</span>
-          <span class="option-dot" style="background-color: ${subProj.color_badge || subProj.color || '#325FEC'}"></span>
-          <span class="option-text" style="font-weight:${isSubActive ? '700' : '400'}">${escapeHtml(subProj.title)}</span>
-          ${isSubActive ? '<span style="color:#10B981;font-weight:bold;margin-left:auto;">✓</span>' : ''}
-        `;
+        subOpt.innerHTML = `<span class="option-text">${escapeHtml(subProj.title)}</span>`;
         subOpt.addEventListener('click', () => {
           selectProject(subProj, parentProj);
           projectPicker.classList.add('hidden');
         });
-        projectListOptions.appendChild(subOpt);
+        subGroup.appendChild(subOpt);
       });
+      projectListOptions.appendChild(subGroup);
     });
   }
 
@@ -599,7 +602,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       activeParentTitle: parentTitle,
     });
     updateProjectDisplay(proj, parentTitle);
-    showToast(`Set repository: ${proj.title}`);
+    showToast(`Set project: ${proj.title}`);
   }
 
   function updateProjectDisplay(proj, parentTitle = '') {
@@ -616,12 +619,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function showToast(message) {
     const toast = document.getElementById('toast');
-    const toastMsg = document.getElementById('toast-msg');
-    toastMsg.textContent = message;
+    if (!toast) return;
+    toast.textContent = message;
     toast.classList.remove('hidden');
-    setTimeout(() => {
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => {
       toast.classList.add('hidden');
-    }, 2400);
+    }, 3000);
   }
 
   function formatTimeAgo(date) {

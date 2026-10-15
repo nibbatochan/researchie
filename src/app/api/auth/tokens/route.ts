@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { generateExtensionToken } from '@/lib/auth/tokens';
+import { generateExtensionToken, localPairingToken, requestOrigin } from '@/lib/auth/tokens';
 
 // Extension tokens are managed from the signed-in web app only (never with a token), so a leaked token
-// cannot mint more tokens.
+// cannot mint more tokens. The token ends in this server's address, so the extension only needs the token.
+//
+// On a local server (AUTH_REQUIRED off) there are no accounts to protect, so the "token" is only a pairing
+// code that carries the address. Nothing is stored and nothing is checked.
 const MAX_ACTIVE_TOKENS = 5;
 
-function off() {
-  return NextResponse.json({ success: false, error: 'Extension tokens need accounts, which are off in this mode.', code: 'AUTH_DISABLED' }, { status: 404 });
-}
-
 export async function GET(request: Request) {
-  if (!AUTH_REQUIRED) return off();
+  if (!AUTH_REQUIRED) return NextResponse.json({ success: true, local: true, data: [] });
   const auth = await authorize(request, { allowToken: false });
   if (auth.response) return auth.response;
   const { data, error } = await supabaseAdmin
@@ -29,7 +28,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!AUTH_REQUIRED) return off();
+  const origin = requestOrigin(request.headers);
+  if (!AUTH_REQUIRED) {
+    if (!origin) return NextResponse.json({ success: false, error: 'Could not work out this server\'s address.' }, { status: 500 });
+    return NextResponse.json({ success: true, local: true, token: localPairingToken(origin) });
+  }
   const auth = await authorize(request, { allowToken: false });
   if (auth.response) return auth.response;
   const { count } = await supabaseAdmin
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
   }
   const body = await request.json().catch(() => ({}));
   const label = typeof body.label === 'string' && body.label.trim() ? body.label.trim().slice(0, 60) : 'Chrome extension';
-  const { token, hash } = generateExtensionToken();
+  const { token, hash } = generateExtensionToken(origin ?? undefined);
   const { data, error } = await supabaseAdmin
     .from('extension_tokens')
     .insert({ user_id: auth.user.id, token_hash: hash, label })
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!AUTH_REQUIRED) return off();
+  if (!AUTH_REQUIRED) return NextResponse.json({ success: true, local: true });
   const auth = await authorize(request, { allowToken: false });
   if (auth.response) return auth.response;
   const id = new URL(request.url).searchParams.get('id');

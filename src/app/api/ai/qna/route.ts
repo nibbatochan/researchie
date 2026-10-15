@@ -29,7 +29,11 @@ export async function POST(request: Request) {
   const lookupDoc = async (id: string) => (AUTH_REQUIRED ? cloud.getDocument(auth.user.id, id) : getDocumentById(id));
   try {
     const body = await request.json();
-    const { pageText, context, question, pages, documentId, title, currentPage } = body;
+    const { pageText, context, question, pages, documentId, title, currentPage, selection } = body;
+    // The in-page "Ask AI" sends only the text the user selected. It is the whole context, so the answer comes
+    // from that text alone, and a long selection is cut rather than refused.
+    const selectionMode = selection === true;
+    const sourceText = selectionMode && typeof pageText === 'string' ? pageText.slice(0, 8000) : pageText;
 
     if (!question || typeof question !== 'string' || !question.trim()) {
       return NextResponse.json(
@@ -60,8 +64,8 @@ export async function POST(request: Request) {
     }
 
     // 3. If raw pageText/context provided with [PAGE X] delimiters
-    if (resolvedPages.length === 0 && (pageText || context)) {
-      const rawText = String(pageText || context);
+    if (resolvedPages.length === 0 && (sourceText || context)) {
+      const rawText = String(sourceText || context);
       if (/---?\s*\[PAGE \d+/i.test(rawText) || /\[PAGE \d+:/i.test(rawText)) {
         const rawBlocks = rawText.split(/(?=---?\s*\[PAGE \d+|\[PAGE \d+:)/i);
         rawBlocks.forEach((block, idx) => {
@@ -122,7 +126,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const enhancedQuestion = `Document: "${docTitle}"
+    const enhancedQuestion = selectionMode
+      ? `Text the user selected on a web page${title ? ` (page title: "${title}")` : ''}
+User Question: ${question.trim()}
+
+Answer only from the selected text. If it does not contain the answer, say that it is not found. Do not mention page numbers. Cite the passage id and copy the quote verbatim.`
+      : `Document: "${docTitle}"
 User Question: ${question.trim()}
 ${retrieval.targetPage ? `Target Page Indicated by User: Page ${retrieval.targetPage}` : ''}
 

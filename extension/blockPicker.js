@@ -175,44 +175,19 @@
     const tag = target.tagName.toLowerCase();
     const selector = getCssSelector(target);
 
-    const dialog = document.createElement('div');
-    dialog.id = 'researchie-block-dialog';
-    dialog.style.position = 'fixed';
-    dialog.style.top = `${Math.min(window.innerHeight - 170, Math.max(20, rect.bottom + 10))}px`;
-    dialog.style.left = `${Math.min(window.innerWidth - 290, Math.max(20, rect.left))}px`;
-    dialog.style.zIndex = '2147483647';
-    dialog.style.backgroundColor = '#13151A';
-    dialog.style.border = '1px solid #262B38';
-    dialog.style.borderRadius = '10px';
-    dialog.style.padding = '12px 16px';
-    dialog.style.boxShadow = '0 12px 36px rgba(0,0,0,0.8)';
-    dialog.style.color = '#FFF';
-    dialog.style.fontFamily = "'Figtree', sans-serif";
-    dialog.style.fontSize = '12px';
-    dialog.style.minWidth = '250px';
+    const { dialog, tagInput } = window.__RESEARCHIE_PROJECT_MENU__.createDialog({
+      id: 'researchie-block-dialog',
+      title: 'Send block to project?',
+      meta: `<${tag.toUpperCase()}> • Area: ${Math.round(rect.width)}×${Math.round(rect.height)}px`,
+      tagId: 'block-tag-input',
+      tagPlaceholder: 'Add tag (optional, e.g. #pricing-card)',
+      cancelId: 'btn-block-cancel',
+      confirmId: 'btn-block-confirm',
+      anchor: { left: rect.left, top: rect.top, bottom: rect.bottom },
+    });
+    tagInput.focus();
 
-    dialog.innerHTML = `
-      <div style="font-weight:700;margin-bottom:4px;font-family:'Space Grotesk',sans-serif;">Send DOM Block to Project?</div>
-      <div style="color:#8B949E;font-size:11px;margin-bottom:8px;">&lt;${tag.toUpperCase()}&gt; • Area: ${Math.round(rect.width)}×${Math.round(rect.height)}px</div>
-      <div style="margin-bottom:10px;">
-        <input id="block-tag-input" type="text" placeholder="Add tag (optional, e.g. #pricing-card)" style="width:100%;box-sizing:border-box;background:#1A1D24;border:1px solid #383E4E;border-radius:6px;padding:6px 8px;color:#FFF;font-size:11px;outline:none;" />
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="btn-block-cancel" style="background:#262B38;border:none;color:#FFF;padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;">Cancel</button>
-        <button id="btn-block-confirm" style="background:#D2F83C;border:none;color:#000;padding:5px 12px;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;">Yes, Send</button>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-
-    const tagInput = dialog.querySelector('#block-tag-input');
-    // Where it will go, with the three-dot menu to change it or ask AI.
-    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
-      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
-    }
-    tagInput?.focus();
-
-    dialog.querySelector('#btn-block-cancel').addEventListener('click', () => {
+        dialog.querySelector('#btn-block-cancel').addEventListener('click', () => {
       dialog.remove();
       showToast('Block Send Cancelled');
     });
@@ -396,7 +371,7 @@
             } else {
               const atomId = res?.data?.id;
           if (!atomId) {
-            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(res, showToast); else showToast('Could not save. Try again.'); }
             return;
           }
               const projTitle = res?.projectTitle || activeProjTitle;

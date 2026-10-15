@@ -1,5 +1,36 @@
 # Version Changelog
 
+## [v1.9.3] — 2026-10-15 (Extension 1.5.0: tester UI round, collapsed token box)
+Extension 1.5.0. Reload it at `chrome://extensions` after pulling.
+
+### Changed (extension)
+- **Ask AI removed** from the text pill, the block dialog and the image and screenshot dialogs (the side panel has it). The in-page asker (`askPopover.js`) is deleted. The `selection` mode of the Q&A route stays, unused by the extension for now.
+- **Text pill**: icons only, closer together, no divider lines or anything between them. The tag box no longer has an outline.
+- **Set project** is the same everywhere (pill dots, block, image and screenshot dialogs, popup, side panel): a small "Set project" label, the chosen project under it, highlighted. The list has no scrollbar. Projects and sub-projects are drawn as on the platform: blue folder for a project; no icon and a guide line for a sub-project; blue border on the chosen one.
+- **One dialog look** for block, image and screenshot (`createDialog` in `projectMenu.js`): same title, size line, Set project button, tag icon, Cancel and Send. The dialog is measured after it is drawn and kept fully inside the window, buttons included, also when the tag field opens or the window is resized. The project list is only as tall as the room on its side.
+- **Link button** in the popup now confirms: the popup toast was throwing (it wrote into an element that did not exist), so nothing showed. Fixed, and the same message appears on the page.
+- **Toolbar icon**: the pinned icon is the Researchie mark (blue square, white mark) at 16, 32, 48 and 128 px, and `action.default_icon` is set.
+- Removed the dot beside "recent push" in the popup.
+- Picking a project in the pill's Set project panel now confirms "Set to <project>" (it said "Sending to").
+- **Side panel**: has the account connection now (link icon in the header, same token panel as the popup, status reads "Not connected" until a token is stored). Glyph icons (✕ ✦ 📌 ↗ ✓ ↳ 📁) are replaced by the same line icons as the header.
+
+### Changed (platform)
+- **Extension token** box is closed by default. Click "Extension token" to open it; "Copy token" sits beside the heading.
+
+### Tests
+- E2E `15` rewritten for the new panel and dialogs (10 cases incl. window-edge placement and the Link toast), `20` adds the side panel connect case (4).
+## [v1.9.2] — 2026-10-15 (Extension: token-only connect, in-page Ask AI, smaller action panels)
+Extension 1.4.0. Reload it at `chrome://extensions` after pulling.
+
+### Changed
+- **Connect with the token only.** The token now ends in the server's address (`rst_<secret>.<address>`), so the extension needs no server field. On a local server (no accounts) the web app hands out a keyless pairing token (`rst_local.<address>`). Profile menu in the web app shows the token again with Copy. The popup's main view no longer has a Connect section: a link icon next to the on/off switch opens a panel with one token box, "Connects to <host>", Connect and Disconnect. The token is checked against that server before it is kept. The extension only trusts https addresses, or http on this computer.
+- **Not connected means not sent.** Sending a clip, listing projects, Ask AI and summaries with no token show "Not connected" with a Connect button. A clip taken while disconnected is held in the offline queue and sent when you connect. Before, a local server was used without a token.
+- **Ask AI works on the page.** It opens a small card next to the selection (or block) with the selected text quoted, one question box and the answer. It answers from the selected text only and says "That isn't in the selected text." when the answer is not there. Q&A route got a `selection` mode for this. It no longer opens the side drawer.
+- **Smaller action panels.** The three-dot panel on the text pill has two rows: Ask AI and Project. Project replaces the same box with a back arrow, "Change to" and the project list; sub-projects are lighter, smaller and indented with a connector, main projects bold with a filled folder. The block dialog is one row of icons (project, tag, Ask AI); the tag box appears only when the tag icon is pressed. Image and screenshot dialogs get the project and tag icons only. The panel flips up or to the right when it would run off the page.
+
+### Tests
+- E2E `15` rewritten for the new panels (9 cases incl. Ask AI answer and not-in-text, disconnected prompt), `17` connects first and adds a disconnected-hold case, new `20-extension-connect-token` (3). Unit: token origin helpers (`auth-tokens`).
+
 ## [v1.9.1] — 2026-10-15 (Tester follow-ups: invite code, model names, retries, keep-clips)
 ### Added
 - **Invite code for sign-up.** Set `SIGNUP_INVITE_CODE` and the sign-up form asks for it; without the right code the server refuses (403) before it talks to Supabase. Eight wrong guesses lock an address out for 10 minutes (per server instance). Unset, sign-up stays open. `/api/auth/me` reports `inviteRequired`. Needs the variable set on Vercel and a redeploy.

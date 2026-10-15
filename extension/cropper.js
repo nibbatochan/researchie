@@ -123,48 +123,21 @@
     const alt = target.alt || document.title || 'Captured Web Image';
     const rect = target.getBoundingClientRect();
 
-    const dialog = document.createElement('div');
-    dialog.id = 'researchie-crop-dialog';
-    dialog.style.position = 'fixed';
-    dialog.style.top = `${Math.min(window.innerHeight - 220, Math.max(20, rect.bottom + 10))}px`;
-    dialog.style.left = `${Math.min(window.innerWidth - 300, Math.max(20, rect.left))}px`;
-    dialog.style.zIndex = '2147483647';
-    dialog.style.backgroundColor = '#121214';
-    dialog.style.border = '1px solid #27272A';
-    dialog.style.borderRadius = '10px';
-    dialog.style.padding = '12px 16px';
-    dialog.style.boxShadow = '0 12px 36px rgba(0,0,0,0.8)';
-    dialog.style.color = '#FAFAFA';
-    dialog.style.fontFamily = "'Figtree', sans-serif";
-    dialog.style.fontSize = '12px';
-    dialog.style.minWidth = '260px';
-
-    dialog.innerHTML = `
-      <div style="font-weight:700;margin-bottom:4px;font-family:'Figtree',sans-serif;color:#FAFAFA;">Send Image to Project?</div>
-      <div style="color:#A1A1AA;font-size:11px;margin-bottom:8px;">Size: ${Math.round(target.offsetWidth)}×${Math.round(target.offsetHeight)}px</div>
-      <div style="max-height:80px;overflow:hidden;border-radius:5px;margin-bottom:8px;background:#09090B;border:1px solid #27272A;display:flex;align-items:center;justify-content:center;">
-        <img src="${src}" style="max-height:80px;max-width:100%;object-fit:contain;" />
-      </div>
-      <div style="margin-bottom:10px;">
-        <input id="img-tag-input" type="text" placeholder="Add tag (optional, e.g. #diagram)" style="width:100%;box-sizing:border-box;background:#18181B;border:1px solid #27272A;border-radius:6px;padding:6px 8px;color:#FAFAFA;font-size:11px;outline:none;" />
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="btn-img-cancel" style="background:#18181B;border:1px solid #27272A;color:#FAFAFA;padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;">Cancel</button>
-        <button id="btn-img-confirm" style="background:#FAFAFA;border:none;color:#09090B;padding:5px 12px;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;">Yes, Send</button>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
+    const { dialog, tagInput } = window.__RESEARCHIE_PROJECT_MENU__.createDialog({
+      id: 'researchie-crop-dialog',
+      title: 'Send image to project?',
+      meta: `Size: ${Math.round(target.offsetWidth)}×${Math.round(target.offsetHeight)}px`,
+      previewSrc: src,
+      tagId: 'img-tag-input',
+      tagPlaceholder: 'Add tag (optional, e.g. #diagram)',
+      cancelId: 'btn-img-cancel',
+      confirmId: 'btn-img-confirm',
+      anchor: { left: rect.left, top: rect.top, bottom: rect.bottom },
+    });
     activeDialog = dialog;
+    tagInput.focus();
 
-    const tagInput = dialog.querySelector('#img-tag-input');
-    // Where it will go, with the three-dot menu to change it or ask AI.
-    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
-      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
-    }
-    tagInput?.focus();
-
-    dialog.querySelector('#btn-img-cancel').addEventListener('click', () => {
+        dialog.querySelector('#btn-img-cancel').addEventListener('click', () => {
       dialog.remove();
       activeDialog = null;
       showToast('Image Send Cancelled');
@@ -213,7 +186,7 @@
             } else {
               const atomId = res?.data?.id;
           if (!atomId) {
-            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(res, showToast); else showToast('Could not save. Try again.'); }
             return;
           }
               const projTitle = res?.projectTitle || activeProjTitle;
@@ -373,45 +346,20 @@
   function showCropConfirmationDialog(x, y, width, height) {
     if (activeDialog) activeDialog.remove();
 
-    const dialog = document.createElement('div');
-    dialog.id = 'researchie-crop-dialog';
-    dialog.style.position = 'fixed';
-    dialog.style.top = `${Math.min(window.innerHeight - 170, Math.max(20, y + height + 10))}px`;
-    dialog.style.left = `${Math.min(window.innerWidth - 290, Math.max(20, x))}px`;
-    dialog.style.zIndex = '2147483647';
-    dialog.style.backgroundColor = '#121214';
-    dialog.style.border = '1px solid #27272A';
-    dialog.style.borderRadius = '10px';
-    dialog.style.padding = '12px 16px';
-    dialog.style.boxShadow = '0 12px 36px rgba(0,0,0,0.8)';
-    dialog.style.color = '#FAFAFA';
-    dialog.style.fontFamily = "'Figtree', sans-serif";
-    dialog.style.fontSize = '12px';
-    dialog.style.minWidth = '250px';
-
-    dialog.innerHTML = `
-      <div style="font-weight:700;margin-bottom:4px;font-family:'Figtree',sans-serif;color:#FAFAFA;">Send Screenshot to Project?</div>
-      <div style="color:#A1A1AA;font-size:11px;margin-bottom:8px;">Area: ${Math.round(width)}×${Math.round(height)}px</div>
-      <div style="margin-bottom:10px;">
-        <input id="crop-tag-input" type="text" placeholder="Add tag (optional, e.g. #pricing)" style="width:100%;box-sizing:border-box;background:#18181B;border:1px solid #27272A;border-radius:6px;padding:6px 8px;color:#FAFAFA;font-size:11px;outline:none;" />
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="btn-crop-cancel" style="background:#18181B;border:1px solid #27272A;color:#FAFAFA;padding:5px 10px;border-radius:5px;font-size:11px;cursor:pointer;">Cancel</button>
-        <button id="btn-crop-confirm" style="background:#FAFAFA;border:none;color:#09090B;padding:5px 12px;border-radius:5px;font-weight:700;font-size:11px;cursor:pointer;">Yes, Send</button>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
+    const { dialog, tagInput } = window.__RESEARCHIE_PROJECT_MENU__.createDialog({
+      id: 'researchie-crop-dialog',
+      title: 'Send screenshot to project?',
+      meta: `Area: ${Math.round(width)}×${Math.round(height)}px`,
+      tagId: 'crop-tag-input',
+      tagPlaceholder: 'Add tag (optional, e.g. #pricing)',
+      cancelId: 'btn-crop-cancel',
+      confirmId: 'btn-crop-confirm',
+      anchor: { left: x, top: y, bottom: y + height },
+    });
     activeDialog = dialog;
+    tagInput.focus();
 
-    const tagInput = dialog.querySelector('#crop-tag-input');
-    // Where it will go, with the three-dot menu to change it or ask AI.
-    if (window.__RESEARCHIE_PROJECT_MENU__ && tagInput) {
-      window.__RESEARCHIE_PROJECT_MENU__.mountDestinationRow(dialog, tagInput.parentElement);
-    }
-    tagInput?.focus();
-
-    dialog.querySelector('#btn-crop-cancel').addEventListener('click', () => {
+        dialog.querySelector('#btn-crop-cancel').addEventListener('click', () => {
       dialog.remove();
       activeDialog = null;
       stopCropper();
@@ -449,7 +397,7 @@
         (res) => {
           const atomId = res?.data?.id;
           if (!atomId) {
-            showToast((window.__RESEARCHIE_PROJECT_MENU__ && window.__RESEARCHIE_PROJECT_MENU__.notSavedMessage(res)) || 'Could not save. Try again.');
+            { const menu = window.__RESEARCHIE_PROJECT_MENU__; if (menu) menu.reportNotSaved(res, showToast); else showToast('Could not save. Try again.'); }
             return;
           }
           const projTitle = res?.projectTitle || activeProjTitle;

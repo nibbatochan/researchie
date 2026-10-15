@@ -57,3 +57,37 @@ test('the invite code gate: open when unset, exact match when set', async () => 
   assert.equal(inviteCodeMatches(undefined, 'open-sesame-42'), false);
   assert.equal(inviteCodeMatches(12345, 'open-sesame-42'), false);
 });
+
+test('a token can carry the server address, so the extension needs only the token', async () => {
+  const { generateExtensionToken, localPairingToken, originFromToken, readBearerToken } = await import('../src/lib/auth/tokens.ts');
+  const withHost = generateExtensionToken('https://researchie-testers.vercel.app');
+  assert.equal(originFromToken(withHost.token), 'https://researchie-testers.vercel.app');
+  assert.equal(readBearerToken(`Bearer ${withHost.token}`), withHost.token); // still a valid bearer token
+  const local = localPairingToken('http://localhost:3001');
+  assert.equal(originFromToken(local), 'http://localhost:3001');
+  assert.equal(readBearerToken(`Bearer ${local}`), local);
+  // A token made without an address (older ones) has none to read.
+  assert.equal(originFromToken(generateExtensionToken().token), null);
+});
+
+test('an address inside a token is only trusted when it is https, or http on this computer', async () => {
+  const { originFromToken, TOKEN_PREFIX } = await import('../src/lib/auth/tokens.ts');
+  const make = (origin) => `${TOKEN_PREFIX}abc.${Buffer.from(origin).toString('base64url')}`;
+  assert.equal(originFromToken(make('https://example.org')), 'https://example.org');
+  assert.equal(originFromToken(make('http://127.0.0.1:3000')), 'http://127.0.0.1:3000');
+  for (const bad of ['http://example.org', 'ftp://example.org', 'javascript:alert(1)', 'https://example.org/path', 'https://user:pw@example.org', 'not a url', 'http://localhost.evil.test']) {
+    assert.equal(originFromToken(make(bad)), null, bad);
+  }
+  assert.equal(originFromToken(`${TOKEN_PREFIX}abc.%%%`), null);
+  assert.equal(originFromToken('xyz.abc'), null);
+  assert.equal(originFromToken(null), null);
+});
+
+test('the server works out its own address from the request headers', async () => {
+  const { requestOrigin } = await import('../src/lib/auth/tokens.ts');
+  const headers = (o) => ({ get: (k) => o[k.toLowerCase()] ?? null });
+  assert.equal(requestOrigin(headers({ host: 'localhost:3001' })), 'http://localhost:3001');
+  assert.equal(requestOrigin(headers({ host: 'app.example.org' })), 'https://app.example.org');
+  assert.equal(requestOrigin(headers({ 'x-forwarded-host': 'researchie-testers.vercel.app', 'x-forwarded-proto': 'https', host: 'internal:3000' })), 'https://researchie-testers.vercel.app');
+  assert.equal(requestOrigin(headers({})), null);
+});

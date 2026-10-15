@@ -112,18 +112,25 @@ User Question: ${tc.question}`,
     console.log(`\n`);
   }
 
-  // Step C: Document AI test
+  // Step C: Document AI test. The sample document this step used was removed from the app, so the step
+  // runs only when the document is still there. Otherwise it says so and skips.
+  const DOC_ID = 'doc-dots-openai-spec';
+  const docs = (await fetch('http://localhost:3001/api/documents').then((r) => r.json()).catch(() => ({}))).data || [];
   console.log(`====================================================`);
-  console.log(`Testing Document AI (/api/ai/qna) with doc-dots-openai-spec:`);
+  if (!docs.some((d) => d.id === DOC_ID)) {
+    console.log(`Step C skipped: document ${DOC_ID} is not in the app any more.`);
+    return;
+  }
+  console.log(`Testing Document AI (/api/ai/qna) with ${DOC_ID}:`);
   const docQnARes = await postJson('http://localhost:3001/api/ai/qna', {
-    documentId: 'doc-dots-openai-spec',
+    documentId: DOC_ID,
     question: 'According to Page 2 of the OpenAI Dots specification, which enterprise tools integrate via OAuth 2.1 and what is the cost of ChatGPT Pro?',
   });
   console.log(`Document AI Q&A Response:`, JSON.stringify(docQnARes.data, null, 2));
 
   console.log(`\nTesting Document AI with NO-Answer Question:`);
   const docNoAnswerRes = await postJson('http://localhost:3001/api/ai/qna', {
-    documentId: 'doc-dots-openai-spec',
+    documentId: DOC_ID,
     question: 'What is the stock ticker symbol and current market capitalization of OpenAI?',
   });
   console.log(`Document AI No-Answer Response:`, JSON.stringify(docNoAnswerRes.data, null, 2));

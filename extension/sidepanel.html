@@ -33,6 +33,10 @@
         </div>
 
         <div class="sp-header-actions">
+          <button type="button" class="sp-icon-btn sp-connect-btn" id="connect-toggle" title="Connect account" aria-label="Connect account" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>
+            <span class="conn-dot" id="connect-dot"></span>
+          </button>
           <button class="sp-icon-btn" id="sp-btn-shortcuts-help" title="Keyboard Shortcuts Help">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="4" width="20" height="16" rx="2"></rect>
@@ -66,6 +70,25 @@
         </div>
       </div>
 
+      <!-- Connect account: opened by the link icon in the header -->
+      <section class="sp-connect-panel hidden" id="connect-panel" aria-label="Connect account">
+        <div class="sp-connect-head">
+          <span class="sp-connect-title">Connect account</span>
+          <button type="button" class="sp-menu-close" id="connect-close" aria-label="Close"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div class="connect-status" id="connect-status">Not connected</div>
+        <label class="connect-field">Token
+          <input id="connect-token" type="password" placeholder="Paste your token" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="connect-target" id="connect-target"></div>
+        <div class="connect-row">
+          <button type="button" id="connect-save">Connect</button>
+          <button type="button" id="connect-clear" class="secondary">Disconnect</button>
+        </div>
+        <div class="connect-msg" id="connect-msg" role="status"></div>
+        <div class="connect-help">Get the token in the web app: Profile, then Extension token.</div>
+      </section>
+
       <!-- PROJECT PICKER (SWAPPED HIERARCHY) -->
       <div class="sp-project-pod" id="sp-project-pod">
         <div class="sp-project-pill" id="sp-project-pill" title="Click to switch project">
@@ -82,8 +105,8 @@
         <!-- Project Selector Dropdown -->
         <div class="sp-project-menu hidden" id="sp-project-menu">
           <div class="sp-menu-header">
-            <span>SWITCH PROJECT / SUB-PROJECT</span>
-            <button class="sp-menu-close" id="sp-menu-close">✕</button>
+            <span>Set project</span>
+            <button class="sp-menu-close" id="sp-menu-close" aria-label="Close"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
           </div>
           <div class="sp-project-items" id="sp-project-items">
             <!-- Dynamically injected with prominent sub-projects and clear hierarchy -->
@@ -307,7 +330,7 @@
             <div class="sp-chat-bubble assistant">
               <div class="sp-bubble-header">
                 <div class="sp-bot-tag-group">
-                  <span class="sp-bot-icon">✦</span>
+                  <span class="sp-bot-icon"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3z"></path><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"></path></svg></span>
                   <span class="sp-bot-tag">RESEARCHIE AI</span>
                 </div>
                 <span class="sp-bubble-time">Ready</span>
@@ -357,7 +380,7 @@
             </svg>
             <span>Keyboard Shortcuts</span>
           </div>
-          <button class="sp-shortcuts-close" id="sp-shortcuts-close">✕</button>
+          <button class="sp-shortcuts-close" id="sp-shortcuts-close" aria-label="Close"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
         <div class="sp-shortcuts-body">
           <div class="sp-shortcut-row">
@@ -402,6 +425,7 @@
 
   <script src="auth.js"></script>
   <script src="blocks.js"></script>
+  <script src="connect.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

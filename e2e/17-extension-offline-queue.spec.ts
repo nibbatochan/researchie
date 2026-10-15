@@ -1,34 +1,31 @@
-import { test, expect, chromium, type BrowserContext, type Worker } from '@playwright/test';
-import path from 'path';
-import os from 'os';
-import fs from 'fs';
+import { test, expect, type BrowserContext, type Worker } from '@playwright/test';
+import { launchExtension, closeExtension, connect, disconnect, type Ext } from './helpers/extension';
 
 // The real extension's background worker, in a throwaway Chrome profile. "Offline" and server errors are
 // simulated by swapping fetch inside the worker for atom saves; the final sync goes to the real app.
-const EXTENSION_DIR = path.resolve(__dirname, '..', 'extension');
+// The extension only sends once it is connected, so each test starts connected (a local pairing token).
 
 test.describe('17. Offline queue sends itself when the connection returns', () => {
   let context: BrowserContext;
   let worker: Worker;
-  let userDataDir: string;
+  let ext: Ext;
   const stamp = Date.now();
   const createdTitles: string[] = [];
 
   test.beforeAll(async () => {
-    userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'researchie-ext-q-'));
-    context = await chromium.launchPersistentContext(userDataDir, {
-      channel: 'chromium',
-      headless: true,
-      args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`],
-    });
-    worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    ext = await launchExtension();
+    context = ext.context;
+    worker = ext.worker;
+  });
+
+  test.beforeEach(async () => {
+    await connect(worker);
   });
 
   test.afterAll(async ({ request }) => {
     const all = ((await (await request.get('/api/atoms?projectId=all')).json()).data || []) as any[];
     for (const a of all) if (createdTitles.includes(a.title)) await request.delete(`/api/atoms?id=${a.id}`);
-    await context.close();
-    fs.rmSync(userDataDir, { recursive: true, force: true });
+    await closeExtension(ext);
   });
 
   const projectOf = async (request: any) => {
@@ -97,6 +94,30 @@ test.describe('17. Offline queue sends itself when the connection returns', () =
     expect(sent).toBeTruthy();
     // Nothing waiting, so the retry alarm is switched off.
     expect(await worker.evaluate(() => chrome.alarms.get('researchie-flush-offline').then((a) => Boolean(a)))).toBe(false);
+  });
+
+  test('not connected: the clip is held without a network call, then sent when the account is connected', async ({ request }) => {
+    const project = await projectOf(request);
+    const title = `E2E held ${stamp}`;
+    createdTitles.push(title);
+    await worker.evaluate(async (p) => {
+      await chrome.storage.local.set({ offlineQueue: [], activeProjectId: p.id, extensionEnabled: true });
+    }, project);
+    await setNetwork('ok');
+    await disconnect(worker);
+
+    const saved = await worker.evaluate((payload) => (self as any).saveAtomToPlatform(payload), note(title));
+    expect(saved).toMatchObject({ success: false, queued: true, needsConnect: true });
+    expect(await queue()).toHaveLength(1);
+    // The automatic flush does not try while disconnected, and the retry alarm stays off.
+    const flush = await worker.evaluate(() => (self as any).flushOfflineQueue());
+    expect(flush).toMatchObject({ synced: 0, needsConnect: true });
+    expect(await serverHas(request, title)).toBe(false);
+
+    // Connecting sends the held clip by itself (the storage change triggers the flush).
+    await connect(worker);
+    await expect.poll(() => serverHas(request, title), { timeout: 30000 }).toBe(true);
+    await expect.poll(async () => (await queue()).length).toBe(0);
   });
 
   test('a server error keeps the clip; a refusal marks it rejected, skips auto retry, and the Sync button retries it', async ({ request }) => {

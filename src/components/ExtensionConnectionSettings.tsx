@@ -1,11 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Key, Copy, Check, Trash } from '@phosphor-icons/react';
+import { Key, Copy, Check, Trash, CaretRight, CaretDown } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
 
-// Settings -> Account: make a token for the Chrome extension. The token is shown once, here, and only its
-// hash is kept on the server. In the extension: open the popup, "Connect", paste the server address and token.
+// The token that connects the Chrome extension to this site. It ends in this site's address, so in the
+// extension you only paste the token: open the popup, click the link icon next to the on/off switch,
+// paste, Connect. Shown in Profile (compact) and in Settings -> Account.
+//
+//   Tester site  : you make a token. It is shown once here, and only its hash is kept on the server.
+//   Local server : there are no accounts, so the token is only a pairing code that carries the address.
+//                  It appears as soon as the box opens and can be copied again any time.
 
 interface TokenRow {
   id: string;
@@ -14,13 +19,15 @@ interface TokenRow {
   lastUsedAt: string | null;
 }
 
-export const ExtensionConnectionSettings: React.FC = () => {
+export const ExtensionConnectionSettings: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
   const { authRequired } = useAuth();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Closed until the person clicks "Extension token".
+  const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -32,15 +39,7 @@ export const ExtensionConnectionSettings: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (authRequired) void load();
-  }, [authRequired, load]);
-
-  if (!authRequired) return null;
-
-  const serverUrl = typeof window !== 'undefined' ? window.location.origin : '';
-
-  async function create() {
+  const make = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -53,13 +52,18 @@ export const ExtensionConnectionSettings: React.FC = () => {
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Could not create a token.');
       setFresh(json.token);
-      await load();
+      if (authRequired) await load();
     } catch (e: any) {
       setError(e.message || 'Could not create a token.');
     } finally {
       setBusy(false);
     }
-  }
+  }, [authRequired, load]);
+
+  useEffect(() => {
+    if (authRequired) void load();
+    else void make(); // a local server has nothing to protect, so its token is made on the spot
+  }, [authRequired, load, make]);
 
   async function revoke(id: string) {
     setBusy(true);
@@ -82,43 +86,64 @@ export const ExtensionConnectionSettings: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const box = compact
+    ? 'p-2 rounded-xl bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] space-y-1.5'
+    : 'p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-3';
+
   return (
-    <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-3">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-zinc-200">
-        <Key size={14} className="text-[#325FEC]" />
-        <span>Chrome extension connection</span>
-      </div>
-      <ol className="text-[11px] text-slate-600 dark:text-zinc-400 list-decimal pl-4 space-y-0.5">
-        <li>Create a token below and copy it. It is shown only once.</li>
-        <li>In the extension popup open &quot;Connect&quot; and paste this server address and the token.</li>
-      </ol>
-      <div className="text-[11px] text-slate-600 dark:text-zinc-400">
-        Server address: <code className="font-mono select-all">{serverUrl}</code>
+    <div className={box}>
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-zinc-200 cursor-pointer min-w-0"
+        >
+          {open ? <CaretDown size={11} weight="bold" className="text-slate-400" /> : <CaretRight size={11} weight="bold" className="text-slate-400" />}
+          <Key size={compact ? 13 : 14} className="text-[#325FEC]" />
+          <span className="whitespace-nowrap">Extension token</span>
+        </button>
+        {fresh && (
+          <button type="button" onClick={() => copy(fresh)} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#325FEC] dark:text-[#518FFF] cursor-pointer flex-shrink-0">
+            {copied ? <Check size={12} weight="bold" /> : <Copy size={12} />}
+            {copied ? 'Copied' : 'Copy token'}
+          </button>
+        )}
       </div>
 
-      {fresh && (
-        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 space-y-1">
-          <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-300">
-            <span>Copy it now. You will not see it again.</span>
-            <button type="button" onClick={() => copy(fresh)} className="inline-flex items-center gap-1 font-medium cursor-pointer">
-              {copied ? <Check size={12} weight="bold" /> : <Copy size={12} />}
-              {copied ? 'Copied' : 'Copy token'}
+      {open && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] text-slate-600 dark:text-zinc-400">
+            Copy the token. In the extension, click the link icon next to the on/off switch, paste it and press Connect.
+          </p>
+
+          {fresh ? (
+            <div className="space-y-1">
+              <code className="block p-1.5 rounded bg-[#F4F6F9] dark:bg-[#202024] font-mono text-[10px] text-slate-600 dark:text-zinc-400 break-all select-all">
+                {fresh}
+              </code>
+              {authRequired && <p className="text-[11px] text-amber-700 dark:text-amber-300">Shown once. Copy it now.</p>}
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={make}
+              className="px-3 py-1.5 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white rounded-lg text-xs font-medium cursor-pointer"
+            >
+              {busy ? 'Working…' : 'Create token'}
             </button>
-          </div>
-          <code className="block p-1.5 rounded bg-white/60 dark:bg-black/30 font-mono text-[11px] break-all select-all">{fresh}</code>
+          )}
         </div>
       )}
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={create}
-        className="px-3 py-1.5 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white rounded-lg text-xs font-medium cursor-pointer"
-      >
-        Create token
-      </button>
+      {open && authRequired && fresh && !compact && (
+        <button type="button" disabled={busy} onClick={make} className="text-[11px] text-slate-500 dark:text-zinc-400 hover:underline cursor-pointer">
+          Create another token
+        </button>
+      )}
 
-      {tokens.length > 0 && (
+      {open && authRequired && !compact && tokens.length > 0 && (
         <ul className="divide-y divide-[#D2DCEA] dark:divide-[#27272A] text-[11px] text-slate-600 dark:text-zinc-400">
           {tokens.map((t) => (
             <li key={t.id} className="py-1.5 flex items-center justify-between gap-2">

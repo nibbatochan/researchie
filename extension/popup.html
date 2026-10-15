@@ -22,17 +22,40 @@
         <div class="brand-info">
           <h1 class="brand-name">researchie</h1>
           <span class="status-indicator" id="header-push-status">
-            <span class="pulse-dot"></span> <span id="header-push-text">recent push: just now</span>
+            <span id="header-push-text">recent push: just now</span>
           </span>
         </div>
       </div>
       <div class="header-right-group">
+        <button type="button" class="icon-btn" id="connect-toggle" title="Connect account" aria-label="Connect account" aria-expanded="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+          <span class="conn-dot" id="connect-dot"></span>
+        </button>
         <label class="switch" title="Toggle Send Mode">
           <input type="checkbox" id="extension-toggle" checked>
           <span class="slider round"></span>
         </label>
       </div>
     </header>
+
+    <!-- Connect account: opened by the link icon in the header -->
+    <section class="section connect-panel hidden" id="connect-panel" aria-label="Connect account">
+      <div class="connect-head">
+        <span class="section-label">CONNECT ACCOUNT</span>
+        <button type="button" class="connect-close" id="connect-close" aria-label="Close">✕</button>
+      </div>
+      <div class="connect-status" id="connect-status">Not connected</div>
+      <label class="connect-field">Token
+        <input id="connect-token" type="password" placeholder="Paste your token" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="connect-target" id="connect-target"></div>
+      <div class="connect-row">
+        <button type="button" id="connect-save">Connect</button>
+        <button type="button" id="connect-clear" class="secondary">Disconnect</button>
+      </div>
+      <div class="connect-msg" id="connect-msg" role="status"></div>
+      <div class="connect-help">Get the token in the web app: Profile, then Extension token.</div>
+    </section>
 
     <!-- Selection Mode Toolbar (4 modes) -->
     <section class="section select-mode-section">
@@ -83,13 +106,13 @@
 
     <!-- Set Project Pod -->
     <section class="section project-section">
-      <div class="section-label">SET REPOSITORY</div>
+      <div class="section-label">SET PROJECT</div>
       <div class="project-pod" id="project-pod">
         <div class="project-avatar" id="project-avatar" style="background-color: #325FEC;">
           <span id="project-avatar-char">--</span>
         </div>
         <div class="project-details">
-          <div class="project-title" id="project-title">Loading repository...</div>
+          <div class="project-title" id="project-title">Loading project...</div>
           <div class="project-desc" id="project-desc">Fetching active research destination</div>
         </div>
         <button class="change-btn" id="change-project-btn">change</button>
@@ -98,7 +121,7 @@
       <!-- Project Picker Dropdown -->
       <div class="project-picker hidden" id="project-picker">
         <div class="picker-header">
-          <span>Select Target Repository</span>
+          <span>Set project</span>
           <button class="close-picker" id="close-picker-btn">✕</button>
         </div>
         <div class="project-list-options" id="project-list-options"></div>
@@ -149,26 +172,6 @@
         <div class="qna-answer-text" id="qna-answer-text"></div>
         <button class="save-qna-btn" id="btn-save-qna">+ Save Answer to Repository</button>
       </div>
-    </section>
-
-    <!-- Connect to the web app (tester site) -->
-    <section class="section connect-section" id="connect-section">
-      <div class="section-label">CONNECT ACCOUNT</div>
-      <div class="connect-status" id="connect-status">Local mode (not connected)</div>
-      <details id="connect-details">
-        <summary>Server address and token</summary>
-        <label class="connect-field">Server address
-          <input id="connect-server" type="url" placeholder="https://your-site.vercel.app" autocomplete="off" spellcheck="false">
-        </label>
-        <label class="connect-field">Token
-          <input id="connect-token" type="password" placeholder="rst_..." autocomplete="off" spellcheck="false">
-        </label>
-        <div class="connect-row">
-          <button type="button" id="connect-save">Connect</button>
-          <button type="button" id="connect-clear" class="secondary">Disconnect</button>
-        </div>
-        <div class="connect-msg" id="connect-msg" role="status"></div>
-      </details>
     </section>
 
     <!-- Footer Status -->

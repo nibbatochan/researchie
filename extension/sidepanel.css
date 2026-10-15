@@ -281,17 +281,26 @@ body.sidepanel-root {
 .sp-project-items {
   max-height: 220px;
   overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sp-project-items::-webkit-scrollbar {
+  display: none;
+  width: 0;
 }
 
 .sp-project-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 7px 10px;
+  margin-bottom: 2px;
   cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 10px;
   transition: all 0.15s ease;
-  border-bottom: 1px solid var(--border-subtle);
-  border-left: 2px solid transparent;
 }
 
 .sp-project-item:hover {
@@ -299,26 +308,19 @@ body.sidepanel-root {
 }
 
 .sp-project-item.active {
-  background: rgba(50, 95, 236, 0.1);
-  border-left: 2px solid #325FEC;
+  border-color: #518FFF;
+  background: transparent;
 }
 
-.sp-project-item:last-child {
-  border-bottom: none;
-}
-
-.sp-item-parent-badge {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  color: #71717A;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  margin-bottom: 2px;
+.sp-folder-ico {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #518FFF;
 }
 
 .sp-item-title.parent-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
   font-family: var(--font-sans);
 }
@@ -330,31 +332,21 @@ body.sidepanel-root {
   font-family: var(--font-sans);
 }
 
+.sp-project-item.active .sp-item-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Sub-projects: no icon, hung off a guide line under their project, as on the platform. */
+.sp-sub-group {
+  margin: 0 0 4px 14px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border-color);
+}
+
 .sp-project-item.subproject {
-  padding-left: 24px;
-  margin-left: 0;
-}
-
-.sp-project-item.subproject.active {
-  background: rgba(50, 95, 236, 0.1);
-  border-left: 2px solid #325FEC;
-}
-
-.sp-project-item.subproject.active .sp-item-title.sub-title {
-  font-weight: 700;
-  color: #325FEC;
-}
-
-.sp-sub-indicator {
-  color: #71717A;
-  font-size: 11px;
-  margin-right: 4px;
-}
-
-.sp-check-mark {
-  color: #325FEC;
-  font-size: 12px;
-  font-weight: bold;
+  padding: 6px 10px;
+  border-radius: 8px;
 }
 
 .sp-proj-parent-label {
@@ -1586,3 +1578,30 @@ body.sidepanel-root {
   border-color: var(--brand-border);
   color: var(--text-primary);
 }
+
+/* Connect account: the link icon in the header and its panel (driven by connect.js) */
+.sp-connect-btn { position: relative; }
+.conn-dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 9999px; border: 2px solid var(--bg-canvas); background: var(--text-muted); }
+.conn-dot.on { background: var(--accent-emerald); }
+.conn-dot.off { background: var(--accent-amber); }
+.sp-connect-panel { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; margin: 8px 0; background: var(--bg-card); }
+.sp-connect-panel.hidden { display: none; }
+.sp-connect-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.sp-connect-title { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase; }
+.connect-status { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+.connect-status.connected { color: var(--accent-emerald); }
+.connect-field { display: block; margin-top: 8px; font-size: 10px; color: var(--text-secondary); }
+.connect-field input { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px 8px; background: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 11px; font-family: var(--font-mono); outline: none; }
+.connect-field input:focus { border-color: var(--border-focus); }
+.connect-target { margin-top: 4px; min-height: 12px; font-size: 10px; color: var(--text-secondary); }
+.connect-target.error { color: #F87171; }
+.connect-row { display: flex; gap: 6px; margin-top: 8px; }
+.connect-row button { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid #325FEC; background: #325FEC; color: #fff; font-size: 11px; cursor: pointer; font-family: inherit; }
+.connect-row button.secondary { background: transparent; border-color: var(--border-color); color: var(--text-secondary); }
+.connect-msg { margin-top: 6px; font-size: 10px; }
+.connect-msg.ok { color: var(--accent-emerald); }
+.connect-msg.error { color: #F87171; }
+.connect-help { margin-top: 8px; font-size: 10px; color: var(--text-muted); }
+.sp-bot-icon { display: inline-flex; }
+.sp-menu-close, .sp-shortcuts-close { display: inline-flex; align-items: center; justify-content: center; }
+.sp-del-btn { display: inline-flex; align-items: center; }

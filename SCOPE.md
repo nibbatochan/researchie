@@ -51,9 +51,10 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Save the work to git, and later push it.
           | Done: Committed locally as e7bf5c7 (up to v1.9.0) and e9a7db9 (v1.9.1). The secret scan was clean.
           | Left: Push, after your yes: run a fresh key scan first, and do not push main or cleanup/2026-10-09 without a scrub.
-    - [not started] Try the extension in your real Chrome {S-25}
+    - [in progress] Try the extension in your real Chrome {S-25}
           | What: Everything so far was tested in a test browser. Try it by hand in your own Chrome.
-          | Left: Side panel summary chips, "+ Save to Project", update-date capture, the new dialog menus, video on live YouTube and Vimeo, the offline-queue alarm with a real network drop, and the extension Connect section.
+          | Done: You tried 1.4.0 and 1.5.0 by hand on the local server: token connect, disconnected send, Set project panel, shared dialogs, side panel connect, Link toast. All worked.
+          | Left: Side panel summary chips, "+ Save to Project", update-date capture, video on live YouTube and Vimeo, and the offline-queue alarm with a real network drop.
     - [not started] Fix an out-of-date test script {S-26}
           | What: scripts/testGroundingBaseline.cjs still names a document that was removed (doc-dots-openai-spec).
     - [not started] Look at the new scope panel and say what to adjust {S-57}
@@ -63,12 +64,12 @@ Statuses: not started, in progress, blocked, done, dropped.
   - [done] Chrome extension {S-27}
         | What: Clipping from any page, with project menus and a side panel.
     - [done] Switch project from the text-selection pill {S-28}
-          | What: Hover Send to see which project the clip goes to; the three-dot menu has "Change to…" listing every project.
-          | Notes: v1.8.5. Checked with the real extension in a test browser.
+          | What: Hover Send to see which project the clip goes to; the three dots open "Set project": a small label, the chosen project highlighted under it, then the project list, with no scrollbar. Picking one shows "Set to <project>".
+          | Notes: v1.8.5, reworked in 1.5.0 and checked by hand.
     - [done] Same project menu on block, image and screenshot clips {S-29}
-          | What: The confirmation popup shows "Sends to <project>" and has the same three-dot menu.
-    - [done] Ask AI from the three-dot menu {S-30}
-          | What: Opens the in-page question panel from the menu instead of a separate pill button.
+          | What: The confirmation dialog has the same "Set project" button and a tag icon. All three dialogs share one look and stay fully inside the window (1.5.0).
+    - [dropped] Ask AI from the three-dot menu {S-30}
+          | What: Removed in 1.5.0 by you: it did not work well and the side panel already has Ask AI.
     - [done] Summarize a page in the side panel {S-31}
           | What: Writes a real summary from the page, with chips for Auto, 3 bullets, Detailed and Tables, and a "+ Save to Project" button.
           | Notes: v1.8.4. Live-checked on Groq. The side panel has not been run in real Chrome.
@@ -76,6 +77,9 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Clips saved while the server is unreachable wait in a queue and are sent without pressing Sync.
           | Done: The background worker sends the queue every minute, at browser start and when the browser goes online. It no longer deletes clips the server refused, queued clips keep their project, and "Saved offline" now tells the truth.
           | Notes: v1.8.8. The alarm timing and a real network drop were not tested.
+    - [done] Tester UI round for the extension and token box {S-58}
+          | What: Icons-only text pill, no outline on tag boxes, project list drawn like the platform (folder for a project, guide line for a sub-project), one dialog look kept inside the window, Link button confirmation, Researchie toolbar icon, no dot beside "recent push", connect panel in the side panel, line icons in the side panel, and a collapsed Extension token box with Copy token beside it.
+          | Notes: Extension 1.5.0, changelog v1.9.3. e2e 15 and 20.
     - [dropped] Floating project-switcher button on every page {S-33}
           | What: Replaced by the in-flow menus (S-28 and S-29).
   - [done] Feed and cards {S-34}
@@ -174,6 +178,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 - h5 = S-24
 - p24 = S-25
 - p25 = S-26
+- p58 = S-58
 - p2a = S-28
 - p2b = S-29
 - p3 = S-30
