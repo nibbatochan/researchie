@@ -1,5 +1,14 @@
 # Version Changelog
 
+## [v1.9.4] — 2026-10-15 (Delete your own account)
+### Added
+- **Delete account** (tester deployment, Settings -> Account & Security). Needs an authenticator app: set it up once (secret shown, then a code to turn it on), then to delete type your password, a current code and DELETE. Deletes projects (with their clips and documents), then the profile (settings, extension tokens, AI keys, authenticator secret), then the login. Failed steps leave earlier steps done; the message says so.
+- Migration `supabase/migrations/002_account_mfa.sql`: the `user_mfa` table. Run once on the testers project.
+- Dependency: `otpauth`.
+
+### Tests
+- Unit: `tests/totp.test.mjs` (5). Routes are off in local mode (404); the live delete is not tested against Supabase yet.
+
 ## [v1.9.3] — 2026-10-15 (Extension 1.5.0: tester UI round, collapsed token box)
 Extension 1.5.0. Reload it at `chrome://extensions` after pulling.
 

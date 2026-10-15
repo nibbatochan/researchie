@@ -28,6 +28,7 @@ import { useSettings } from '@/lib/settings/settingsContext';
 import { useAuth } from '@/lib/auth/authContext';
 import { AiProviderSettings } from './AiProviderSettings';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
+import { DeleteAccountSettings } from './DeleteAccountSettings';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 
 interface SettingsModalProps {
@@ -564,6 +565,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                       </div>
                     </div>
                   )}
+
+                  {/* Deleting the account (S-43): needs the authenticator app, set up here first. Tester deployment only. */}
+                  {authRequired && user && <DeleteAccountSettings />}
 
                   {/* Local development only: the tester deployment has no demo tiers. */}
                   {!authRequired && (

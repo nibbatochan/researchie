@@ -49,17 +49,18 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: .documents-store.json and the .cognee-graph files are ignored or untracked.
     - [in progress] Commit the work and push it {S-24}
           | What: Save the work to git, and later push it.
-          | Done: Committed locally as e7bf5c7 (up to v1.9.0) and e9a7db9 (v1.9.1). The secret scan was clean.
+          | Done: Committed locally as e7bf5c7 (up to v1.9.0), e9a7db9 (v1.9.1) and 968f7f4 (extension 1.5.0, v1.9.3). Key scans were clean each time.
           | Left: Push, after your yes: run a fresh key scan first, and do not push main or cleanup/2026-10-09 without a scrub.
-    - [in progress] Try the extension in your real Chrome {S-25}
+    - [done] Try the extension in your real Chrome {S-25}
           | What: Everything so far was tested in a test browser. Try it by hand in your own Chrome.
           | Done: You tried 1.4.0 and 1.5.0 by hand on the local server: token connect, disconnected send, Set project panel, shared dialogs, side panel connect, Link toast. All worked.
-          | Left: Side panel summary chips, "+ Save to Project", update-date capture, video on live YouTube and Vimeo, and the offline-queue alarm with a real network drop.
-    - [not started] Fix an out-of-date test script {S-26}
-          | What: scripts/testGroundingBaseline.cjs still names a document that was removed (doc-dots-openai-spec).
-    - [not started] Look at the new scope panel and say what to adjust {S-57}
+          | Not covered by that check: side panel summary chips, "+ Save to Project", update-date capture, video on live YouTube and Vimeo, and the offline-queue alarm with a real network drop. Open these as new items if you want them checked.
+    - [done] Fix an out-of-date test script {S-26}
+          | What: scripts/testGroundingBaseline.cjs named a document that was removed (doc-dots-openai-spec).
+          | Done: The script checks the document is still there and skips that step, with a message, when it is not. Run: it skips step C and finishes.
+    - [done] Look at the new scope panel and say what to adjust {S-57}
       | What: The panel was rebuilt (version 0.4.1) with S-numbers, one-line items, open cards, and add, edit, reorder and done buttons. It was tested with the mod's own tests on the terminal and desktop, but its look in the real app has not been seen yet.
-      | Left: Run /reload-plugins, open /scopetrack, and note anything unclear or ugly.
+      | Done: Opened /scopetrack and moved on. No changes asked for.
       | Notes: The old version is backed up in C:\Users\suman\.claude\mods\scopetrack-backup-v0.3.0.
   - [done] Chrome extension {S-27}
         | What: Clipping from any page, with project menus and a side panel.
@@ -109,9 +110,12 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: The site is live at https://researchie-testers.vercel.app. Some features run on the server and have not been tried there.
           | Done: Deployed with its environment variables. Next.js was upgraded to 15.5.28 because Vercel refused 15.1.4.
           | Left: Try OCR, PDF parsing and the 4 MB upload limit; set SIGNUP_INVITE_CODE and redeploy (S-51); test the tester extension zip.
-    - [not started] Let a user delete their own account {S-43}
+    - [in progress] Let a user delete their own account {S-43}
           | What: A Danger zone in Settings that asks for the password, a one-time code and the word DELETE, then deletes the user's data and login on the server.
-          | Left: Decide how the code is sent: email needs a mail provider, or use an authenticator app.
+          | Decided: One-time code comes from an authenticator app (TOTP), set up once in Settings. No mail service needed.
+          | Plan: Delete the user's projects (their clips and documents go with them), then the profile (settings, tokens, AI keys cascade), then the login. The projects table only clears the owner on profile delete, so it must be deleted first.
+          | Done: Built. Authenticator app set-up in Settings (Account & Security); delete needs password, a current code and DELETE. Migration 002_account_mfa.sql; otpauth package; 5 unit tests.
+          | Left: Run migration 002 on the testers project before deploy. Then test on the live site (not tested against Supabase here). Without the migration the set-up step fails.
     - [not started] Switch between saved accounts from the sidebar {S-44}
           | What: Today "Switch account" signs out. This would keep several accounts signed in and let you change between them.
     - [not started] Sign in with Google {S-45}
