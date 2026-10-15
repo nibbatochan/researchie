@@ -1,5 +1,10 @@
 # Version Changelog
 
+## [v1.9.5] — 2026-10-16 (Switch account list)
+### Added
+- **Switch account** (tester deployment). The profile menu lists the other email addresses used to sign in on this browser. Picking one signs out and opens `/login?email=...` with the address filled in; the password is still typed. "Use another account" just signs out. An x forgets an address. Only the address is kept (localStorage, up to 6); no password, token or session. Local mode is unchanged.
+- `src/lib/auth/knownAccounts.ts` and `tests/known-accounts.test.mjs` (8).
+
 ## [v1.9.4] — 2026-10-15 (Delete your own account)
 ### Added
 - **Delete account** (tester deployment, Settings -> Account & Security). Needs an authenticator app: set it up once (secret shown, then a code to turn it on), then to delete type your password, a current code and DELETE. Deletes projects (with their clips and documents), then the profile (settings, extension tokens, AI keys, authenticator secret), then the login. Failed steps leave earlier steps done; the message says so.

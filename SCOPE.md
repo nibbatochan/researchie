@@ -110,14 +110,16 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: The site is live at https://researchie-testers.vercel.app. Some features run on the server and have not been tried there.
           | Done: Deployed with its environment variables. Next.js was upgraded to 15.5.28 because Vercel refused 15.1.4.
           | Left: Try OCR, PDF parsing and the 4 MB upload limit; set SIGNUP_INVITE_CODE and redeploy (S-51); test the tester extension zip.
-    - [in progress] Let a user delete their own account {S-43}
+    - [done] Let a user delete their own account {S-43}
           | What: A Danger zone in Settings that asks for the password, a one-time code and the word DELETE, then deletes the user's data and login on the server.
           | Decided: One-time code comes from an authenticator app (TOTP), set up once in Settings. No mail service needed.
           | Plan: Delete the user's projects (their clips and documents go with them), then the profile (settings, tokens, AI keys cascade), then the login. The projects table only clears the owner on profile delete, so it must be deleted first.
           | Done: Built. Authenticator app set-up in Settings (Account & Security); delete needs password, a current code and DELETE. Migration 002_account_mfa.sql; otpauth package; 5 unit tests.
           | Left: Run migration 002 on the testers project before deploy. Then test on the live site (not tested against Supabase here). Without the migration the set-up step fails.
-    - [not started] Switch between saved accounts from the sidebar {S-44}
-          | What: Today "Switch account" signs out. This would keep several accounts signed in and let you change between them.
+    - [done] Switch between saved accounts from the sidebar {S-44}
+          | What: The profile menu lists the other email addresses you signed in with on this browser. Picking one signs you out and opens the sign-in page with that address filled in; you type the password. "Use another account" signs out. A small x forgets an address.
+          | Decided: Only addresses are remembered (in this browser), never passwords or sessions. Accounts are not kept signed in side by side.
+          | Notes: Tester site only; local mode keeps the single Switch account button. 8 unit tests. Not tried on the live site.
     - [not started] Sign in with Google {S-45}
           | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
           | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.

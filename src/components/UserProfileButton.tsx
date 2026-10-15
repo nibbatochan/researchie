@@ -9,6 +9,70 @@ import {
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
+import { forgetAccount, listAccounts } from '@/lib/auth/knownAccounts';
+
+// "Switch account" (S-44). Lists the other addresses used to sign in on this browser. Choosing one signs out and
+// opens the sign-in page with that address filled in; the password is still typed. Only addresses are kept.
+const SwitchAccount: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { user, authRequired, signOut } = useAuth();
+  const [accounts, setAccounts] = useState<string[]>([]);
+
+  useEffect(() => {
+    setAccounts(listAccounts(window.localStorage));
+  }, []);
+
+  const mine = (user?.email || '').toLowerCase();
+  const others = accounts.filter((e) => e !== mine);
+  const rowClass =
+    'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer';
+
+  return (
+    <div className="space-y-0.5">
+      {authRequired && others.length > 0 && (
+        <>
+          <div className="px-2 pt-1 text-[10px] text-slate-500 dark:text-zinc-400">Switch to</div>
+          {others.map((email) => (
+            <div key={email} className="flex items-center group/acct">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  void signOut({ switchTo: email });
+                }}
+                title={`Signs out and opens the sign-in page for ${email}`}
+                className={rowClass + ' min-w-0'}
+              >
+                <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
+                <span className="truncate">{email}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccounts(forgetAccount(window.localStorage, email))}
+                aria-label={`Forget ${email}`}
+                title="Forget this address"
+                className="px-1.5 text-slate-400 hover:text-red-600 cursor-pointer opacity-0 group-hover/acct:opacity-100 focus:opacity-100"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          void signOut();
+        }}
+        title="Ends this session and opens the sign-in page"
+        className={rowClass}
+      >
+        <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
+        <span>{authRequired && others.length > 0 ? 'Use another account' : 'Switch account'}</span>
+      </button>
+    </div>
+  );
+};
 
 export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isCollapsed = false }) => {
   const { user, setIsAuthModalOpen, signOut } = useAuth();
@@ -86,18 +150,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
             <div className="py-2 space-y-1">
               <ExtensionConnectionSettings compact />
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  signOut();
-                }}
-                title="Ends this session and opens the sign-in page"
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-              >
-                <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
-                <span>Switch account</span>
-              </button>
+              <SwitchAccount onClose={() => setIsOpen(false)} />
 
               <button
                 type="button"
@@ -154,18 +207,7 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
           <div className="pt-2 space-y-1">
             <ExtensionConnectionSettings compact />
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  signOut();
-                }}
-                title="Ends this session and opens the sign-in page"
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-              >
-                <UserSwitch size={14} className="text-[#325FEC] dark:text-[#518FFF]" />
-                <span>Switch account</span>
-              </button>
+              <SwitchAccount onClose={() => setIsOpen(false)} />
 
             <button
               type="button"

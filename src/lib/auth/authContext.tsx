@@ -2,9 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { rememberAccount, switchUrl } from './knownAccounts';
 
 // The session lives in an httpOnly cookie that only the server can read. This file never stores anything
-// about the user in the browser: it asks /api/auth/me who is signed in and keeps the answer in memory.
+// about the user in the browser: it asks /api/auth/me who is signed in and keeps the answer in memory. The one
+// exception is the email address (nothing else) kept in localStorage for "Switch account" (knownAccounts.ts).
 //
 // Two modes, chosen by the server (AUTH_REQUIRED):
 //   authRequired = false  local development: one built-in demo user, no sign-in.
@@ -36,7 +38,8 @@ interface AuthContextType {
   signUpWithPassword: (name: string, email: string, password: string, inviteCode?: string) => Promise<AuthResult>;
   /** Local development only. Does nothing when sign-in is required. */
   signInAsDemo: (tier?: 'free' | 'pro' | 'team') => void;
-  signOut: (opts?: { everywhere?: boolean }) => Promise<void>;
+  /** switchTo: after signing out, open the sign-in page with this address filled in. */
+  signOut: (opts?: { everywhere?: boolean; switchTo?: string }) => Promise<void>;
   /** Re-read who is signed in. */
   refresh: () => Promise<void>;
   isAuthModalOpen: boolean;
@@ -101,6 +104,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // The address of whoever is signed in is remembered on this browser (address only) for "Switch account".
+  useEffect(() => {
+    if (authRequired && user?.email) rememberAccount(window.localStorage, user.email);
+  }, [authRequired, user?.email]);
 
   // A session that ends while the app is open (expired, signed out in another tab) shows up as a 401 from
   // our own API. Treat it as signed out, so the redirect below sends the user to the sign-in page.
@@ -170,12 +178,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthModalOpen(false);
   }, [authRequired]);
 
-  const signOut = useCallback(async (opts?: { everywhere?: boolean }) => {
+  const signOut = useCallback(async (opts?: { everywhere?: boolean; switchTo?: string }) => {
     if (authRequired) {
       await postJson('/api/auth/logout', { everywhere: Boolean(opts?.everywhere) });
       setUser(null);
       // A full load, so nothing from the last account stays in memory.
-      window.location.assign('/login');
+      window.location.assign(opts?.switchTo ? switchUrl(opts.switchTo) : '/login');
       return;
     }
     // Local development has no session to end.

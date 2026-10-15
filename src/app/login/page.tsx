@@ -56,7 +56,11 @@ function LoginContent() {
 
   const [authMode, setAuthMode] = useState<'signin' | 'register'>(initialTab);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // "Switch account" opens this page as /login?email=... so the address is already filled in.
+  const [email, setEmail] = useState(() => {
+    const given = searchParams.get('email') || '';
+    return given.length <= 254 && /^[^s@]+@[^s@]+.[^s@]+$/.test(given) ? given : '';
+  });
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);

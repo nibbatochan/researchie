@@ -8,3 +8,22 @@ e2e
 tests
 .next*
 *.log
+
+# Not needed to run the site (notes, SQL run by hand in Supabase, the Chrome extension, helper scripts)
+docs
+scripts
+supabase
+extension
+SCOPE.md
+CLEANUP_NOTES.md
+CLEANUP_REPORT.md
+FEATURE_INVENTORY.md
+PRODUCT_CONTEXT.md
+PROJECT_LOG.md
+SECOND_MIND_PRODUCT_BLUEPRINT.md
+DESIGN_SYSTEM.md
+design.md
+.documents-store.json
+.research-store.json
+.cognee-graph-*.json
+*.tsbuildinfo
