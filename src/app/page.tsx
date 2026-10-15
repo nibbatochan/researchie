@@ -12,11 +12,13 @@ import { TrashModal } from '@/components/TrashModal';
 import { UndoToast } from '@/components/UndoToast';
 import { AuthModal } from '@/components/AuthModal';
 import { SettingsModal } from '@/components/SettingsModal';
-import { ShareProjectModal } from '@/components/ShareProjectModal';
-import { ResearchProject, ResearchAtom, AtomType, ProjectSharingSettings } from '@/lib/types/research';
+import { ShareAccessModal } from '@/components/ShareAccessModal';
+import { useAuth } from '@/lib/auth/authContext';
+import { ResearchProject, ResearchAtom, AtomType } from '@/lib/types/research';
 import { withPinned, savePinned } from '@/lib/atoms/pin';
 
 export default function DashboardPage() {
+  const { authRequired, user } = useAuth();
   const [projects, setProjects] = useState<ResearchProject[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [atoms, setAtoms] = useState<ResearchAtom[]>([]);
@@ -54,7 +56,7 @@ export default function DashboardPage() {
           setProjects((prev) => {
             if (
               prev.length === json.data.length &&
-              prev.every((p, idx) => p.id === json.data[idx]?.id && p.atomCount === json.data[idx]?.atomCount && p.title === json.data[idx]?.title)
+              prev.every((p, idx) => p.id === json.data[idx]?.id && p.atomCount === json.data[idx]?.atomCount && p.title === json.data[idx]?.title && p.role === json.data[idx]?.role)
             ) {
               return prev;
             }
@@ -366,24 +368,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleUpdateSharing = async (projectId: string, settings: ProjectSharingSettings) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, sharing: settings } : p))
-    );
-    if (sharingProject && sharingProject.id === projectId) {
-      setSharingProject((prev) => (prev ? { ...prev, sharing: settings } : null));
-    }
-    try {
-      await fetch(`/api/share/${encodeURIComponent(projectId)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-    } catch (err) {
-      console.error('Failed to sync sharing settings:', err);
-    }
-  };
-
+  // Shared with the person as read-only: no way to add, pin or delete clips from the screen.
   const activeProject: ResearchProject | null = 
     activeProjectId === 'all'
       ? {
@@ -432,7 +417,7 @@ export default function DashboardPage() {
             onSelectProject={(id, mode = 'feed') => handleSelectProject(id, mode)}
             onOpenCreateModal={handleOpenCreateModal}
             onDeleteProject={handleRequestDeleteProject}
-            onOpenShareModal={(proj) => handleOpenShareModal(proj)}
+            onOpenShareModal={authRequired ? (proj) => handleOpenShareModal(proj) : undefined}
             onOpenDocuments={() => {
               setWorkspaceMode('reader');
             }}
@@ -442,10 +427,10 @@ export default function DashboardPage() {
             project={activeProject}
             atoms={atoms}
             loading={loadingAtoms}
-            onDeleteAtom={handleDeleteAtom}
-            onTogglePin={handleTogglePin}
-            onOpenManualModal={() => setIsManualClipOpen(true)}
-            onCreateAtom={handleCreateAtom}
+            onDeleteAtom={activeProject?.role === 'viewer' ? undefined : handleDeleteAtom}
+            onTogglePin={activeProject?.role === 'viewer' ? undefined : handleTogglePin}
+            onOpenManualModal={activeProject?.role === 'viewer' ? undefined : () => setIsManualClipOpen(true)}
+            onCreateAtom={activeProject?.role === 'viewer' ? undefined : handleCreateAtom}
             workspaceMode={workspaceMode}
             onWorkspaceModeChange={(mode) => setWorkspaceMode(mode)}
             targetDocId={targetDocId}
@@ -454,7 +439,7 @@ export default function DashboardPage() {
             onOpenPdfReader={handleOpenPdfReader}
             onOpenTrashModal={() => setIsTrashModalOpen(true)}
             trashCount={deletedAtomsHistory.length}
-            onOpenShareModal={() => handleOpenShareModal(activeProject)}
+            onOpenShareModal={authRequired ? () => handleOpenShareModal(activeProject) : undefined}
             isSidebarCollapsed={isSidebarCollapsed}
             onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
           />
@@ -462,12 +447,16 @@ export default function DashboardPage() {
       </div>
 
       {/* Modals & Safeguards */}
-      <ShareProjectModal
-        isOpen={isShareModalOpen}
-        project={sharingProject}
-        onClose={() => setIsShareModalOpen(false)}
-        onUpdateSharing={handleUpdateSharing}
-      />
+      {/* Sharing exists on the accounts deployment only; locally there is one user, so no Share button. */}
+      {authRequired && (
+        <ShareAccessModal
+          isOpen={isShareModalOpen}
+          project={sharingProject}
+          currentUserId={user?.id}
+          onClose={() => setIsShareModalOpen(false)}
+          onLeft={() => void fetchProjects()}
+        />
+      )}
       <CreateProjectModal
         isOpen={isCreateProjectOpen}
         projects={projects}

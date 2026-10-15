@@ -12,8 +12,14 @@ import {
 import { getProjectDocuments, getDocumentById, addDocument as addLocalDocument, deleteDocument as deleteLocalDocument } from './sampleDocuments';
 import type { DataStore } from './store';
 import type { ResearchAtom } from '../types/research';
+import type { Role } from './roles';
 
 export const localStore: DataStore = {
+  // One local user who owns everything. Sharing is only for the accounts deployment.
+  async roleOn(_userId, projectId): Promise<Role | null> {
+    return getLocalProjects().some((p) => p.id === projectId) ? 'owner' : null;
+  },
+
   async ownsProject(_userId, projectId) {
     return getLocalProjects().some((p) => p.id === projectId);
   },

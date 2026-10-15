@@ -394,7 +394,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                           </button>
                         )}
 
-                        {onDeleteProject && (
+                        {onDeleteProject && !mainProj.role?.match(/^(editor|viewer)$/) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -457,6 +457,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
                   {/* Bottom Actions */}
                   <div className="mt-4 pt-3 border-t border-[#D2DCEA]/60 dark:border-[#27272A] flex items-center justify-between gap-2">
+                    {!mainProj.role?.match(/^(editor|viewer)$/) ? (
                     <button
                       onClick={() => onOpenCreateModal(mainProj.id)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium bg-[#EEF3F8] hover:bg-[#E2EAF4] dark:bg-[#18181B] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 border border-[#D2DCEA] dark:border-[#27272A] transition-colors cursor-pointer"
@@ -465,6 +466,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       <Plus size={13} weight="bold" />
                         <span>Sub-Project</span>
                       </button>
+                    ) : (
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400">{mainProj.role === 'viewer' ? 'Can view' : 'Can edit'}</span>
+                    )}
 
                       <button
                         onClick={() => onSelectProject(mainProj.id, 'feed')}

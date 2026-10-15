@@ -7,8 +7,12 @@ import { AUTH_REQUIRED } from '@/lib/auth/server';
 import { cloud } from './cloudStore';
 import { localStore } from './localStore';
 import type { ResearchAtom, ResearchDocument, ResearchProject } from '../types/research';
+import type { Role } from './roles';
 
 export interface DataStore {
+  /** What the user may do in the project: owner, editor, viewer, or null for no access. */
+  roleOn(userId: string, projectId: string): Promise<Role | null>;
+  /** True when the user is the owner (the person who can delete the project and change who has access). */
   ownsProject(userId: string, projectId: string): Promise<boolean>;
   /** Maps the "all projects" and demo ids to a real project the user has, for saving. */
   resolveProjectId(userId: string, projectId: string): Promise<string>;

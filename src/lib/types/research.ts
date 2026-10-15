@@ -148,6 +148,8 @@ export interface ResearchProject {
   lastAccessedAt?: string;
   last_accessed_at?: string;
   sharing?: ProjectSharingSettings;
+  /** What the signed-in user may do here. Set on the accounts deployment; absent locally (everything is allowed). */
+  role?: 'owner' | 'editor' | 'viewer';
   createdAt?: string;
   created_at?: string;
   updatedAt?: string;

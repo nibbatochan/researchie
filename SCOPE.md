@@ -160,8 +160,8 @@ Statuses: not started, in progress, blocked, done, dropped.
         | What: Features not built yet and the plan documents.
     - [in progress] Share a project with other accounts {S-54}
           | What: Figma-style sharing: a link with can view or can edit, invite by email with a role, a member list (owner, editor, viewer), the owner changes or removes access, and Request access with approve or deny, all enforced on the server.
-          | Done: Design written for your approval: docs/SHARING_DESIGN.md (roles owner/editor/viewer, four new tables, every check on the server in the data layer, build in four steps).
-          | Left: Your answers to its three open questions, then build step 1 (data and permissions). Needs new tables (project_members, project_invites, share_links, access_requests).
+          | Done: Design approved (docs/SHARING_DESIGN.md, Decision 23). Steps 1 and 2 built: migration 004 (four tables), roles checked in the data layer, members and invitations, the real Share dialog (invite by email, roles, remove, leave, cancel), "Shared with me" in the sidebar, controls hidden for viewers, the extension skips read-only projects, and the old mock Share window is deleted. 15 new unit tests (276 total); local mode unchanged and has no Share button.
+          | Left: Run migration 004 on the testers project and deploy; check with two accounts (invite, see the project, edit as editor, blocked as viewer, remove). Then step 3 (share links) and step 4 (access requests).
     - [done] Rewrite the PRD to match what was built {S-55}
           | What: docs/RESEARCH_TOOL_PRD.md named tools that are not used (Cloudflare R2, Gemini 1.5, shadcn, a TypeScript extension).
           | Done: Rewritten as version 2.0.0 on 2026-10-16: features marked built or planned, phases with their status, pricing marked undecided, the real stack, and the privacy rules now in force.

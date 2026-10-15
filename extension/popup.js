@@ -537,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res.ok) {
         const json = await res.json();
         if (json.data && json.data.length > 0) {
-          projects = json.data;
+          projects = json.data.filter((p) => p.role !== 'viewer');
         }
       }
     } catch (e) {}

@@ -1,5 +1,22 @@
 # Version Changelog
 
+## [v1.9.9] — 2026-10-16 (Share a project: people and roles)
+Steps 1 and 2 of S-54. Design: `docs/SHARING_DESIGN.md`, Decision 23. Accounts deployment only.
+
+### Added
+- **Roles on a project**: owner, editor, viewer. Every data call asks `roleOn` first. Viewers read; editors add, change and delete clips and documents; only the owner deletes the project or changes who has access. Access to a project covers its sub-projects. A removed person loses access on the next request.
+- **Share dialog** (replaces the old mock with made-up people): invite by email with a role, change a role, remove a person, cancel a pending invitation; a non-owner sees the list and can leave. No email is sent: an address with no account is saved as an invitation and becomes access when that address signs in (the project list claims it). An address that already has an account is added at once.
+- **Shared with me** in the sidebar, with "View" or "Edit" next to each project. Viewers see no add, pin or delete controls; sub-project and project delete are owner-only. The extension's project lists leave out read-only projects.
+- Migration `supabase/migrations/004_sharing.sql` (four tables, row-level security on, no policies). Run once on the testers project before deploying.
+- Routes: `GET/POST /api/projects/[id]/share` (browser session only).
+
+### Changed
+- Deleting a project now also deletes clips and documents other people added to it.
+- The Share button is hidden locally (one user, nothing to share with).
+
+### Tests
+- `tests/sharing.test.mjs` (15): every role against every operation, a removed member, invitations claimed by the right address only, owner-only changes. A deliberately broken viewer rule made 3 of them fail. Existing isolation tests (12) pass unchanged. Not yet checked with two real accounts.
+
 ## [v1.9.8] — 2026-10-16 (One data layer; local mode no longer writes to Supabase)
 ### Changed
 - **One data path.** `src/lib/data/store.ts` is the single interface the routes use for projects, clips and documents. Supabase (per user) and the local files are two implementations of it (`cloud.ts`, `localStore.ts`). Atoms, projects, documents, search, rebuild-context and share are all switched over; the `if (AUTH_REQUIRED)` branches are gone from them.

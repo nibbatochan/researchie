@@ -117,8 +117,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       }
     });
 
+    const isShared = (p: ResearchProject) => p.role === 'editor' || p.role === 'viewer';
     return {
-      allParentProjects: parentList,
+      allParentProjects: [...parentList.filter((p) => !isShared(p)), ...parentList.filter(isShared)],
       subProjectsByParent: subMap,
     };
   }, [projects]);
@@ -324,14 +325,21 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             {searchQuery ? 'No projects match your search.' : 'No research projects yet.'}
           </div>
         ) : (
-          filteredParents.map((parent) => {
+          filteredParents.map((parent, parentIdx) => {
+            const isSharedParent = parent.role === 'editor' || parent.role === 'viewer';
+            const firstShared = isSharedParent && !filteredParents.slice(0, parentIdx).some((p) => p.role === 'editor' || p.role === 'viewer');
+            const canManageParent = !isSharedParent;
             const isParentActive = activeProjectId === parent.id;
             const subProjects = subProjectsByParent.get(parent.id) || [];
             const hasSubProjects = subProjects.length > 0;
             const isFolderCollapsed = !searchQuery.trim() && collapsedFolderIds.has(parent.id);
 
             return (
-              <div key={parent.id} className="space-y-1">
+              <React.Fragment key={parent.id}>
+              {firstShared && (
+                <div className="px-2.5 pt-3 pb-1 text-[10px] font-semibold tracking-wide uppercase text-slate-500 dark:text-zinc-400">Shared with me</div>
+              )}
+              <div className="space-y-1">
                 {/* Parent Project Card Row */}
                 <div
                   onClick={() => handleSelectProject(parent.id)}
@@ -378,12 +386,15 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
                   {/* Actions & Count */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {isSharedParent && (
+                      <span className="text-[9px] text-slate-500 dark:text-zinc-400">{parent.role === 'viewer' ? 'View' : 'Edit'}</span>
+                    )}
                     <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 group-hover:hidden">
                       {parent.atomCount || 0}
                     </span>
 
                     {/* Hover Quick Actions */}
-                    <div className="hidden group-hover:flex items-center gap-0.5">
+                    <div className={`hidden ${canManageParent ? 'group-hover:flex' : ''} items-center gap-0.5`}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -447,7 +458,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             >
                               {child.atomCount || 0}
                             </span>
-                            {onDeleteProject && (
+                            {onDeleteProject && canManageParent && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -467,6 +478,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   </div>
                 )}
               </div>
+              </React.Fragment>
             );
           })
         )}

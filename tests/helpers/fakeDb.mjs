@@ -2,6 +2,10 @@
 // It enforces primary keys (error code 23505 on a duplicate), like Postgres does.
 
 const PKEY = { projects: 'id', atoms: 'id', documents: 'id' };
+// Tables whose id the database makes, and the column pairs that must be unique.
+const GENERATED_ID = new Set(['project_members', 'project_invites', 'share_links', 'access_requests']);
+const UNIQUE = { project_members: ['project_id', 'user_id'], project_invites: ['project_id', 'email'], access_requests: ['project_id', 'user_id'] };
+let counter = 0;
 
 export function makeFakeDb(seed = {}) {
   const tables = { projects: [], atoms: [], documents: [], ...seed };
@@ -15,7 +19,9 @@ export function makeFakeDb(seed = {}) {
       if (state.op === 'insert') {
         const pk = PKEY[table];
         if (pk && rows.some((r) => r[pk] === state.row[pk])) return { data: null, error: { code: '23505', message: 'duplicate key' } };
-        const created = { captured_at: new Date().toISOString(), uploaded_at: new Date().toISOString(), ...state.row };
+        const pair = UNIQUE[table];
+        if (pair && rows.some((r) => pair.every((c) => r[c] === state.row[c]))) return { data: null, error: { code: '23505', message: 'duplicate key' } };
+        const created = { captured_at: new Date().toISOString(), uploaded_at: new Date().toISOString(), ...(GENERATED_ID.has(table) ? { id: `gen-${++counter}` } : {}), ...state.row };
         rows.push(created);
         return finish([created]);
       }

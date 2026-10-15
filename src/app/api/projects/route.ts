@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { authorize } from '@/lib/auth/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { store, STORE_SOURCE } from '@/lib/data/store';
+import { sharing } from '@/lib/data/sharingStore';
 
 export async function OPTIONS() {
   return new NextResponse(null, {
@@ -16,6 +17,14 @@ export async function OPTIONS() {
 export async function GET(request: Request) {
   const auth = await authorize(request);
   if (auth.response) return auth.response;
+  // Only a browser session knows the person's own address (an extension token does not carry it).
+  if (AUTH_REQUIRED && auth.user.via === 'cookie' && auth.user.email) {
+    try {
+      await sharing.claimInvites(auth.user.id, auth.user.email);
+    } catch {
+      // an invitation that cannot be claimed now is tried again on the next load
+    }
+  }
   const data = await store.listProjects(auth.user.id);
   return NextResponse.json({ success: true, source: STORE_SOURCE, data });
 }

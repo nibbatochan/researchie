@@ -242,7 +242,7 @@ async function loadProjects() {
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        allProjects = data.data;
+        allProjects = data.data.filter((p) => p.role !== 'viewer');
         
         // Match active project if possible
         const current = allProjects.find(p => p.id === activeProjectId);

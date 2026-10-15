@@ -122,6 +122,12 @@
 - **Rationale**: One path per route is simpler to read and to test, and sharing (S-54) needs one place to ask "may this user see this project". Keeping the local files means local development and the 97-test suite still run with no database.
 - **Limits**: Clips that existed only in the old Supabase project no longer show in the local app (they are untouched there). Local deletes of a missing project still answer "done"; on the accounts deployment they answer 404.
 
+### Decision 23: Sharing Is a Role on the Project, Checked in the Data Layer
+- **Context**: Every query filtered by `user_id`, so only the owner could see anything. Sharing (S-54) needed other accounts to read or edit a project without weakening that isolation. The Share button in the app was a mock with made-up people.
+- **Decision**: A person has a role on a project: owner (`projects.user_id`), editor or viewer (a row in `project_members`), or none. Membership of a project covers its sub-projects. `cloud.roleOn` is the one question every method asks: reads need any role, writes need editor or owner, deleting the project and changing access need owner. Atoms and documents follow the project, not who created them (`user_id` stays the author). Invitations to an address with no account are stored and become access when that address signs in; no email is sent. The four new tables (`project_members`, `project_invites`, `share_links`, `access_requests`) have row-level security on and no policies, so only the server touches them. The mock Share modal was deleted; locally (one user) there is no Share button.
+- **Rationale**: One place to ask "may this person do this" keeps the rules testable with a fake database (`tests/sharing.test.mjs`, 15 cases, including a removed member losing access at once) and keeps S-49's single data layer meaningful. Only a browser session can change sharing, so a leaked extension token cannot widen access.
+- **Limits**: Roles are looked up on every call (no cache), which costs a query but means a removal is instant. A sub-project cannot be shared on its own. Links and access requests are the next steps.
+
 ---
 
 ## Molecule Build System Log

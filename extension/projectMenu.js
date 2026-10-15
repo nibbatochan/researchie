@@ -211,7 +211,8 @@
           if (chrome.runtime.lastError || !resp) return resolve({ error: 'unreachable' });
           if (resp.code === 'NOT_CONNECTED') return resolve({ error: 'not-connected' });
           if (!resp.success || !Array.isArray(resp.data)) return resolve({ error: 'unreachable' });
-          resolve({ entries: flattenProjects(resp.data) });
+          // A project shared with the person as read-only cannot take clips, so it is not offered.
+          resolve({ entries: flattenProjects(resp.data.filter((p) => p.role !== 'viewer')) });
         });
       } catch {
         resolve({ error: 'unreachable' });

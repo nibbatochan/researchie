@@ -1,6 +1,6 @@
 # Sharing a project with other accounts: design (S-54)
 
-Status: proposed, for approval. Nothing is built. Research behind it: `docs/research/auth-and-sharing.md`.
+Status: approved 2026-10-16. Steps 1 and 2 are built (data and permissions, the Share dialog); steps 3 (links) and 4 (access requests) are not. Research behind it: `docs/research/auth-and-sharing.md`.
 
 ## What the user gets
 
@@ -78,8 +78,8 @@ No existing table changes. The current policies on `projects`, `atoms` and `docu
 
 Each step is deployed and checked by hand on the live site before the next. Steps 2 to 4 need a second account to check.
 
-## Open questions
+## Decisions (answered 2026-10-16)
 
-1. Is "invite waits until that email signs in, no email sent" acceptable for the first version?
-2. Should an edit link work for people without an account? Proposed: no. Anyone who edits must sign in.
-3. Should a viewer be able to export (PDF, Notion, Markdown)? Proposed: yes, since they can already read everything.
+1. An invite waits until that email signs in; no email is sent in the first version.
+2. An edit link needs a sign-in. Anyone who edits must have an account.
+3. A viewer can export (PDF, Notion, Markdown), since they can already read everything.
