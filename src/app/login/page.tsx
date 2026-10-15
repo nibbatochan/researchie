@@ -65,7 +65,12 @@ function LoginContent() {
   const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(() => {
+    const problem = searchParams.get('error');
+    if (problem === 'invite') return { text: 'That Google account is new, and creating an account needs the invite code. Enter the code on the Create account tab, then choose Google again.', type: 'error' };
+    if (problem === 'google') return { text: 'Google sign-in did not finish. Try again, or use your email and password.', type: 'error' };
+    return null;
+  });
 
   // If already logged in, show status with continue button
   // "Switch account" and share links open this page with where to go next. Only a share link address is accepted.
@@ -74,16 +79,13 @@ function LoginContent() {
     router.push(/^\/share\/shr_[A-Za-z0-9_-]{10,100}$/.test(next) ? next : '/');
   };
 
-  const handleOAuth = async (provider: 'google') => {
-    setIsLoading(true);
-    setMessage(null);
-    const res = await signInWithOAuth(provider);
-    setIsLoading(false);
-    if (res.success) {
-      goNext();
-    } else {
-      setMessage({ text: res.message || 'OAuth sign in failed', type: 'error' });
-    }
+  // Google sign-in starts on the server (S-45). The invite code typed on this page goes along, so a brand-new account
+  // can pass it. It is switched on with NEXT_PUBLIC_GOOGLE_SIGNIN=true once Google is set up in Supabase.
+  const googleOn = process.env.NEXT_PUBLIC_GOOGLE_SIGNIN === 'true';
+  const startGoogle = () => {
+    const next = searchParams.get('next') || '/';
+    const invite = inviteCode.trim();
+    window.location.assign(`/api/auth/google?next=${encodeURIComponent(next)}${invite ? `&invite=${encodeURIComponent(invite)}` : ''}`);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -187,8 +189,18 @@ function LoginContent() {
         {/* Form Body */}
         <div className="p-6 space-y-4">
           
-          {/* PLACEHOLDER: Google sign-in is set up by hand in the Supabase dashboard later. Until then this
-              button stays disabled; AuthProvider.signInWithOAuth is the one place to wire it in. */}
+          {/* Google sign-in: live once NEXT_PUBLIC_GOOGLE_SIGNIN=true (see docs/GOOGLE_SIGNIN_SETUP.md); until then a disabled placeholder. */}
+          {googleOn && authRequired ? (
+            <button
+              type="button"
+              onClick={startGoogle}
+              data-testid="google-signin"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-[#1C1C20] hover:bg-[#F4F6F9] dark:hover:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] rounded-xl text-xs font-medium shadow-xs cursor-pointer"
+            >
+              <GoogleIcon />
+              <span>Continue with Google</span>
+            </button>
+          ) : (
           <button
             type="button"
             disabled
@@ -198,6 +210,7 @@ function LoginContent() {
             <GoogleIcon />
             <span>Continue with Google (coming soon)</span>
           </button>
+          )}
 
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-[#D2DCEA] dark:border-[#27272A]" />

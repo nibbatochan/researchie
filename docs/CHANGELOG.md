@@ -1,5 +1,16 @@
 # Version Changelog
 
+## [v1.9.11] — 2026-10-16 (Google sign-in, built; switched on by setup)
+### Added
+- **Continue with Google.** `/api/auth/google` starts it on the server (the PKCE secret stays in an httpOnly cookie) and Google returns to `/auth/callback`, which stores the session as the same httpOnly cookie email sign-in uses. The same verified email is linked to the existing account. A brand-new Google account must pass `SIGNUP_INVITE_CODE` when it is set (the code typed on the sign-in page travels in a short httpOnly cookie); if not, the account is removed again and the person is sent back with a message.
+- The button on `/login` is live when `NEXT_PUBLIC_GOOGLE_SIGNIN=true`; otherwise it stays the disabled "coming soon" placeholder. Setup: `docs/GOOGLE_SIGNIN_SETUP.md`.
+
+### Fixed
+- **Open redirect** in `/auth/callback`: the `next` address was added to the site's address without a check, so a crafted link (for example `next=@evil.com`) could send a person to another site after sign-in. Only a path on this site is accepted now (`src/lib/auth/redirect.ts`).
+
+### Tests
+- `tests/redirect.test.mjs` (3). The Google flow itself is not tried: it needs Google and Supabase set up.
+
 ## [v1.9.10] — 2026-10-16 (Share a project: links and access requests)
 Steps 3 and 4 of S-54. No new migration: the tables are in `004_sharing.sql`.
 

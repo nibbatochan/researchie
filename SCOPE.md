@@ -126,9 +126,10 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Today the set-up shows a key to copy into the phone app by hand. Show a QR code instead, so the app scans it and adds the account in one step.
           | Done: The set-up now draws a QR code in the browser from the otpauth address (qrcode package) and keeps the key as a fallback.
           | Left: Deploy, then scan it with your phone app on the live site. Type-checked only.
-    - [not started] Sign in with Google {S-45}
-          | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
-          | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
+    - [in progress] Sign in with Google {S-45}
+          | What: "Continue with Google" on the sign-in page, linked to the same account when the email already exists.
+          | Done: Built. The button starts on the server (/api/auth/google) and returns to /auth/callback; the session stays an httpOnly cookie. A brand-new Google account must pass the invite code when one is set, so Google is not a way around it. The old callback let a crafted `next` address send people to another site; that is fixed (only addresses on this site). 3 unit tests. The button stays a disabled placeholder until you switch it on.
+          | Left: Do the three steps in docs/GOOGLE_SIGNIN_SETUP.md (Google Cloud OAuth client, Supabase Google provider and redirect URL, Vercel NEXT_PUBLIC_GOOGLE_SIGNIN=true plus a redeploy), then try it by hand. Not tried with a real Google account.
     - [in progress] Keep each user's Notion token safely on the server {S-46}
           | What: On the tester site the Notion token was kept in memory only, so users pasted it each visit. It is now stored encrypted (AES-256-GCM, bound to the user), like the AI key.
           | Done: Migration 003_notion_token.sql; route /api/settings/notion-token (save with a check against Notion, replace, remove; the browser only sees the last four characters); the Notion export uses the saved token for a browser session only (an extension token cannot); the Settings Notion box and the Export box show "Saved: ••••1234" with Replace and Remove. Local mode is unchanged. 3 unit tests.
