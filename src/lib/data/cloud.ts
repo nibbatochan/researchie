@@ -237,6 +237,7 @@ export function makeCloud(db: Db) {
 
   return {
     ownsProject,
+    projectFamily,
     resolveProjectId,
     listProjects,
     createProject,

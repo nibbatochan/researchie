@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getProjectDocuments, getDocumentById, addDocument, deleteDocument } from '@/lib/data/sampleDocuments';
 import { ResearchDocument } from '@/lib/types/research';
 import { isCitationRecord } from '@/lib/citations/metadata.ts';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
-import { cloud } from '@/lib/data/cloudStore';
+import { store } from '@/lib/data/store';
 
 // Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
 const MAX_BODY_BYTES = 4_300_000;
@@ -27,28 +26,12 @@ export async function GET(request: Request) {
     const projectId = searchParams.get('projectId') || undefined;
     const documentId = searchParams.get('id') || undefined;
 
-    if (AUTH_REQUIRED) {
-      if (documentId) {
-        const doc = await cloud.getDocument(auth.user.id, documentId);
-        if (!doc) return NextResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
-        return NextResponse.json({ success: true, data: doc });
-      }
-      return NextResponse.json({ success: true, data: await cloud.listDocuments(auth.user.id, projectId) });
-    }
-
     if (documentId) {
-      const doc = getDocumentById(documentId);
-      if (!doc) {
-        return NextResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
-      }
+      const doc = await store.getDocument(auth.user.id, documentId);
+      if (!doc) return NextResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
       return NextResponse.json({ success: true, data: doc });
     }
-
-    const docs = getProjectDocuments(projectId);
-    return NextResponse.json({
-      success: true,
-      data: docs,
-    });
+    return NextResponse.json({ success: true, data: await store.listDocuments(auth.user.id, projectId) });
   } catch (error) {
     console.error('Failed to get documents:', error);
     return NextResponse.json({ success: false, error: 'Failed to retrieve documents' }, { status: 500 });
@@ -141,16 +124,10 @@ export async function POST(request: Request) {
       citation: isCitationRecord(citation) ? citation : undefined,
     };
 
-    if (AUTH_REQUIRED) {
-      const saved = await cloud.addDocument(auth.user.id, { ...newDoc, projectId: await cloud.resolveProjectId(auth.user.id, newDoc.projectId) });
-      if (!saved) return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
-      return NextResponse.json({ success: true, data: saved }, { status: 201 });
-    }
-
-    addDocument(newDoc);
-
+    const saved = await store.addDocument(auth.user.id, { ...newDoc, projectId: await store.resolveProjectId(auth.user.id, newDoc.projectId) });
+    if (!saved) return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
     return NextResponse.json(
-      { success: true, data: newDoc },
+      { success: true, data: saved },
       {
         status: 201,
         headers: {
@@ -182,13 +159,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: 'Document id is required' }, { status: 400 });
     }
 
-    if (AUTH_REQUIRED) {
-      const removed = await cloud.deleteDocument(auth.user.id, id);
-      return NextResponse.json({ success: removed, deleted: removed, id }, { status: removed ? 200 : 404 });
-    }
-
-    const deleted = deleteDocument(id);
-    return NextResponse.json({ success: true, deleted, id });
+    const removed = await store.deleteDocument(auth.user.id, id);
+    // Accounts on: a document that is not yours (or gone) is a 404. Local: deleting twice is still "done".
+    if (AUTH_REQUIRED) return NextResponse.json({ success: removed, deleted: removed, id }, { status: removed ? 200 : 404 });
+    return NextResponse.json({ success: true, deleted: removed, id });
   } catch (error) {
     console.error('Failed to delete document:', error);
     return NextResponse.json({ success: false, error: 'Failed to delete document' }, { status: 500 });

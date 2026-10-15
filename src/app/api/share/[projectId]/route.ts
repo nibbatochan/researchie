@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getLocalProjects, getLocalAtoms } from '@/lib/data/researchStore';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
-import { cloud } from '@/lib/data/cloudStore';
+import { store } from '@/lib/data/store';
 
 export async function GET(
   request: Request,
@@ -11,95 +9,16 @@ export async function GET(
   try {
     const { projectId } = await context.params;
 
-    if (AUTH_REQUIRED) {
-      // Sharing between accounts is not built yet, so only the owner can open a project's page.
-      const auth = await authorize(request);
-      if (auth.response) return auth.response;
-      const project = (await cloud.listProjects(auth.user.id)).find((p) => p.id === projectId);
-      if (!project) {
-        return NextResponse.json({ success: false, error: 'Research stream not found or is private' }, { status: 404 });
-      }
-      const atoms = await cloud.listAtoms(auth.user.id, projectId);
-      return NextResponse.json({ success: true, data: { project, atoms } });
-    }
-
-    // 1. Fetch project metadata
-    let project = null;
-    let atoms: any[] = [];
-
-    // Try Supabase first if configured
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const { data: projData } = await supabaseAdmin
-        .from('projects')
-        .select('*')
-        .eq('id', projectId)
-        .single();
-
-      if (projData) {
-        project = {
-          id: projData.id,
-          userId: projData.user_id,
-          title: projData.title,
-          description: projData.description,
-          color: projData.color,
-          tags: projData.tags || [],
-          atomCount: projData.atom_count || 0,
-          sharing: projData.sharing || {
-            isPublic: true,
-            allowGuestComments: true,
-            allowDuplication: true,
-            collaborators: [],
-          },
-          createdAt: projData.created_at,
-          updatedAt: projData.updated_at,
-        };
-
-        const { data: atomData } = await supabaseAdmin
-          .from('atoms')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('captured_at', { ascending: false });
-
-        if (atomData) {
-          atoms = atomData.map((a) => ({
-            id: a.id,
-            projectId: a.project_id,
-            type: a.type,
-            title: a.title,
-            content: a.content || {},
-            metadata: a.metadata || {},
-            visualSnapshot: a.visual_snapshot,
-            tags: a.tags || [],
-            userNotes: a.user_notes,
-            capturedAt: a.captured_at,
-          }));
-        }
-      }
-    }
-
-    // Fallback to local store if not in Supabase
+    // Sharing between accounts is not built yet, so only the owner can open a project's page. (With accounts
+    // off, the one local user owns everything.)
+    const auth = await authorize(request);
+    if (auth.response) return auth.response;
+    const project = (await store.listProjects(auth.user.id)).find((p) => p.id === projectId);
     if (!project) {
-      const localProjects = getLocalProjects();
-      project = localProjects.find((p) => p.id === projectId);
-      if (project) {
-        atoms = getLocalAtoms(projectId);
-      }
+      return NextResponse.json({ success: false, error: 'Research stream not found or is private' }, { status: 404 });
     }
-
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Research stream not found or is private' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        project,
-        atoms,
-      },
-    });
+    const atoms = await store.listAtoms(auth.user.id, projectId);
+    return NextResponse.json({ success: true, data: { project, atoms } });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'Failed to load shared stream' },

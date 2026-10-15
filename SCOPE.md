@@ -141,8 +141,11 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Deleting a project with "keep clips" moves its clips and documents to another project first.
           | Done: The server moves them in the same request that deletes. The app picks the parent, another project, or a new "Unfiled clips" project. Sub-projects are deleted on the server too.
           | Notes: v1.9.1. Unit tests and e2e 19. Local mode moves clips but not documents.
-    - [not started] Use one code path for data {S-49}
-          | What: The server picks between the old local file store and Supabase depending on AUTH_REQUIRED. Remove the old path so each route has one.
+    - [done] Use one code path for data {S-49}
+          | What: The server picked between the old local file store and Supabase in every route, and the local branch also copied everything into the old Supabase project.
+          | Decided: One interface (store.ts) with two plugs, Supabase per user and local files. Local mode now touches only local files and never writes to Supabase (you chose this).
+          | Done: Atoms, projects, documents, search, rebuild-context and share all call `store`. Decision 22. The old pgvector search call and the local mirror are removed. 16 clips that lived only in the old Supabase project no longer show locally; they are untouched there.
+          | Notes: Browser suite and unit tests re-run against it.
     - [in progress] Review the npm security warnings {S-50}
           | What: npm audit reports 12 findings (down from 13). The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tools.
           | Left: Decide after the demo whether to upgrade.

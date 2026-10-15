@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { AUTH_REQUIRED } from '@/lib/auth/server';
 
 export interface StorageResult {
   url: string;
@@ -10,6 +11,10 @@ export async function uploadAsset(
   fileName: string,
   contentType: string = 'image/png'
 ): Promise<StorageResult> {
+  // Local development keeps the picture inside the clip. Only the accounts deployment tries a Supabase bucket,
+  // so local use never writes to a Supabase project.
+  if (!AUTH_REQUIRED) return { url: base64Data, storageProvider: 'data_url' };
+
   // If Supabase is available, attempt upload to research-assets bucket
   try {
     const buffer = Buffer.from(

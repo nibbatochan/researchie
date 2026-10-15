@@ -1,11 +1,9 @@
 import { NextResponse, after } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
-import { cloud } from '@/lib/data/cloudStore';
+import { store, STORE_SOURCE } from '@/lib/data/store';
 
 // Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
 const MAX_BODY_BYTES = 4_300_000;
-import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getLocalProjects, getLocalAtoms, addLocalAtom, updateLocalAtom, deleteLocalAtom } from '@/lib/data/researchStore';
 import { generateTextFragment } from '@/lib/utils/textFragments';
 import { uploadAsset } from '@/lib/storage/service';
 import { generateEmbedding } from '@/lib/ai/embeddings';
@@ -31,64 +29,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') || undefined;
-
-    if (AUTH_REQUIRED) {
-      const data = await cloud.listAtoms(auth.user.id, projectId);
-      return NextResponse.json({ success: true, source: 'supabase', data });
-    }
-
-    // Try Supabase first
-    try {
-      let query = supabaseAdmin.from('atoms').select('*').order('captured_at', { ascending: false });
-      if (projectId && projectId !== 'all') {
-        const localProjects = getLocalProjects();
-        const childrenIds = localProjects.filter((cp) => cp.parentId === projectId).map((cp) => cp.id);
-        const targetProjectIds = [projectId, ...childrenIds];
-        query = query.in('project_id', targetProjectIds);
-      }
-      const { data, error } = await query;
-      if (!error && data) {
-        const local = getLocalAtoms(projectId);
-        const dbAtoms = data.map((a) => ({
-          id: a.id,
-          projectId: a.project_id,
-          userId: a.user_id,
-          type: a.type,
-          title: a.title,
-          content: a.content || {},
-          metadata: a.metadata || {},
-          tags: a.tags || [],
-          userNotes: a.user_notes || '',
-          capturedAt: a.captured_at,
-        }));
-
-        const missingLocal = local.filter((la) => !dbAtoms.some((da) => da.id === la.id));
-        const combined = [...missingLocal, ...dbAtoms];
-
-        return NextResponse.json({
-          success: true,
-          source: 'supabase_merged',
-          data: combined,
-        });
-      }
-    } catch {
-      // Fallback
-    }
-
-    // Fallback to local store
-    const local = getLocalAtoms(projectId);
-    return NextResponse.json({
-      success: true,
-      source: 'local_store',
-      data: local,
-    });
+    const data = await store.listAtoms(auth.user.id, projectId);
+    return NextResponse.json({ success: true, source: STORE_SOURCE, data });
   } catch (error) {
-    const local = getLocalAtoms();
-    return NextResponse.json({
-      success: true,
-      source: 'local_store',
-      data: local,
-    });
+    console.error('GET /api/atoms error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to load clips' }, { status: 500 });
   }
 }
 
@@ -218,113 +163,29 @@ export async function POST(request: Request) {
       userNotes: body.userNotes || '',
     };
 
-    const atomId = newAtomPayload.id;
-
-    if (AUTH_REQUIRED) {
-      // Tester deployment: the clip belongs to the signed-in user and goes straight to Supabase.
-      const saved = await cloud.insertAtom(auth.user.id, {
-        ...newAtomPayload,
-        userId: auth.user.id,
-        projectId: await cloud.resolveProjectId(auth.user.id, newAtomPayload.projectId),
-      } as any);
-      if (!saved) {
-        return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
-      }
-      if (saved.type === 'image' && finalImageUrl) {
-        // after() keeps the function alive for the OCR once the response is sent (a plain background promise is cut off on Vercel).
-        after(async () => {
-          try {
-            const { extractTextFromImage } = await import('@/lib/ocr/ocrService');
-            const { text, confidence } = await extractTextFromImage(finalImageUrl);
-            if (text) {
-              await cloud.updateAtom(auth.user.id, saved.id, { content: { ...saved.content, ocrText: text, ocrConfidence: confidence } });
-            }
-          } catch (err) {
-            console.error('Background OCR failed');
-          }
-        });
-      }
-      return NextResponse.json({ success: true, source: 'supabase', data: saved }, { status: 201 });
+    const saved = await store.insertAtom(auth.user.id, {
+      ...newAtomPayload,
+      userId: auth.user.id,
+      projectId: await store.resolveProjectId(auth.user.id, newAtomPayload.projectId),
+    } as any);
+    if (!saved) {
+      return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
     }
-
-    // Always keep local store in sync
-    const local = addLocalAtom(newAtomPayload);
-
-    // Background OCR for images
-    if (newAtomPayload.type === 'image' && finalImageUrl) {
-      (async () => {
+    if (saved.type === 'image' && finalImageUrl) {
+      // after() keeps the function alive for the OCR once the response is sent (a plain background promise is cut off on Vercel).
+      after(async () => {
         try {
           const { extractTextFromImage } = await import('@/lib/ocr/ocrService');
-          // If finalImageUrl is a relative URL (e.g. from local storage), we might need an absolute URL
-          // But extractTextFromImage handles base64 and absolute URLs. Assuming finalImageUrl is absolute if uploaded,
-          // or base64 if not uploaded.
           const { text, confidence } = await extractTextFromImage(finalImageUrl);
           if (text) {
-             const updatedContent = { ...newAtomPayload.content, ocrText: text, ocrConfidence: confidence };
-             
-             // Update local store
-             updateLocalAtom(atomId, { content: updatedContent } as any);
-
-             // Update Supabase
-             await supabaseAdmin.from('atoms').update({ content: updatedContent }).eq('id', atomId);
+            await store.updateAtom(auth.user.id, saved.id, { content: { ...saved.content, ocrText: text, ocrConfidence: confidence } });
           }
         } catch (err) {
-          console.error('Background OCR failed:', err);
+          console.error('Background OCR failed');
         }
-      })();
+      });
     }
-
-    // Try Supabase insert
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('atoms')
-        .insert({
-          id: atomId,
-          project_id: newAtomPayload.projectId,
-          type: newAtomPayload.type,
-          title: newAtomPayload.title,
-          content: newAtomPayload.content,
-          metadata: newAtomPayload.metadata,
-          tags: newAtomPayload.tags,
-          user_notes: newAtomPayload.userNotes,
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        return NextResponse.json(
-          {
-            success: true,
-            source: 'supabase',
-            data: {
-              id: data.id,
-              projectId: data.project_id,
-              userId: data.user_id,
-              type: data.type,
-              title: data.title,
-              content: data.content,
-              metadata: data.metadata,
-              tags: data.tags,
-              userNotes: data.user_notes,
-              capturedAt: data.captured_at,
-            },
-          },
-          { status: 201 }
-        );
-      }
-    } catch (err: any) {
-      console.warn('Supabase atom insert exception:', err?.message);
-    }
-
-    // Return locally created atom
-    return NextResponse.json(
-      {
-        success: true,
-        source: 'local_store',
-        data: local,
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, source: STORE_SOURCE, data: saved }, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/atoms error:', error);
     return NextResponse.json(
@@ -360,97 +221,22 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (AUTH_REQUIRED) {
-      const current = await cloud.getAtom(auth.user.id, body.id);
-      if (!current) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
-      const updateData: Record<string, any> = {};
-      if (body.tags !== undefined) updateData.tags = body.tags;
-      if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
-      if (body.title !== undefined) updateData.title = body.title;
-      if (body.citation !== undefined || body.pinned !== undefined) {
-        let metadata: any = current.metadata;
-        if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
-        if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
-        updateData.metadata = metadata;
-      }
-      const updated = Object.keys(updateData).length ? await cloud.updateAtom(auth.user.id, body.id, updateData) : current;
-      if (!updated) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
-      return NextResponse.json({ success: true, source: 'supabase', data: updated });
+    const current = await store.getAtom(auth.user.id, body.id);
+    if (!current) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+    const updateData: Record<string, any> = {};
+    if (body.tags !== undefined) updateData.tags = body.tags;
+    if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.citation !== undefined || body.pinned !== undefined) {
+      // Citation and pin both live in the metadata JSON, so each change is applied to what is there now.
+      let metadata: any = current.metadata;
+      if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
+      if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
+      updateData.metadata = metadata;
     }
-
-    // Try Supabase update first
-    try {
-      const updateData: Record<string, any> = {};
-      if (body.tags !== undefined) updateData.tags = body.tags;
-      if (body.userNotes !== undefined) updateData.user_notes = body.userNotes;
-      if (body.title !== undefined) updateData.title = body.title;
-      if (body.citation !== undefined || body.pinned !== undefined) {
-        // Citation and pin both live in the metadata JSON, so read it once and apply each change to it.
-        const { data: current } = await supabaseAdmin.from('atoms').select('metadata').eq('id', body.id).single();
-        let metadata = current?.metadata;
-        if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
-        if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
-        updateData.metadata = metadata;
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('atoms')
-        .update(updateData)
-        .eq('id', body.id)
-        .select()
-        .single();
-
-      if (!error && data) {
-        return NextResponse.json({
-          success: true,
-          source: 'supabase',
-          data: {
-            id: data.id,
-            projectId: data.project_id,
-            userId: data.user_id,
-            type: data.type,
-            title: data.title,
-            content: data.content,
-            metadata: data.metadata,
-            tags: data.tags || [],
-            userNotes: data.user_notes || '',
-            capturedAt: data.captured_at,
-          },
-        });
-      }
-    } catch {
-      // Fallback to local store
-    }
-
-    const current = getLocalAtoms().find((atom) => atom.id === body.id);
-    const updated = updateLocalAtom(body.id, {
-      tags: body.tags,
-      userNotes: body.userNotes,
-      title: body.title,
-      ...((body.citation !== undefined || body.pinned !== undefined) && current
-        ? {
-            metadata: (() => {
-              let metadata = current.metadata;
-              if (body.citation !== undefined) metadata = withCitation(metadata, body.citation);
-              if (body.pinned !== undefined) metadata = withPinned(metadata, body.pinned);
-              return metadata;
-            })(),
-          }
-        : {}),
-    });
-
-    if (!updated) {
-      return NextResponse.json(
-        { success: false, error: 'Atom not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      source: 'local_store',
-      data: updated,
-    });
+    const updated = Object.keys(updateData).length ? await store.updateAtom(auth.user.id, body.id, updateData) : current;
+    if (!updated) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+    return NextResponse.json({ success: true, source: STORE_SOURCE, data: updated });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to update atom' },
@@ -473,25 +259,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (AUTH_REQUIRED) {
-      const removed = await cloud.deleteAtom(auth.user.id, id);
-      if (!removed) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
-      return NextResponse.json({ success: true, message: 'Atom removed successfully' });
-    }
-
-    // Try Supabase delete
-    try {
-      await supabaseAdmin.from('atoms').delete().eq('id', id);
-    } catch {
-      // Continue
-    }
-
-    deleteLocalAtom(id);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Atom removed successfully',
-    });
+    const removed = await store.deleteAtom(auth.user.id, id);
+    if (!removed) return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
+    return NextResponse.json({ success: true, message: 'Atom removed successfully' });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to delete atom' },

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
-import { cloud } from '@/lib/data/cloudStore';
-import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getLocalAtoms } from '@/lib/data/researchStore';
+import { authorize } from '@/lib/auth/server';
+import { store } from '@/lib/data/store';
 import { generateEmbedding, cosineSimilarity } from '@/lib/ai/embeddings';
 
 export async function OPTIONS() {
@@ -33,90 +31,9 @@ export async function POST(request: Request) {
     // 1. Generate 768-d embedding for search query
     const queryVector = await generateEmbedding(query);
 
-    // 2. Try Supabase pgvector RPC. Not in the tester deployment: match_atoms is not scoped to a user.
-    if (!AUTH_REQUIRED) try {
-      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('match_atoms', {
-        query_embedding: queryVector,
-        match_threshold: threshold,
-        match_count: limit,
-        p_project_id: projectId || null,
-      });
-
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        return NextResponse.json({
-          success: true,
-          source: 'supabase_pgvector',
-          query,
-          results: rpcData.map((a: any) => ({
-            id: a.id,
-            projectId: a.project_id,
-            type: a.type,
-            title: a.title,
-            content: a.content || {},
-            metadata: a.metadata || {},
-            tags: a.tags || [],
-            userNotes: a.user_notes || '',
-            capturedAt: a.captured_at,
-            similarity: a.similarity,
-          })),
-        });
-      }
-    } catch {
-      // Fallback
-    }
-
-    // 3. Fallback: Fetch atoms and compute in-memory cosine similarity + lexical matching
-    let allAtoms: any[] = [];
-    if (AUTH_REQUIRED) {
-      allAtoms = (await cloud.listAtoms(auth.user.id, projectId || undefined)).map((a) => ({ ...a, embedding: null }));
-    } else try {
-      let q = supabaseAdmin.from('atoms').select('*');
-      if (projectId) q = q.eq('project_id', projectId);
-      const { data, error } = await q;
-      if (!error && data) {
-        allAtoms = data.map((a) => {
-          let parsedTags: string[] = [];
-          if (Array.isArray(a.tags)) {
-            parsedTags = a.tags;
-          } else if (typeof a.tags === 'string') {
-            parsedTags = a.tags.split(/[\s,]+/).filter(Boolean);
-          }
-
-          let parsedEmbedding: number[] | null = null;
-          if (Array.isArray(a.embedding) && a.embedding.length === 768) {
-            parsedEmbedding = a.embedding;
-          } else if (typeof a.embedding === 'string') {
-            try {
-              const parsed = JSON.parse(a.embedding);
-              if (Array.isArray(parsed) && parsed.length === 768) {
-                parsedEmbedding = parsed;
-              }
-            } catch {}
-          }
-
-          return {
-            id: a.id,
-            projectId: a.project_id,
-            type: a.type,
-            title: a.title,
-            content: a.content || {},
-            metadata: a.metadata || {},
-            tags: parsedTags,
-            userNotes: a.user_notes || '',
-            capturedAt: a.captured_at,
-            embedding: parsedEmbedding,
-          };
-        });
-      }
-    } catch {
-      // local store fallback
-    }
-
-    if (!AUTH_REQUIRED) {
-      const local = getLocalAtoms(projectId);
-      const missingLocal = local.filter((la) => !allAtoms.some((da) => da.id === la.id));
-      allAtoms = [...allAtoms, ...missingLocal];
-    }
+    // 2. Fetch the user's clips and score them in memory: cosine similarity plus a lexical boost. (An earlier
+    // version asked Supabase's pgvector for matches first; that was not scoped to a user and is gone.)
+    const allAtoms: any[] = (await store.listAtoms(auth.user.id, projectId || undefined)).map((a) => ({ ...a, embedding: null }));
 
     const STOP_WORDS = new Set([
       'a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'when', 'at', 'by',

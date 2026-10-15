@@ -1,5 +1,12 @@
 # Version Changelog
 
+## [v1.9.8] — 2026-10-16 (One data layer; local mode no longer writes to Supabase)
+### Changed
+- **One data path.** `src/lib/data/store.ts` is the single interface the routes use for projects, clips and documents. Supabase (per user) and the local files are two implementations of it (`cloud.ts`, `localStore.ts`). Atoms, projects, documents, search, rebuild-context and share are all switched over; the `if (AUTH_REQUIRED)` branches are gone from them.
+- **Local mode touches only local files.** It used to copy every project, clip and delete into the Supabase project named in `.env.local` (the old project) and merge its rows into every list. It no longer does, and local image uploads stay inside the clip instead of going to a Supabase bucket. The pgvector search call is removed (search scores clips in memory, as the tester site already did). Clips that existed only in the old project (16 here) no longer show locally; they are untouched there.
+- Deleting a project with "keep clips" into one of its own sub-projects now answers 400 on the accounts site too (it was 404).
+- Decision 22 in `docs/DECISIONS.md`.
+
 ## [v1.9.7] — 2026-10-16 (Notion token saved in the account)
 ### Added
 - **Notion token kept on the server** (tester deployment). Settings -> Notion and the Export box now save the token once, encrypted (AES-256-GCM, bound to the user id) in the new `user_notion_tokens` table; they show "Saved: ••••1234" with Replace and Remove. The token is checked with Notion before it is saved (only a clear "rejected" stops the save). The browser never gets it back.

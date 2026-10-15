@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
-import { cloud } from '@/lib/data/cloudStore';
+import { store } from '@/lib/data/store';
 import { isPublicHttpUrl } from '@/lib/security/publicUrl';
-import { getLocalAtoms, updateLocalAtom } from '@/lib/data/researchStore';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   const auth = await authorize(req);
@@ -16,30 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'atomId is required' }, { status: 400 });
     }
 
-    // Retrieve target atom from local store or Supabase
-    let atom: any = AUTH_REQUIRED ? await cloud.getAtom(auth.user.id, atomId) : getLocalAtoms().find((a) => a.id === atomId);
-
-    if (!AUTH_REQUIRED && supabaseAdmin && (!atom || !atom.content)) {
-      try {
-        const { data } = await supabaseAdmin
-          .from('atoms')
-          .select('*')
-          .eq('id', atomId)
-          .single();
-        if (data) {
-          atom = {
-            id: data.id,
-            projectId: data.project_id,
-            type: data.type,
-            title: data.title,
-            content: data.content,
-            metadata: data.metadata,
-            tags: data.tags,
-            capturedAt: data.captured_at,
-          } as any;
-        }
-      } catch {}
-    }
+    const atom: any = await store.getAtom(auth.user.id, atomId);
 
     if (!atom) {
       return NextResponse.json({ success: false, error: 'Atom not found' }, { status: 404 });
@@ -126,20 +101,7 @@ export async function POST(req: NextRequest) {
       contextRebuiltAt: new Date().toISOString(),
     };
 
-    if (AUTH_REQUIRED) {
-      await cloud.updateAtom(auth.user.id, atomId, { metadata: updatedMetadata });
-    } else {
-      updateLocalAtom(atomId, { metadata: updatedMetadata });
-    }
-
-    if (!AUTH_REQUIRED && supabaseAdmin) {
-      try {
-        await supabaseAdmin
-          .from('atoms')
-          .update({ metadata: updatedMetadata })
-          .eq('id', atomId);
-      } catch {}
-    }
+    await store.updateAtom(auth.user.id, atomId, { metadata: updatedMetadata });
 
     return NextResponse.json({
       success: true,

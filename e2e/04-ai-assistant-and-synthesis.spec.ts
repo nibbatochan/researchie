@@ -5,7 +5,11 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
     // If on dashboard landing hub, click into workspace feed that has clips
-    const cardOrItem = page.locator('[data-testid="project-card"]:has-text("clips"), [data-testid="subproject-card"]:has-text("clips"), [data-testid="project-card"]').first();
+    const cardOrItem = page
+      .locator('[data-testid="project-card"], [data-testid="subproject-card"]')
+      .filter({ hasText: /clips/ })
+      .filter({ hasNotText: /\b0 clips/ })
+      .first();
     await cardOrItem.waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
     if (await cardOrItem.isVisible()) {
       await cardOrItem.click();
