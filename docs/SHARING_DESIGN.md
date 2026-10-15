@@ -1,6 +1,6 @@
 # Sharing a project with other accounts: design (S-54)
 
-Status: approved 2026-10-16. Steps 1 and 2 are built (data and permissions, the Share dialog); steps 3 (links) and 4 (access requests) are not. Research behind it: `docs/research/auth-and-sharing.md`.
+Status: approved 2026-10-16. All four steps are built (data and permissions, the Share dialog, links, access requests). Steps 1 to 4 are checked by unit tests only; none has been tried with two real accounts yet. Research behind it: `docs/research/auth-and-sharing.md`.
 
 ## What the user gets
 

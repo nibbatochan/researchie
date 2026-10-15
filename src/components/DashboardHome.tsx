@@ -391,6 +391,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                             title={`Share ${mainProj.title}`}
                           >
                             <ShareNetwork size={14} />
+                            {mainProj.pendingRequests ? (
+                              <span className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-[#325FEC] text-white text-[10px] leading-4 text-center align-middle" title="People waiting for access">{mainProj.pendingRequests}</span>
+                            ) : null}
                           </button>
                         )}
 

@@ -33,6 +33,13 @@ export default function PublicSharePage() {
   const [atoms, setAtoms] = useState<ResearchAtom[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // An edit link opened while signed out: the person is asked to sign in first and comes back here.
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  // A signed-in person opened a project they cannot see: they can ask the owner for access.
+  const [noAccess, setNoAccess] = useState<null | { request: 'none' | 'pending' | 'denied' }>(null);
+  const [askMessage, setAskMessage] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -47,11 +54,24 @@ export default function PublicSharePage() {
     const fetchSharedData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/share/${encodeURIComponent(projectId)}`);
-        if (!res.ok) {
-          throw new Error('This research stream is private or does not exist.');
+        const res = await fetch(`/api/share/${encodeURIComponent(projectId)}`, { credentials: 'same-origin' });
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 401 && json.code === 'SIGN_IN_REQUIRED') {
+          setNeedsSignIn(true);
+          return;
         }
-        const json = await res.json();
+        if (res.status === 403 && json.code === 'NO_ACCESS') {
+          setNoAccess({ request: json.request || 'none' });
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(json.error || 'This research stream is private or does not exist.');
+        }
+        if (json.joined) {
+          // An edit link: the person is now an editor, so the project is in their app under "Shared with me".
+          router.replace('/');
+          return;
+        }
         if (json.data) {
           setProject(json.data.project);
           setAtoms(json.data.atoms || []);
@@ -143,6 +163,92 @@ export default function PublicSharePage() {
           <Sparkle size={24} weight="fill" />
         </div>
         <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">Loading research stream...</p>
+      </div>
+    );
+  }
+
+  async function requestAccess() {
+    setAsking(true);
+    setAskError(null);
+    try {
+      const res = await fetch(`/api/share/${encodeURIComponent(projectId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'request-access', message: askMessage }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not send the request.');
+      if (json.already) {
+        router.replace('/');
+        return;
+      }
+      setNoAccess({ request: 'pending' });
+    } catch (e: any) {
+      setAskError(e.message || 'Could not send the request.');
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  if (noAccess) {
+    const pending = noAccess.request === 'pending';
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 shadow-xl space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 text-[#325FEC] flex items-center justify-center mx-auto">
+            <UsersThree size={24} />
+          </div>
+          <h1 className="font-display font-bold text-lg">You need access</h1>
+          {pending ? (
+            <p className="text-xs text-slate-500 dark:text-zinc-400">Your request was sent. When the owner approves it, the project appears under “Shared with me” in your workspace. No email is sent, so check back later.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                {noAccess.request === 'denied' ? 'Your last request was declined. You can ask again.' : 'This project is private. You can ask the owner to let you in.'}
+              </p>
+              <textarea
+                value={askMessage}
+                onChange={(e) => setAskMessage(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Add a short message (optional)"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-[#18181B] outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {askError && <p className="text-xs text-red-600 dark:text-red-400">{askError}</p>}
+              <button
+                type="button"
+                disabled={asking}
+                onClick={() => void requestAccess()}
+                className="inline-flex items-center px-4 py-2 bg-[#325FEC] disabled:opacity-50 text-white rounded-xl text-xs font-medium hover:bg-[#274AC4] transition-all cursor-pointer"
+              >
+                {asking ? 'Sending…' : 'Request access'}
+              </button>
+            </>
+          )}
+          <div>
+            <Link href="/" className="text-xs text-slate-500 dark:text-zinc-400 hover:underline">Back to my workspace</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsSignIn) {
+    const next = encodeURIComponent(`/share/${projectId}`);
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 shadow-xl space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 text-[#325FEC] flex items-center justify-center mx-auto">
+            <UsersThree size={24} />
+          </div>
+          <h1 className="font-display font-bold text-lg">Sign in to open this project</h1>
+          <p className="text-xs text-slate-500 dark:text-zinc-400">This link lets you edit, so it needs an account. After you sign in you come straight back and the project is added to your workspace.</p>
+          <div className="flex items-center justify-center gap-2">
+            <Link href={`/login?next=${next}`} className="inline-flex items-center px-4 py-2 bg-[#325FEC] text-white rounded-xl text-xs font-medium hover:bg-[#274AC4] transition-all">Sign in</Link>
+            <Link href={`/login?tab=register&next=${next}`} className="inline-flex items-center px-4 py-2 border border-slate-200 dark:border-zinc-700 rounded-xl text-xs font-medium hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all">Create an account</Link>
+          </div>
+        </div>
       </div>
     );
   }

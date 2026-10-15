@@ -56,7 +56,7 @@ export default function DashboardPage() {
           setProjects((prev) => {
             if (
               prev.length === json.data.length &&
-              prev.every((p, idx) => p.id === json.data[idx]?.id && p.atomCount === json.data[idx]?.atomCount && p.title === json.data[idx]?.title && p.role === json.data[idx]?.role)
+              prev.every((p, idx) => p.id === json.data[idx]?.id && p.atomCount === json.data[idx]?.atomCount && p.title === json.data[idx]?.title && p.role === json.data[idx]?.role && p.pendingRequests === json.data[idx]?.pendingRequests)
             ) {
               return prev;
             }

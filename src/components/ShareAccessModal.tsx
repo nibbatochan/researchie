@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, UserPlus, UsersThree, EnvelopeSimple, SignOut } from '@phosphor-icons/react';
+import { X, UserPlus, UsersThree, EnvelopeSimple, SignOut, LinkSimple, Copy, Check } from '@phosphor-icons/react';
 import type { ResearchProject } from '@/lib/types/research';
 
 // Share (accounts deployment only, S-54). People with access, their roles, invitations, and who can change them.
@@ -23,7 +23,14 @@ interface PendingInvite {
   role: 'editor' | 'viewer';
   createdAt: string;
 }
+interface AccessRequest extends Person {
+  id: string;
+  message: string;
+  createdAt: string;
+}
 interface Access {
+  requests: AccessRequest[];
+  link: { role: 'editor' | 'viewer'; createdAt: string } | null;
   role: Role;
   owner: Person;
   members: Member[];
@@ -52,6 +59,12 @@ export const ShareAccessModal: React.FC<{
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('viewer');
   const [busy, setBusy] = useState(false);
+  // The link secret is shown once, right after it is made; only its hash is kept.
+  const [newLink, setNewLink] = useState<string | null>(null);
+  const [linkRole, setLinkRole] = useState<'editor' | 'viewer'>('viewer');
+  const [copied, setCopied] = useState(false);
+  // The role each waiting request would get if approved (viewer unless the owner picks editor).
+  const [askRole, setAskRole] = useState<Record<string, 'editor' | 'viewer'>>({});
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const projectId = project?.id;
@@ -75,6 +88,7 @@ export const ShareAccessModal: React.FC<{
     setAccess(null);
     setMessage(null);
     setEmail('');
+    setNewLink(null);
     void load();
   }, [isOpen, load]);
 
@@ -171,6 +185,114 @@ export const ShareAccessModal: React.FC<{
               <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                 You have <b>{ROLE_NOTE[access.role].toLowerCase()}</b> access. Only the owner can change who else has it.
               </p>
+            )}
+
+            {/* Requests (owner only) */}
+            {isOwner && access.requests.length > 0 && (
+              <div>
+                <div className="text-[10px] font-semibold tracking-wide text-slate-500 dark:text-zinc-400 uppercase mb-1">Asking for access</div>
+                <ul>
+                  {access.requests.map((r) => (
+                    <li key={r.id} className={`${row} flex-wrap`} data-testid="share-request">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-[#0F172A] dark:text-white truncate">{r.name}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">{r.email}</div>
+                        {r.message && <div className="text-[11px] text-slate-600 dark:text-zinc-300 mt-0.5 break-words">“{r.message}”</div>}
+                      </div>
+                      <select
+                        value={askRole[r.id] ?? 'viewer'}
+                        onChange={(e) => setAskRole((prev) => ({ ...prev, [r.id]: e.target.value as 'editor' | 'viewer' }))}
+                        className={field}
+                        aria-label={`Role for ${r.email}`}
+                      >
+                        <option value="viewer">Can view</option>
+                        <option value="editor">Can edit</option>
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void act({ action: 'request-approve', requestId: r.id, role: askRole[r.id] ?? 'viewer' }, () => 'Approved. The project is under "Shared with me" for them.')}
+                        className="px-2.5 py-1 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white rounded-lg text-[11px] font-medium cursor-pointer"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void act({ action: 'request-deny', requestId: r.id }, () => 'Request denied.')}
+                        className="px-2.5 py-1 border border-[#CBD5E1] dark:border-[#3F3F46] rounded-lg text-[11px] text-slate-700 dark:text-zinc-300 cursor-pointer"
+                      >
+                        Deny
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Link (owner only) */}
+            {isOwner && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-medium text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <LinkSimple size={13} className="text-slate-500" />
+                  <span>Link</span>
+                </div>
+                {newLink ? (
+                  <div className="space-y-1">
+                    <code className="block p-1.5 rounded bg-[#F4F6F9] dark:bg-[#202024] font-mono text-[10px] text-slate-600 dark:text-zinc-400 break-all select-all" data-testid="share-link-url">{newLink}</code>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(newLink);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="inline-flex items-center gap-1 font-medium text-[#325FEC] dark:text-[#518FFF] cursor-pointer"
+                      >
+                        {copied ? <Check size={12} weight="bold" /> : <Copy size={12} />}
+                        {copied ? 'Copied' : 'Copy link'}
+                      </button>
+                      <span className="text-amber-700 dark:text-amber-300">Shown once. Copy it now.</span>
+                    </div>
+                  </div>
+                ) : null}
+                {access.link ? (
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
+                    <span>Link is on: {access.link.role === 'editor' ? 'anyone with it can edit (after signing in)' : 'anyone with it can view'}.</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void act({ action: 'link-revoke' }, () => { setNewLink(null); return 'Link turned off. It stops working at once.'; })}
+                      className="text-red-600 dark:text-red-400 cursor-pointer flex-shrink-0"
+                    >
+                      Turn off
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">Off. Only the people below can open this project.</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <select value={linkRole} onChange={(e) => setLinkRole(e.target.value as 'editor' | 'viewer')} className={field} aria-label="What the link allows">
+                    <option value="viewer">Anyone can view</option>
+                    <option value="editor">Signed-in people can edit</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void act({ action: 'link-create', role: linkRole }, (j) => {
+                        setNewLink(`${window.location.origin}/share/${j.token}`);
+                        setCopied(false);
+                        return access.link ? 'New link made. The old one no longer works.' : null;
+                      })
+                    }
+                    className="px-3 py-1.5 border border-[#CBD5E1] dark:border-[#3F3F46] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] rounded-lg text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
+                  >
+                    {access.link ? 'Make a new link' : 'Create link'}
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* People */}

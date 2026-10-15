@@ -632,6 +632,9 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             >
               <ShareNetwork size={13} className="text-slate-500 dark:text-zinc-400" />
               <span>Share</span>
+              {project?.pendingRequests ? (
+                <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#325FEC] text-white text-[10px] leading-4 text-center" title="People waiting for access">{project.pendingRequests}</span>
+              ) : null}
             </button>
           )}
 

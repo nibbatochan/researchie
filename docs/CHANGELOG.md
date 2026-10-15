@@ -1,5 +1,15 @@
 # Version Changelog
 
+## [v1.9.10] — 2026-10-16 (Share a project: links and access requests)
+Steps 3 and 4 of S-54. No new migration: the tables are in `004_sharing.sql`.
+
+### Added
+- **Share link** in the Share dialog (owner): one link at a time, either "anyone can view" or "signed-in people can edit". The secret (`shr_…`) is shown once, right after it is made, because only its hash is stored; making a new link or pressing Turn off stops the old one at once. A view link opens the project read-only for anyone, without signing in. An edit link asks the visitor to sign in (the sign-in page sends them back after login or sign-up), then makes them an editor and opens their workspace. The sign-in page only accepts a share link as its "next" address.
+- **Request access.** A signed-in person who opens a project they cannot see gets a "You need access" page with an optional message and a Request access button. The owner sees the request in the Share dialog with a role picker, Approve and Deny, and a count on the Share button. Approving adds the person at once; a denied person can ask again. One waiting request per person. No email is sent either way, and the page says so.
+
+### Tests
+- `tests/sharing.test.mjs` is now 23 cases (269 unit tests in all): link secrets and hashes, a turned-off link, read-only view, join by an edit link, request, approve, deny and ask again. None of this has been tried with two real accounts yet.
+
 ## [v1.9.9] — 2026-10-16 (Share a project: people and roles)
 Steps 1 and 2 of S-54. Design: `docs/SHARING_DESIGN.md`, Decision 23. Accounts deployment only.
 

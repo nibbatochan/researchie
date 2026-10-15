@@ -29,7 +29,7 @@ export async function GET(request: Request, ctx: Ctx) {
   return NextResponse.json({ success: true, data: result.access }, { headers: NO_STORE });
 }
 
-// One door for the owner's changes, chosen by `action`: invite, role, remove, cancel-invite.
+// One door for the owner's changes, chosen by `action`: invite, role, remove, cancel-invite, link-create, link-revoke, request-approve, request-deny.
 export async function POST(request: Request, ctx: Ctx) {
   if (!AUTH_REQUIRED) return off();
   const auth = await authorize(request, { allowToken: false });
@@ -48,6 +48,23 @@ export async function POST(request: Request, ctx: Ctx) {
     }
     case 'remove': {
       const r = await sharing.removeMember(auth.user.id, id, String(body.userId || ''));
+      return r.ok ? NextResponse.json({ success: true }, { headers: NO_STORE }) : failure(r);
+    }
+    case 'link-create': {
+      const r = await sharing.createLink(auth.user.id, id, body.role);
+      // The secret is shown once, here. Only its hash is kept.
+      return r.ok ? NextResponse.json({ success: true, token: r.token }, { headers: NO_STORE }) : failure(r);
+    }
+    case 'link-revoke': {
+      const r = await sharing.revokeLink(auth.user.id, id);
+      return r.ok ? NextResponse.json({ success: true }, { headers: NO_STORE }) : failure(r);
+    }
+    case 'request-approve': {
+      const r = await sharing.decideRequest(auth.user.id, id, String(body.requestId || ''), true, body.role);
+      return r.ok ? NextResponse.json({ success: true }, { headers: NO_STORE }) : failure(r);
+    }
+    case 'request-deny': {
+      const r = await sharing.decideRequest(auth.user.id, id, String(body.requestId || ''), false);
       return r.ok ? NextResponse.json({ success: true }, { headers: NO_STORE }) : failure(r);
     }
     case 'cancel-invite': {

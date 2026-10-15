@@ -68,13 +68,19 @@ function LoginContent() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // If already logged in, show status with continue button
+  // "Switch account" and share links open this page with where to go next. Only a share link address is accepted.
+  const goNext = () => {
+    const next = searchParams.get('next') || '';
+    router.push(/^\/share\/shr_[A-Za-z0-9_-]{10,100}$/.test(next) ? next : '/');
+  };
+
   const handleOAuth = async (provider: 'google') => {
     setIsLoading(true);
     setMessage(null);
     const res = await signInWithOAuth(provider);
     setIsLoading(false);
     if (res.success) {
-      router.push('/');
+      goNext();
     } else {
       setMessage({ text: res.message || 'OAuth sign in failed', type: 'error' });
     }
@@ -88,7 +94,7 @@ function LoginContent() {
     const res = await signInWithPassword(email, password);
     setIsLoading(false);
     if (res.success) {
-      router.push('/');
+      goNext();
     } else {
       setMessage({ text: res.message, type: 'error' });
     }
@@ -104,7 +110,7 @@ function LoginContent() {
     if (res.success && res.needsConfirmation) {
       setMessage({ text: res.message, type: 'success' });
     } else if (res.success) {
-      router.push('/');
+      goNext();
     } else {
       setMessage({ text: res.message, type: 'error' });
     }

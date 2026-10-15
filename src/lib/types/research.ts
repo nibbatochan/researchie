@@ -150,6 +150,8 @@ export interface ResearchProject {
   sharing?: ProjectSharingSettings;
   /** What the signed-in user may do here. Set on the accounts deployment; absent locally (everything is allowed). */
   role?: 'owner' | 'editor' | 'viewer';
+  /** For the owner: how many people have asked for access and are waiting. */
+  pendingRequests?: number;
   createdAt?: string;
   created_at?: string;
   updatedAt?: string;

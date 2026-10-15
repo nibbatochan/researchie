@@ -25,7 +25,16 @@ export async function GET(request: Request) {
       // an invitation that cannot be claimed now is tried again on the next load
     }
   }
-  const data = await store.listProjects(auth.user.id);
+  let data = await store.listProjects(auth.user.id);
+  // The owner sees how many people are waiting for access on each of their projects.
+  if (AUTH_REQUIRED && auth.user.via === 'cookie') {
+    try {
+      const waiting = await sharing.pendingRequestCounts(auth.user.id);
+      if (waiting.size > 0) data = data.map((p) => (waiting.has(p.id) ? { ...p, pendingRequests: waiting.get(p.id) } : p));
+    } catch {
+      // the count is a convenience
+    }
+  }
   return NextResponse.json({ success: true, source: STORE_SOURCE, data });
 }
 

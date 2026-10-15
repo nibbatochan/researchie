@@ -226,3 +226,123 @@ test('only people who can see a project can see who has access, and only the own
   assert.deepEqual(asViewer.invites, []);
   assert.equal((await sharing.listAccess(ALICE, project.id)).access.invites.length, 1);
 });
+
+// ── Share links ─────────────────────────────────────────────────────────────────
+
+test('a link is a long secret that is shown once; only its hash is kept; only the owner makes or turns it off', async () => {
+  const { sharing, project, db } = await setup();
+  const made = await sharing.createLink(ALICE, project.id, 'viewer');
+  assert.equal(made.ok, true);
+  assert.match(made.token, /^shr_[A-Za-z0-9_-]{30,}$/);
+  assert.equal(db.tables.share_links.length, 1);
+  assert.ok(!JSON.stringify(db.tables.share_links).includes(made.token), 'the secret itself is not stored');
+  assert.equal((await sharing.createLink(BOB, project.id, 'viewer')).code, 'NOT_ALLOWED');
+  assert.equal((await sharing.createLink(ALICE, project.id, 'owner')).code, 'BAD_ROLE');
+  assert.equal((await sharing.revokeLink(BOB, project.id)).code, 'NOT_ALLOWED');
+});
+
+test('turning a link off, or making a new one, stops the old one at once', async () => {
+  const { sharing, project } = await setup();
+  const first = (await sharing.createLink(ALICE, project.id, 'viewer')).token;
+  assert.equal((await sharing.resolveLink(first)).role, 'viewer');
+  const second = (await sharing.createLink(ALICE, project.id, 'editor')).token;
+  assert.equal(await sharing.resolveLink(first), null, 'the old link no longer works');
+  assert.equal((await sharing.resolveLink(second)).role, 'editor');
+  assert.equal((await sharing.revokeLink(ALICE, project.id)).ok, true);
+  assert.equal(await sharing.resolveLink(second), null);
+  for (const bad of ['', 'nope', 'shr_', null, undefined, 42, 'shr_' + 'x'.repeat(300)]) assert.equal(await sharing.resolveLink(bad), null);
+});
+
+test('a view link shows the project and its sub-projects read-only without signing in, and nothing else', async () => {
+  const { cloud, sharing, project, child } = await setup();
+  const other = (await cloud.listProjects(BOB))[0];
+  await cloud.insertAtom(ALICE, atom('a1', project.id));
+  await cloud.insertAtom(ALICE, atom('a2', child.id));
+  await cloud.insertAtom(BOB, atom('b1', other.id));
+  const token = (await sharing.createLink(ALICE, project.id, 'viewer')).token;
+  const shown = await sharing.readByLink(token);
+  assert.equal(shown.project.id, project.id);
+  assert.equal(shown.role, 'viewer');
+  assert.deepEqual(shown.atoms.map((a) => a.id).sort(), ['a1', 'a2']);
+  assert.equal(await sharing.readByLink('shr_notarealtoken0000000000000000000'), null);
+});
+
+test('an edit link makes a signed-in person an editor; a view link adds nobody; the owner is left alone', async () => {
+  const { cloud, sharing, project } = await setup();
+  const view = (await sharing.createLink(ALICE, project.id, 'viewer')).token;
+  assert.equal(await sharing.joinViaLink(CARA, view), null);
+  assert.equal(await cloud.roleOn(CARA, project.id), null);
+
+  const edit = (await sharing.createLink(ALICE, project.id, 'editor')).token;
+  assert.equal(await sharing.joinViaLink(CARA, edit), project.id);
+  assert.equal(await cloud.roleOn(CARA, project.id), 'editor');
+  assert.ok(await cloud.insertAtom(CARA, atom('c1', project.id)));
+  assert.equal(await sharing.joinViaLink(CARA, edit), project.id, 'opening it again changes nothing');
+  assert.equal((await sharing.listAccess(ALICE, project.id)).access.members.length, 1);
+  assert.equal(await sharing.joinViaLink(ALICE, edit), project.id);
+  assert.equal(await cloud.roleOn(ALICE, project.id), 'owner');
+
+  await sharing.revokeLink(ALICE, project.id);
+  assert.equal(await sharing.joinViaLink(BOB, edit), null, 'a turned-off link adds nobody');
+});
+
+test('only the owner sees that a link is on', async () => {
+  const { sharing, project } = await setup();
+  await sharing.invite(ALICE, project.id, 'bob@example.com', 'viewer');
+  assert.equal((await sharing.listAccess(ALICE, project.id)).access.link, null);
+  await sharing.createLink(ALICE, project.id, 'editor');
+  assert.equal((await sharing.listAccess(ALICE, project.id)).access.link.role, 'editor');
+  assert.equal((await sharing.listAccess(BOB, project.id)).access.link, null);
+});
+
+// ── Access requests ─────────────────────────────────────────────────────────────
+
+test('someone with no access can ask; the owner sees the request and a count; asking twice keeps one', async () => {
+  const { sharing, project } = await setup();
+  assert.deepEqual(await sharing.accessState(CARA, project.id), { exists: true, request: 'none' });
+  assert.deepEqual(await sharing.accessState(CARA, 'proj-missing'), { exists: false, request: 'none' });
+
+  const r = await sharing.requestAccess(CARA, project.id, '  Please let me in  ');
+  assert.deepEqual([r.ok, r.already], [true, false]);
+  assert.equal((await sharing.accessState(CARA, project.id)).request, 'pending');
+  await sharing.requestAccess(CARA, project.id, 'second try');
+
+  const asks = (await sharing.listAccess(ALICE, project.id)).access.requests;
+  assert.equal(asks.length, 1, 'one waiting request per person');
+  assert.deepEqual([asks[0].email, asks[0].message], ['cara@example.com', 'second try']);
+  assert.equal((await sharing.pendingRequestCounts(ALICE)).get(project.id), 1);
+  assert.equal((await sharing.pendingRequestCounts(BOB)).size, 0, 'only the owner has a count');
+});
+
+test('requests: messages are capped, missing projects fail, and people who already have access are told so', async () => {
+  const { sharing, project, db } = await setup();
+  await sharing.requestAccess(CARA, project.id, 'x'.repeat(900));
+  assert.equal(db.tables.access_requests[0].message.length, 500);
+  assert.equal((await sharing.requestAccess(CARA, 'proj-missing', 'hi')).code, 'NOT_FOUND');
+  await sharing.invite(ALICE, project.id, 'bob@example.com', 'viewer');
+  assert.equal((await sharing.requestAccess(BOB, project.id, 'hi')).already, true);
+  assert.equal(db.tables.access_requests.length, 1, 'no request is made for someone who already has access');
+});
+
+test('approving a request gives the chosen role at once; denying changes nothing and can be asked again', async () => {
+  const { cloud, sharing, project } = await setup();
+  await sharing.requestAccess(CARA, project.id, 'hi');
+  const id = (await sharing.listAccess(ALICE, project.id)).access.requests[0].id;
+  assert.equal(await cloud.roleOn(CARA, project.id), null);
+
+  assert.equal((await sharing.decideRequest(BOB, project.id, id, true, 'editor')).code, 'NOT_ALLOWED');
+  assert.equal((await sharing.decideRequest(ALICE, project.id, id, true, 'owner')).code, 'BAD_ROLE');
+  assert.equal((await sharing.decideRequest(ALICE, project.id, id, true, 'editor')).ok, true);
+  assert.equal(await cloud.roleOn(CARA, project.id), 'editor');
+  assert.deepEqual((await sharing.listAccess(ALICE, project.id)).access.requests, []);
+  assert.equal((await sharing.decideRequest(ALICE, project.id, id, true, 'viewer')).code, 'NOT_FOUND', 'a request is answered once');
+
+  await sharing.removeMember(ALICE, project.id, CARA);
+  await sharing.requestAccess(CARA, project.id, 'again');
+  const second = (await sharing.listAccess(ALICE, project.id)).access.requests[0].id;
+  assert.equal((await sharing.decideRequest(ALICE, project.id, second, false)).ok, true);
+  assert.equal(await cloud.roleOn(CARA, project.id), null);
+  assert.equal((await sharing.accessState(CARA, project.id)).request, 'denied');
+  await sharing.requestAccess(CARA, project.id, 'one more time');
+  assert.equal((await sharing.accessState(CARA, project.id)).request, 'pending', 'a denied person may ask again');
+});
