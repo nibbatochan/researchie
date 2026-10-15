@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorize } from '@/lib/auth/server';
+import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
+import { readStoredNotionToken } from '@/lib/notion/storedToken';
 import { formatProjectToNotionBlocks } from '@/lib/export/notion';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 
@@ -17,7 +18,19 @@ export async function POST(req: NextRequest) {
       incremental?: boolean;
     };
 
-    if (!apiKey || !apiKey.trim()) {
+    // On the tester site a token saved in the account is used when none is sent. Only a browser session may use
+    // it: a leaked extension token must not be able to push a project into someone else's Notion.
+    let notionKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+    if (!notionKey && AUTH_REQUIRED) {
+      if (auth.user.via !== 'cookie') {
+        return NextResponse.json({ error: 'Sign in on the website to export with your saved Notion token.' }, { status: 401 });
+      }
+      notionKey = (await readStoredNotionToken(auth.user.id)) || '';
+      if (!notionKey) {
+        return NextResponse.json({ error: 'Save your Notion token first (Settings, Notion, or in this box).' }, { status: 400 });
+      }
+    }
+    if (!notionKey) {
       return NextResponse.json(
         { error: 'Notion API Integration Token is required.' },
         { status: 400 }
@@ -51,7 +64,7 @@ export async function POST(req: NextRequest) {
     const allBlocks = formatProjectToNotionBlocks(project, atoms || []);
 
     const headers = {
-      'Authorization': `Bearer ${apiKey.trim()}`,
+      'Authorization': `Bearer ${notionKey}`,
       'Notion-Version': '2022-06-28',
       'Content-Type': 'application/json',
     };

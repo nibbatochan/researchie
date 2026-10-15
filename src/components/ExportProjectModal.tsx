@@ -31,6 +31,7 @@ import { formatProjectToNotionMarkdown } from '@/lib/export/notion';
 import { downloadFile } from '@/lib/export/download';
 import { PdfExportPanel } from './PdfExportPanel';
 import { FilePdf as FilePdfIcon } from '@phosphor-icons/react';
+import { NotionTokenField } from './NotionTokenField';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 
 interface ExportProjectModalProps {
@@ -149,6 +150,8 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
   const [notionSyncStats, setNotionSyncStats] = useState<{ appended: number; skipped: number; message?: string } | null>(null);
   const [notionError, setNotionError] = useState<string | null>(null);
   const [rememberNotionToken, setRememberNotionToken] = useState(true);
+  // Tester site: a token may already be saved in the account, so it is not asked for again (S-46).
+  const [savedNotionToken, setSavedNotionToken] = useState(false);
 
   const prefs = usePrefs();
   // Load saved export settings. The Notion token is a secret, so on the tester site it is never saved anywhere.
@@ -237,7 +240,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
 
   // Direct Push to Notion API
   const handlePushToNotion = async () => {
-    if (!notionApiKey.trim() || !notionPageId.trim()) {
+    if ((!notionApiKey.trim() && !savedNotionToken) || !notionPageId.trim()) {
       setNotionError('Please enter both your Notion Integration Token and Parent Page/Database ID.');
       return;
     }
@@ -248,7 +251,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
     setNotionSyncStats(null);
 
     if (rememberNotionToken && typeof window !== 'undefined') {
-      if (!prefs.inAccount) prefs.set('researchie_notion_api_key', notionApiKey.trim());
+      if (!prefs.inAccount && notionApiKey.trim()) prefs.set('researchie_notion_api_key', notionApiKey.trim());
       prefs.set('researchie_notion_page_id', notionPageId.trim());
     }
 
@@ -584,6 +587,9 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                       </span>
                     </div>
 
+                    {prefs.inAccount ? (
+                      <NotionTokenField onStatus={setSavedNotionToken} />
+                    ) : (
                     <div>
                       <label className="block text-[11px] font-medium text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
                         <Key size={13} className="text-slate-500" />
@@ -603,6 +609,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                         </a>
                       </span>
                     </div>
+                    )}
 
                     <div>
                       <label className="block text-[11px] font-medium text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-1.5">
@@ -641,13 +648,13 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                           onChange={(e) => setRememberNotionToken(e.target.checked)}
                           className="rounded border-[#CBD5E1] dark:border-[#3F3F46] text-[#325FEC]"
                         />
-                        <span>Remember credentials on this device</span>
+                        <span>{prefs.inAccount ? 'Remember the page address' : 'Remember credentials on this device'}</span>
                       </label>
                     </div>
 
                     <button
                       onClick={handlePushToNotion}
-                      disabled={isPushingNotion || !notionApiKey.trim() || !notionPageId.trim()}
+                      disabled={isPushingNotion || (!notionApiKey.trim() && !savedNotionToken) || !notionPageId.trim()}
                       className="w-full mt-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] dark:bg-white dark:text-black dark:hover:bg-zinc-200 disabled:opacity-50 text-white font-semibold text-xs transition-all shadow-sm"
                     >
                       {isPushingNotion ? (
@@ -796,7 +803,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
                         <span>Where is my Notion token saved?</span>
                       </span>
                       <p className="text-slate-600 dark:text-zinc-400 leading-relaxed">
-                        Stored strictly in your local browser's storage. Never transmitted to third-party analytics.
+                        {prefs.inAccount ? 'Saved encrypted in your account on the server, so you paste it once. It is only used to talk to Notion, and is never shown again in full.' : "Stored strictly in your local browser's storage. Never transmitted to third-party analytics."}
                       </p>
                     </div>
 

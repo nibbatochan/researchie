@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.9.7] — 2026-10-16 (Notion token saved in the account)
+### Added
+- **Notion token kept on the server** (tester deployment). Settings -> Notion and the Export box now save the token once, encrypted (AES-256-GCM, bound to the user id) in the new `user_notion_tokens` table; they show "Saved: ••••1234" with Replace and Remove. The token is checked with Notion before it is saved (only a clear "rejected" stops the save). The browser never gets it back.
+- The Notion export route uses the saved token when none is sent, for a browser session only; an extension token is refused so a leaked token cannot push a project into someone else's Notion.
+- Migration `supabase/migrations/003_notion_token.sql`. Run once on the testers project before deploying.
+- Local mode is unchanged: the token is still typed and kept in this browser.
+- Tests: `tests/notion-token.test.mjs` (3).
+
 ## [v1.9.6] — 2026-10-16 (QR code for the authenticator app; PRD rewritten)
 ### Added
 - **QR code** in Settings -> Account & Security when setting up the authenticator app. It is drawn in the browser from the otpauth address (`qrcode` package); the key stays below it for apps that cannot scan.

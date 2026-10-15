@@ -29,6 +29,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { AiProviderSettings } from './AiProviderSettings';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { DeleteAccountSettings } from './DeleteAccountSettings';
+import { NotionTokenField } from './NotionTokenField';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 
 interface SettingsModalProps {
@@ -385,6 +386,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
 
                 <div className="space-y-4">
                   {/* Notion API Token */}
+                  {authRequired ? (
+                    <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A]">
+                      <NotionTokenField />
+                    </div>
+                  ) : (
                   <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
                     <div className="flex items-center justify-between">
                       <div>
@@ -410,6 +416,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                       className="w-full px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none font-mono"
                     />
                   </div>
+                  )}
 
                   {/* Notion Database ID */}
                   <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">

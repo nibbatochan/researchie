@@ -129,8 +129,10 @@ Statuses: not started, in progress, blocked, done, dropped.
     - [not started] Sign in with Google {S-45}
           | What: You set up Google by hand in Supabase. Until then the login button is a disabled placeholder.
           | Notes: Wiring point: signInWithOAuth in src/lib/auth/authContext.tsx.
-    - [not started] Keep each user's Notion token safely on the server {S-46}
-          | What: On the tester site the Notion token is kept in memory only, so users paste it each visit. This would store it encrypted, like the AI key.
+    - [in progress] Keep each user's Notion token safely on the server {S-46}
+          | What: On the tester site the Notion token was kept in memory only, so users pasted it each visit. It is now stored encrypted (AES-256-GCM, bound to the user), like the AI key.
+          | Done: Migration 003_notion_token.sql; route /api/settings/notion-token (save with a check against Notion, replace, remove; the browser only sees the last four characters); the Notion export uses the saved token for a browser session only (an extension token cannot); the Settings Notion box and the Export box show "Saved: ••••1234" with Replace and Remove. Local mode is unchanged. 3 unit tests.
+          | Left: Run migration 003 on the testers project, deploy, then save a real token and run an export on the live site.
     - [done] Stop duplicate clips when a reply is lost {S-47}
           | What: If a save reaches the server but the reply is lost, the extension's retry no longer makes a second copy.
           | Done: Each clip gets an id before its first try; the server returns the saved clip for the same id.
