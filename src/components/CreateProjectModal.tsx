@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, FolderSimple, TreeStructure } from '@phosphor-icons/react';
 import { ResearchProject } from '@/lib/types/research';
-import { ProjectIcon, PROJECT_SHAPES, DEFAULT_SHAPE, type ProjectShapeId } from './ProjectIcon';
 
-// How a project shows in the sidebar: its initials, a library icon, or a photo.
-// Stored in folderIcon as 'initials', 'icon:<id>' or 'photo:<data URL>'.
-type AvatarMode = 'initials' | 'icon' | 'photo';
+// How a project shows in the sidebar: its initials or a photo.
+// Stored in folderIcon as 'initials' or 'photo:<data URL>'.
+type AvatarMode = 'initials' | 'photo';
 
 // Shrinks a picked photo to a small square JPEG so the stored value stays short.
 async function photoToAvatar(file: File): Promise<string> {
@@ -68,7 +67,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [avatarMode, setAvatarMode] = useState<AvatarMode>('initials');
-  const [avatarIcon, setAvatarIcon] = useState<ProjectShapeId>(DEFAULT_SHAPE);
   const [avatarPhoto, setAvatarPhoto] = useState<string | null>(null);
   const [parentId, setParentId] = useState<string | null>(initialParentId);
   const [loading, setLoading] = useState(false);
@@ -92,9 +90,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     const folderIcon =
       avatarMode === 'photo' && avatarPhoto
         ? `photo:${avatarPhoto}`
-        : avatarMode === 'icon'
-          ? `icon:${avatarIcon}`
-          : 'initials';
+        : 'initials';
     try {
       await onCreate({
         title: title.trim(),
@@ -107,7 +103,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       setDescription('');
       setColor(COLOR_OPTIONS[0]);
       setAvatarMode('initials');
-      setAvatarIcon(DEFAULT_SHAPE);
       setAvatarPhoto(null);
       setParentId(null);
       onClose();
@@ -188,7 +183,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               Avatar
             </label>
             <div className="flex items-center gap-2 mb-3" role="radiogroup" aria-label="Avatar type">
-              {(['initials', 'icon', 'photo'] as const).map((m) => (
+              {(['initials', 'photo'] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -201,38 +196,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       : 'border-[#D2DCEA] dark:border-[#27272A] text-slate-500 dark:text-zinc-400 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
                   }`}
                 >
-                  {m === 'initials' ? 'Initials' : m === 'icon' ? 'Icon' : 'Profile pic'}
+                  {m === 'initials' ? 'Initials' : 'Profile pic'}
                 </button>
               ))}
             </div>
 
             {avatarMode === 'initials' && (
               <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Shows the first two letters of the project name.
+                Shows the first two letters of the name in the folder colour, on a plain circle.
               </p>
-            )}
-
-            {avatarMode === 'icon' && (
-              <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Icon">
-                {PROJECT_SHAPES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={avatarIcon === s.id}
-                    aria-label={s.label}
-                    title={s.label}
-                    onClick={() => setAvatarIcon(s.id)}
-                    className={`h-9 rounded-full flex items-center justify-center text-[#0F172A] dark:text-white border transition-colors ${
-                      avatarIcon === s.id
-                        ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
-                        : 'border-[#D2DCEA] dark:border-[#27272A] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
-                    }`}
-                  >
-                    <ProjectIcon shape={s.id} color={color} seed={s.id} size={18} />
-                  </button>
-                ))}
-              </div>
             )}
 
             {avatarMode === 'photo' && (

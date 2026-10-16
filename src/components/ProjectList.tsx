@@ -522,7 +522,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               {[
                 { id: 'feed' as const, label: 'Feed', icon: ListDashes },
                 { id: 'canvas' as const, label: 'Canvas', icon: Graph },
-                { id: 'reader' as const, label: 'Docs', icon: BookOpen },
+                { id: 'reader' as const, label: 'Document', icon: BookOpen },
               ].map((m) => {
                 const Icon = m.icon;
                 const isSelected = workspaceMode === m.id;
@@ -531,19 +531,15 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     key={m.id}
                     type="button"
                     onClick={() => onWorkspaceModeChange(m.id)}
-                    className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-xs font-sans transition-all cursor-pointer ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-sans whitespace-nowrap transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#EEF3F8] dark:bg-[#18181B] text-[#325FEC] dark:text-[#518FFF] font-semibold flex-1'
+                        ? 'bg-[#EEF3F8] dark:bg-[#18181B] text-[#325FEC] dark:text-[#518FFF] font-semibold'
                         : 'text-slate-500 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white'
                     }`}
                     title={m.label}
                   >
                     <Icon size={14} weight={isSelected ? 'bold' : 'regular'} />
-                    {isSelected ? (
-                      <span className="text-[11px] truncate">{m.label}</span>
-                    ) : (
-                      <span className="sr-only">{m.label}</span>
-                    )}
+                    <span>{m.label}</span>
                   </button>
                 );
               })}

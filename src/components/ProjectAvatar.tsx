@@ -56,8 +56,8 @@ export const ProjectAvatar: React.FC<ProjectAvatarProps> = ({
 
   return (
     <span
-      className={`${base} bg-gradient-to-br from-[#325FEC] to-[#518FFF] text-white font-semibold`}
-      style={{ ...style, fontSize: Math.max(9, Math.round(size * 0.4)) }}
+      className={`${base} bg-[#FAFBFD] dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] font-semibold`}
+      style={{ ...style, color, fontSize: Math.max(9, Math.round(size * 0.4)) }}
     >
       {initialsOf(title) || '?'}
     </span>
