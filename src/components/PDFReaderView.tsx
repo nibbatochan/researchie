@@ -279,7 +279,11 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const fetchDocs = async () => {
     setIsLoadingDocs(true);
     try {
-      const res = await fetch(`/api/documents?projectId=${encodeURIComponent(projectId)}`);
+      // When projectId is 'all', fetch documents from all projects (Document Library)
+      const url = projectId === 'all'
+        ? '/api/documents'
+        : `/api/documents?projectId=${encodeURIComponent(projectId)}`;
+      const res = await fetch(url);
       let serverDocs: ResearchDocument[] = [];
       if (res.ok) {
         const json = await res.json();

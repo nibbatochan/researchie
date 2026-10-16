@@ -14,9 +14,11 @@ import {
   CaretRight,
   TreeStructure,
   Trash,
-  ShareNetwork
+  ShareNetwork,
+  PuzzlePiece
 } from '@phosphor-icons/react';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
+import { GetExtensionModal } from './GetExtensionModal';
 
 interface DashboardHomeProps {
   projects: ResearchProject[];
@@ -140,6 +142,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onOpenShareModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [extensionOpen, setExtensionOpen] = useState(false);
 
   // Partition projects into Main Projects and Sub-Projects
   const { allMainProjects, subProjectsByParent } = useMemo(() => {
@@ -214,8 +217,20 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#EAEEF4] dark:bg-[#09090B] text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
+      <div className="max-w-6xl mx-auto space-y-8 relative">
+        <button
+          type="button"
+          onClick={() => setExtensionOpen(true)}
+          title="Download the Chrome extension"
+          aria-label="Download the Chrome extension"
+          data-testid="get-extension-button"
+          className="absolute top-0 right-0 inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#325FEC] dark:text-[#518FFF] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
+        >
+          <PuzzlePiece size={15} weight="bold" />
+          <span>Download extension</span>
+        </button>
+        <GetExtensionModal isOpen={extensionOpen} onClose={() => setExtensionOpen(false)} />
+
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}
         <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 pt-[120px] pb-1">
           {/* Illustration First */}
@@ -267,7 +282,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-[#325FEC] dark:text-[#518FFF]" weight="bold" />
                 <h2 className="text-sm md:text-base font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA]">
-                  Recently accessed
+                  Recent
                 </h2>
               </div>
               <span className="text-[11px] font-mono text-slate-400 dark:text-zinc-500">
@@ -288,17 +303,21 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   >
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                           {parentTitle ? (
-                            <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-                              <FolderSimple size={12} weight="bold" className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
-                              <span>{parentTitle}</span>
-                              <span>/</span>
-                            </span>
+                            <>
+                              <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1" title={parentTitle}>
+                                <FolderSimple size={12} weight="bold" className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0" />
+                                <span className="truncate">{parentTitle}</span>
+                                <span>/</span>
+                              </span>
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+                                Sub-project
+                              </span>
+                            </>
                           ) : (
-                            <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 uppercase flex items-center gap-1">
-                              <FolderSimple size={12} weight="bold" className="text-slate-400 dark:text-zinc-500 flex-shrink-0" />
-                              <span>Main Project</span>
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              Main Project
                             </span>
                           )}
                         </div>
@@ -307,11 +326,11 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                         </span>
                       </div>
 
-                      <h3 className="font-display font-semibold text-sm text-[#0F172A] dark:text-white group-hover:text-[#325FEC] dark:group-hover:text-[#518FFF] transition-colors line-clamp-1">
+                      <h3 title={p.title} className="font-display font-semibold text-sm text-[#0F172A] dark:text-white group-hover:text-[#325FEC] dark:group-hover:text-[#518FFF] transition-colors line-clamp-1">
                         {p.title}
                       </h3>
 
-                      <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                      <p title={p.description || ''} className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
                         {p.description || 'No description provided.'}
                       </p>
                     </div>

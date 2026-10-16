@@ -42,8 +42,8 @@ The free plan has **no automatic backups** and pauses a project after **1 week w
 4. Hobby plan notes: functions may run up to 300 s; request and response bodies are capped at **4.5 MB**; usage allowances are shared by all your Hobby projects; the plan is for personal, non-commercial use.
 
 ## 3. The Chrome extension for testers
-1. Zip the `extension/` folder (or use `release/researchie-extension-*.zip` if you made one).
-2. Each tester: unzip, open `chrome://extensions`, turn on Developer mode, **Load unpacked**, choose the folder.
+1. Before each deploy run `npm run pack:extension`. It writes `public/researchie-extension.zip` (and `public/extension-info.json`) from `extension/`, which the deploy uploads because `extension/` itself is not uploaded. A unit test fails if the zip is older than `extension/`.
+2. Each tester: in the dashboard press the round **!** button at the top right, **Download extension (.zip)**, and follow the six steps shown there (unzip, `chrome://extensions`, Developer mode, **Load unpacked**, pin, connect).
 3. In the web app: Profile -> **Extension token**, open it and press **Copy token** (the token carries the site address).
 4. In the extension popup: click the link icon next to the on/off switch, paste the token, press Connect. It checks the token with that site before saving.
 5. Until it is connected, clips are held in the extension and the toast says "Not connected".

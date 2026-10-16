@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.9.13] — 2026-10-16 (Testers can get the extension from the dashboard)
+### Added
+- A "Download extension" button (puzzle-piece icon) at the top right of the dashboard opens "Researchie for Chrome", a wide two-column dialog: download card with version and size, what it does, six install steps in three groups, then updating and troubleshooting. `src/components/GetExtensionModal.tsx`.
+- `npm run pack:extension` (`scripts/pack-extension.mjs`) builds `public/researchie-extension.zip` and `public/extension-info.json` from `extension/`. Run it before each deploy.
+
+### Tests
+- `tests/extension-pack.test.mjs` fails when the zip is older than `extension/`; `e2e/21-get-extension.spec.ts` opens the dialog and fetches the zip.
+
 ## [v1.9.12] — 2026-10-16 (Security decisions for the tester site, logged)
 ### Added
 - `docs/SECURITY_DECISIONS.md`: every security decision made for the 5 to 10 person tester site, with why it was made, what it costs and where it lives (accounts and sessions, invite code, isolation, sharing, secrets, the extension, account deletion, web content, hosting and dependencies); the gaps accepted on purpose; what to do before opening to more people; what the owner must keep doing; and what is not yet verified. Decision 24 points to it.

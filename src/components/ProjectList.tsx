@@ -25,6 +25,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { ResearchieLogo } from './ResearchieLogo';
 import { UserProfileButton } from './UserProfileButton';
 import { ProjectIcon } from './ProjectIcon';
+import { GetExtensionModal } from './GetExtensionModal';
 import { useSettings } from '@/lib/settings/settingsContext';
 
 interface ProjectListProps {
@@ -59,6 +60,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [updatedProjectIds, setUpdatedProjectIds] = useState<Set<string>>(new Set());
+  const [extensionModalOpen, setExtensionModalOpen] = useState(false);
   const previousAtomCountsRef = useRef<Record<string, number>>({});
   const { setIsSettingsModalOpen, calculateStorageUsage } = useSettings();
 
@@ -99,6 +101,17 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   };
 
   const storage = useMemo(() => calculateStorageUsage(atoms), [atoms, calculateStorageUsage]);
+
+  // Helper to get initials from project title
+  const getInitials = (title: string): string => {
+    return title
+      .split(' ')
+      .map((word) => word[0])
+      .filter(Boolean)
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   // Group all main projects and sub-projects uniformly
   const { allParentProjects, subProjectsByParent } = useMemo(() => {
@@ -160,7 +173,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       <aside className="w-14 bg-[#FAFBFD] dark:bg-[#121214] border-r border-[#D2DCEA] dark:border-[#27272A] flex flex-col h-full flex-shrink-0 select-none items-center py-3 justify-between transition-all">
         {/* Top: Logo & Expand Button */}
         <div className="flex flex-col items-center gap-3 w-full px-2">
-          <div 
+          <div
             onClick={() => onWorkspaceModeChange?.('dashboard')}
             className="w-8 h-8 rounded-xl bg-[#325FEC] flex items-center justify-center p-1.5 text-white shadow-xs cursor-pointer hover:scale-105 transition-transform"
             title="Go to Dashboard"
@@ -170,27 +183,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
           <button
             type="button"
+            onClick={() => setExtensionModalOpen(true)}
+            className="p-1.5 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
+            title="Download Chrome extension"
+          >
+            <PuzzlePiece size={16} />
+          </button>
+
+          <button
+            type="button"
             onClick={onToggleCollapse}
             className="p-1.5 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
             title="Expand Workspace Panel"
           >
             <SidebarSimple size={16} />
-          </button>
-
-          <div className="w-6 h-px bg-[#D2DCEA] dark:bg-[#27272A]" />
-
-          {/* Dashboard Home Icon */}
-          <button
-            type="button"
-            onClick={() => onWorkspaceModeChange?.('dashboard')}
-            className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs transition-all cursor-pointer ${
-              workspaceMode === 'dashboard'
-                ? 'bg-[#325FEC] text-white shadow-xs'
-                : 'text-slate-600 dark:text-zinc-400 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
-            }`}
-            title="Dashboard Hub"
-          >
-            <House size={16} weight="bold" />
           </button>
 
           <div className="w-6 h-px bg-[#D2DCEA] dark:bg-[#27272A]" />
@@ -230,6 +236,33 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
         {/* Bottom: Modes, Settings & User */}
         <div className="flex flex-col items-center gap-2 w-full px-2">
+          {/* Mode Icons - Only show when not on dashboard */}
+          {workspaceMode !== 'dashboard' && onWorkspaceModeChange && (
+            <div className="flex flex-col gap-1.5">
+              {[
+                { id: 'feed' as const, icon: ListDashes },
+                { id: 'canvas' as const, icon: Graph },
+                { id: 'reader' as const, icon: BookOpen },
+              ].map((m) => {
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onWorkspaceModeChange(m.id)}
+                    className={`p-1.5 rounded-lg transition-all ${
+                      workspaceMode === m.id
+                        ? 'bg-[#325FEC] text-white shadow-xs'
+                        : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
+                    }`}
+                    title={m.id.charAt(0).toUpperCase() + m.id.slice(1)}
+                  >
+                    <Icon size={16} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
@@ -251,7 +284,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       
       {/* Brand & Workspace Header */}
       <div className="px-4 py-3.5 border-b border-[#D2DCEA] dark:border-[#27272A] flex items-center justify-between">
-        <div 
+        <div
           onClick={() => onWorkspaceModeChange?.('dashboard')}
           className="flex items-center gap-2.5 cursor-pointer group"
           title="Go to Dashboard"
@@ -269,14 +302,24 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-          title="Collapse Sidebar"
-        >
-          <SidebarSimple size={15} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setExtensionModalOpen(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
+            title="Download Chrome extension"
+          >
+            <PuzzlePiece size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
+            title="Collapse Sidebar"
+          >
+            <SidebarSimple size={15} />
+          </button>
+        </div>
       </div>
 
       {/* Stream Search & Quick Add */}
@@ -364,13 +407,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       <div className="w-3" />
                     )}
 
-                    {/* Common Blue Folder Icon */}
-                    <div className="relative flex items-center justify-center flex-shrink-0">
-                      {isFolderCollapsed ? (
-                        <FolderSimple size={15} weight="fill" className="text-[#325FEC] dark:text-[#518FFF]" />
-                      ) : (
-                        <FolderOpen size={15} weight="fill" className="text-[#325FEC] dark:text-[#518FFF]" />
-                      )}
+                    {/* Round Container with Initials */}
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#325FEC] to-[#518FFF] flex items-center justify-center flex-shrink-0 text-white text-[10px] font-semibold">
+                      {getInitials(parent.title)}
                     </div>
 
                     {/* Blue dot to the left of project name if updated from plugin */}
@@ -432,16 +471,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         <div
                           key={child.id}
                           onClick={() => handleSelectProject(child.id)}
-                          className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                          className={`group flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
                             isChildActive
                               ? 'border border-[#325FEC] dark:border-[#518FFF] bg-transparent text-[#0F172A] dark:text-white font-semibold'
-                              : 'text-slate-700 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] hover:text-slate-900 dark:hover:text-white'
+                              : 'text-slate-600 dark:text-zinc-400 hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
                           <div className="flex items-center min-w-0 gap-1.5">
                             {updatedProjectIds.has(child.id) && (
                               <span
-                                className="w-1.5 h-1.5 rounded-full bg-[#325FEC] dark:bg-[#518FFF] flex-shrink-0 animate-pulse"
+                                className="w-1 h-1 rounded-full bg-[#325FEC] dark:bg-[#518FFF] flex-shrink-0 animate-pulse"
                                 title="New information updated from plugin"
                               />
                             )}
@@ -486,12 +525,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
       {/* Footer Navigation Dock */}
       <div className="px-3.5 py-2.5 border-t border-[#D2DCEA] dark:border-[#27272A] bg-[#F4F6F9] dark:bg-[#09090B]/60 space-y-2">
-        {/* Workspace Mode Switcher */}
-        {onWorkspaceModeChange && (
+        {/* Workspace Mode Switcher - Only show when a project is open (not on dashboard) */}
+        {onWorkspaceModeChange && workspaceMode !== 'dashboard' && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1 py-1">
               {[
-                { id: 'dashboard' as const, label: 'Dashboard', icon: House },
                 { id: 'feed' as const, label: 'Feed', icon: ListDashes },
                 { id: 'canvas' as const, label: 'Canvas', icon: Graph },
                 { id: 'reader' as const, label: 'Docs', icon: BookOpen },
@@ -552,6 +590,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           </div>
         </div>
       </div>
+      <GetExtensionModal isOpen={extensionModalOpen} onClose={() => setExtensionModalOpen(false)} />
     </aside>
   );
 };

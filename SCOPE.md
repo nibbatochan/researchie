@@ -2,7 +2,7 @@
 
 Edited by the `/scopetrack` mod. Use `/scopetrack` to see the tree and where you are. Never delete history: finished or dropped items stay in the tree.
 
-Current: {S-41}
+Current: {S-61}
 
 Statuses: not started, in progress, blocked, done, dropped.
 
@@ -101,7 +101,24 @@ Statuses: not started, in progress, blocked, done, dropped.
   - [in progress] Tester site {S-40}
         | What: Lets 5 to 10 testers sign up and use their own private workspace, AI key and Chrome extension on a live site.
         | Done: Accounts, private data, AI keys, the extension token and settings saved in the account; deployed at https://researchie-testers.vercel.app (v1.9.0, v1.9.1).
-        | Left: Live checks (S-41, S-42), then the items below.
+        | Left: Get the extension to testers (S-61, top priority), live checks (S-41, S-42), then the items below.
+    - [in progress] PRIORITY: Get the Chrome extension to the testers {S-61}
+          | What: Testers can use the site but have no way to get the extension. It is only a folder on your computer. Decide how they install it, make it easy, and write the steps.
+          | Why it matters: Clipping is the main thing Researchie does. Without the extension a tester can only use the website.
+          | Options to choose from: (a) a zip + "Load unpacked" in Developer mode: free, works today, but testers must do it by hand and Chrome shows a "disable developer mode extensions" nag on restart; (b) publish to the Chrome Web Store as Unlisted: one link installs it, auto-updates, needs a one-time $5 developer fee and a review (days), and a privacy policy page; (c) a private Web Store listing limited to the testers' Google accounts (Trusted Testers): same review, no public page.
+          | Recommendation: do (a) now so testers can start this week; start (b) in parallel for the longer run.
+      - [in progress] Build a tester zip and the install steps {S-62}
+            | What: A zip of the extension plus plain install steps, reached from a "Download extension" button at the top right of the dashboard (decided by you 2026-10-16).
+            | Done: Built. `npm run pack:extension` writes public/researchie-extension.zip; the dashboard button opens a dialog with the download (version and size) and six steps. A unit test fails if the zip is stale; an e2e test opens the dialog and fetches the zip.
+            | Left: Run `npm run pack:extension` before each deploy, deploy, then on the live site download the zip, load it in Chrome and connect it with a token. Not tried yet in a clean Chrome profile.
+      - [done] Decide the delivery route {S-63}
+            | What: Pick zip only, Web Store unlisted, or both.
+            | Decided 2026-10-16: zip download from the dashboard for now. Web Store (S-64) stays open for later.
+      - [not started] Prepare the Chrome Web Store listing {S-64}
+            | What: Name, description, screenshots, icons, a short privacy policy (what is sent, where it is stored), and a permission reason for <all_urls> (reviewers question it). Narrowing host access first may speed up review.
+            | Left: Only if S-63 picks the Web Store.
+      - [not started] Let testers get updates {S-65}
+            | What: How a tester gets a new version: with the zip they must replace the folder and reload; with the Web Store it is automatic. Add a version number check the extension shows when it is out of date.
     - [in progress] Check sign-up and login by hand on the live site {S-41}
           | What: Make two real accounts on the testers site and run the 33-item checklist in docs/TESTER_CHECKLIST.md. No signed-in step has been tried on the real database yet.
           | Done: Testers Supabase project made; schema and migration run and checked; email confirmation off.
@@ -242,6 +259,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-16 — Added S-61 (get the extension to testers, top priority) with S-62 to S-65. Found while checking the tester flow: testers had no way to install the extension.
 - 2026-10-13 — PRD gap check (docs/RESEARCH_TOOL_PRD.md) found items not in the tree; added under {p1}.
 
 ## History
