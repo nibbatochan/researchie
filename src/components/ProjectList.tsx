@@ -162,7 +162,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   // ─── Collapsed State Mini-Rail ─────────────────────────────────
   if (isCollapsed) {
     return (
-      <aside className={`w-14 border flex flex-col flex-shrink-0 select-none items-center py-3 justify-between transition-all ${blend ? 'dark h-full border-y-0 border-l-0 bg-[#121214] border-[#27272A]' : 'h-full border-y-0 border-l-0 bg-[#FAFBFD] dark:bg-[#121214] border-[#D2DCEA] dark:border-[#27272A]'}`}>
+      <aside className={`w-14 border flex flex-col flex-shrink-0 select-none items-center py-3 justify-between transition-all ${blend ? 'h-full border-y-0 border-l-0 bg-[#EEF1F6] dark:bg-[#121214] border-[#D2DAE8] dark:border-[#27272A]' : 'h-full border-y-0 border-l-0 bg-[#FAFBFD] dark:bg-[#121214] border-[#D2DCEA] dark:border-[#27272A]'}`}>
         {/* Top: Logo & Expand Button */}
         <div className="flex flex-col items-center gap-3 w-full px-2">
           <div
@@ -282,10 +282,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
   // ─── Expanded Sidebar ──────────────────────────────────────────
   return (
-    <aside className={`w-full md:w-64 border flex flex-col flex-shrink-0 select-none transition-all ${blend ? 'dark h-full border-y-0 border-l-0 bg-[#121214] border-[#27272A] overflow-hidden' : 'h-full border-y-0 border-l-0 bg-[#FAFBFD] dark:bg-[#121214] border-[#D2DCEA] dark:border-[#27272A]'}`}>
+    <aside className={`w-full md:w-64 border flex flex-col flex-shrink-0 select-none transition-all ${blend ? 'h-full border-y-0 border-l-0 bg-[#EEF1F6] dark:bg-[#121214] border-[#D2DAE8] dark:border-[#27272A] overflow-hidden' : 'h-full border-y-0 border-l-0 bg-[#FAFBFD] dark:bg-[#121214] border-[#D2DCEA] dark:border-[#27272A]'}`}>
       
       {/* Brand & Workspace Header */}
-      <div className={`px-4 py-3.5 border-b flex items-center justify-between ${blend ? 'border-[#27272A]' : 'border-[#D2DCEA] dark:border-[#27272A]'}`}>
+      <div className={`px-4 py-3.5 border-b flex items-center justify-between ${blend ? 'border-[#D2DAE8] dark:border-[#27272A]' : 'border-[#D2DCEA] dark:border-[#27272A]'}`}>
         <div
           onClick={() => onWorkspaceModeChange?.('dashboard')}
           className="flex items-center gap-2.5 cursor-pointer group"
@@ -517,7 +517,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       </div>
 
       {/* Footer Navigation Dock */}
-      <div className={`px-3.5 py-2.5 border-t space-y-2 ${blend ? 'border-[#27272A] bg-[#09090B]/60' : 'border-[#D2DCEA] dark:border-[#27272A] bg-[#F4F6F9] dark:bg-[#09090B]/60'}`}>
+      <div className={`px-3.5 py-2.5 border-t space-y-2 ${blend ? 'border-[#D2DAE8] bg-[#E4E9F1]/70 dark:border-[#27272A] dark:bg-[#09090B]/60' : 'border-[#D2DCEA] dark:border-[#27272A] bg-[#F4F6F9] dark:bg-[#09090B]/60'}`}>
         {/* Workspace Mode Switcher - Only show when a project is open (not on dashboard) */}
         {onWorkspaceModeChange && workspaceMode !== 'dashboard' && (
           <div className="space-y-1">

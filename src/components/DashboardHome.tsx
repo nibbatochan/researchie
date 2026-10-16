@@ -262,7 +262,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           )}
         </div>
 
-        <div className="dark relative rounded-3xl border p-4 shadow-[0_16px_32px_-18px_rgba(0,0,0,0.7)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#1B1B1F] to-[#111113] border-white/10 text-white">
+        <div className="dark relative rounded-3xl border p-4 shadow-[0_16px_32px_-18px_rgba(0,0,0,0.7)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#24418F] to-[#182E6E] border-white/15 text-white">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
               <h3
@@ -329,7 +329,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     title={sp.title}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors hover:bg-[#325FEC]/[0.06] dark:hover:bg-white/[0.06]"
                   >
-                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color={sp.color || '#325FEC'} size={20} />
+                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color="#DCE6FF" size={20} className="!bg-white/10 !border-white/20" />
                     <span className="text-xs font-medium truncate flex-1">{sp.title}</span>
                     <span className={`text-[10px] font-mono flex-shrink-0 ${MUTED}`}>{sp.atomCount || 0}</span>
                   </div>
@@ -342,7 +342,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             {canManage ? (
               <button
                 onClick={() => onOpenCreateModal(mainProj.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer bg-[#EEF3F8] hover:bg-[#E2EAF4] dark:bg-[#18181B] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 border-[#D2DCEA] dark:border-[#27272A]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer bg-white/10 hover:bg-white/15 text-blue-50 border-white/15"
                 title="Add a sub-project"
               >
                 <Plus size={13} weight="bold" />
@@ -385,7 +385,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         <GetExtensionModal isOpen={extensionOpen} onClose={() => setExtensionOpen(false)} />
 
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}
-        <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 pt-[120px] pb-1">
+        <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 pt-[20px] pb-1">
           {/* Illustration First */}
           <div className="flex-shrink-0 flex items-center justify-start">
             <DashboardHeroIllustration className="w-48 h-36 md:w-80 md:h-56" />
