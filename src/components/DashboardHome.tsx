@@ -228,57 +228,41 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const folderClips = (main: ResearchProject) =>
     (main.atomCount || 0) + (subProjectsByParent.get(main.id) || []).reduce((sum, sp) => sum + (sp.atomCount || 0), 0);
 
-  // The folder that holds the most recent project is the one blue folder
-  const featuredFolderId = recentProjects[0]?.parentId || recentProjects[0]?.id || null;
-
   const HAIRLINE = 'border-[#E8ECF3] dark:border-white/10';
   const MUTED = 'text-slate-500 dark:text-zinc-400';
 
-  // ─── Folder card: a folder with paper peeking out, content on the front panel ───
+  // ─── Folder card: one blue folder for every project, same height for all; papers show how full it is ───
   const renderFolderCard = (mainProj: ResearchProject) => {
     const subProjects = subProjectsByParent.get(mainProj.id) || [];
     const total = folderClips(mainProj);
     const canManage = !isShared(mainProj);
-    const featured = mainProj.id === featuredFolderId;
     // No clips: an empty folder. Then 1, 2 and 3 papers as it fills up.
     const papers = total === 0 ? 0 : total < 10 ? 1 : total < 50 ? 2 : 3;
-
-    const back = featured ? 'bg-[#5B8DF0]' : 'bg-[#E3E7EF] dark:bg-[#232A3B]';
-    const paper1 = featured ? 'bg-white/90' : 'bg-white dark:bg-[#2E364B]';
-    const paper2 = featured ? 'bg-[#E4EDFF]' : 'bg-[#F6F8FB] dark:bg-[#353E55]';
-    const paper3 = featured ? 'bg-white/80' : 'bg-[#EEF1F7] dark:bg-[#2A3247]';
-    const front = featured
-      ? 'bg-gradient-to-b from-[#7FA6F6] to-[#518FFF] border-white/30 text-white'
-      : 'bg-gradient-to-b from-white to-[#EFF1F6] dark:from-[#1D2333] dark:to-[#161B29] border-[#E1E6EF] dark:border-white/10 text-[#0F172A] dark:text-white';
-    const sub = featured ? 'text-white/80' : MUTED;
-    const iconBtn = featured
-      ? 'text-white/80 hover:text-white hover:bg-white/15'
-      : 'text-slate-400 hover:text-[#325FEC] hover:bg-[#325FEC]/10 dark:hover:text-[#8DB4FF]';
 
     return (
       <div key={mainProj.id} className="group relative pt-16">
         {/* The folder behind: tab, back, and a paper for each step of content */}
         <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
-          <div className={`absolute left-0 top-0 h-9 w-28 rounded-t-2xl ${back}`} />
-          <div className={`absolute inset-x-0 top-5 bottom-0 rounded-t-3xl ${back}`} />
+          <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#5B8DF0] dark:bg-[#2E4FA8]" />
+          <div className="absolute inset-x-0 top-5 bottom-0 rounded-t-3xl bg-[#5B8DF0] dark:bg-[#2E4FA8]" />
           {papers >= 3 && (
-            <div className={`absolute inset-x-8 top-6 bottom-0 rounded-t-2xl rotate-[1.6deg] origin-bottom-right shadow-sm ${paper3}`} />
+            <div className="absolute inset-x-8 top-6 bottom-0 rounded-t-2xl rotate-[1.6deg] origin-bottom-right shadow-sm bg-white/80 dark:bg-[#BFCDEC]" />
           )}
           {papers >= 2 && (
-            <div className={`absolute inset-x-6 top-8 bottom-0 rounded-t-2xl -rotate-[1.2deg] origin-bottom-left shadow-sm ${paper1}`} />
+            <div className="absolute inset-x-6 top-8 bottom-0 rounded-t-2xl -rotate-[1.2deg] origin-bottom-left shadow-sm bg-white/90 dark:bg-[#E8EEFB]" />
           )}
           {papers >= 1 && (
-            <div className={`absolute inset-x-4 top-10 bottom-0 rounded-t-2xl shadow-sm ${paper2}`}>
+            <div className="absolute inset-x-4 top-10 bottom-0 rounded-t-2xl shadow-sm bg-[#E4EDFF] dark:bg-[#D3DEF5]">
               <div className="mx-4 mt-3 space-y-1.5">
-                <div className={`h-1 w-1/4 rounded ${featured ? 'bg-[#325FEC]/60' : 'bg-[#325FEC]/50 dark:bg-[#518FFF]/60'}`} />
-                <div className={`h-1 w-3/5 rounded ${featured ? 'bg-[#B9C9F0]' : 'bg-[#D9DFEA] dark:bg-white/15'}`} />
+                <div className="h-1 w-1/4 rounded bg-[#325FEC]/60" />
+                <div className="h-1 w-3/5 rounded bg-[#B9C9F0]" />
               </div>
             </div>
           )}
         </div>
 
-        <div className={`relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] transition-transform group-hover:-translate-y-0.5 ${front}`}>
-          <div className="flex items-start justify-between gap-2">
+        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#7FA6F6] to-[#518FFF] dark:from-[#27428F] dark:to-[#1B3173] border-white/30 dark:border-white/15 text-white">
+          <div className="flex items-start justify-between gap-2 min-h-[3.75rem]">
             <div className="min-w-0 space-y-0.5">
               <h3
                 onClick={() => onSelectProject(mainProj.id, 'feed')}
@@ -287,7 +271,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               >
                 {mainProj.title}
               </h3>
-              <p className={`text-xs ${sub}`}>
+              <p className="text-xs text-white/80">
                 {subProjects.length} sub-projects <span className="opacity-50">·</span> {total} clips
               </p>
             </div>
@@ -300,13 +284,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     e.stopPropagation();
                     onOpenShareModal(mainProj);
                   }}
-                  className={`inline-flex items-center p-1.5 rounded-lg transition-colors cursor-pointer ${iconBtn}`}
+                  className="inline-flex items-center p-1.5 rounded-lg transition-colors cursor-pointer text-white/80 hover:text-white hover:bg-white/15"
                   title={`Share ${mainProj.title}`}
                 >
                   <ShareNetwork size={14} />
                   {mainProj.pendingRequests ? (
                     <span
-                      className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-[#325FEC] text-white text-[10px] leading-4 text-center"
+                      className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-white text-[#325FEC] text-[10px] leading-4 text-center"
                       title="People waiting for access"
                     >
                       {mainProj.pendingRequests}
@@ -321,7 +305,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     e.stopPropagation();
                     onDeleteProject(mainProj.id);
                   }}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${featured ? iconBtn : 'text-slate-400 hover:text-red-500 hover:bg-red-500/10'}`}
+                  className="p-1.5 rounded-lg transition-colors cursor-pointer text-white/80 hover:text-white hover:bg-white/15"
                   title={`Delete ${mainProj.title}`}
                 >
                   <Trash size={14} />
@@ -330,64 +314,55 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
           </div>
 
-          {/* Sub-projects */}
-          <div className="mt-3 space-y-1">
+          {/* Sub-projects: a fixed-height list so every folder is the same height */}
+          <div className="mt-3 h-[7.25rem]">
             {subProjects.length === 0 ? (
-              <p className={`py-2 text-xs ${sub}`}>No sub-projects yet</p>
+              <p className="py-2 text-xs text-white/80">No sub-projects yet</p>
             ) : (
-              <div className="max-h-[7.25rem] overflow-y-auto space-y-1 pr-0.5">
+              <div className="h-full overflow-y-auto space-y-1 pr-0.5">
                 {subProjects.map((sp) => (
                   <div
                     key={sp.id}
                     data-testid="subproject-card"
                     onClick={() => onSelectProject(sp.id, 'feed')}
                     title={sp.title}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors ${
-                      featured ? 'hover:bg-white/15' : 'hover:bg-[#325FEC]/[0.06] dark:hover:bg-white/[0.06]'
-                    }`}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors hover:bg-white/15"
                   >
-                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color={sp.color || '#325FEC'} size={20} />
+                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color="#EAF1FF" size={20} className="!bg-white/15 !border-white/25" />
                     <span className="text-xs font-medium truncate flex-1">{sp.title}</span>
-                    <span className={`text-[10px] font-mono flex-shrink-0 ${sub}`}>{sp.atomCount || 0}</span>
+                    <span className="text-[10px] font-mono flex-shrink-0 text-white/80">{sp.atomCount || 0}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className={`mt-3 pt-3 flex items-center justify-between gap-2 border-t ${featured ? 'border-white/25' : HAIRLINE}`}>
+          <div className="mt-3 pt-3 flex items-center justify-between gap-2 border-t border-white/25">
             {canManage ? (
               <button
                 onClick={() => onOpenCreateModal(mainProj.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer ${featured ? 'bg-white/15 border-white/30 text-white hover:bg-white/25' : 'bg-[#EEF3F8] hover:bg-[#E2EAF4] dark:bg-[#18181B] dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-300 border-[#D2DCEA] dark:border-[#27272A]'}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer bg-white/15 border-white/30 text-white hover:bg-white/25"
                 title="Add a sub-project"
               >
                 <Plus size={13} weight="bold" />
                 <span>Sub-Project</span>
               </button>
             ) : (
-              <span className={`text-[11px] ${sub}`}>{mainProj.role === 'viewer' ? 'Can view' : 'Can edit'}</span>
+              <span className="text-[11px] text-white/80">{mainProj.role === 'viewer' ? 'Can view' : 'Can edit'}</span>
             )}
 
             <button
               onClick={() => onSelectProject(mainProj.id, 'feed')}
-              className={
-                featured
-                  ? 'inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white text-[#325FEC] text-xs font-semibold shadow-sm hover:bg-[#F2F6FF] transition-colors cursor-pointer'
-                  : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-semibold bg-[#325FEC] hover:bg-[#274AC4] text-white shadow-xs transition-colors cursor-pointer'
-              }
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white text-[#325FEC] dark:text-[#27428F] text-xs font-semibold shadow-sm hover:bg-[#F2F6FF] transition-colors cursor-pointer"
             >
               <span>Open Folder</span>
-              <span className="flex items-center">
-                <ArrowRight size={12} weight="bold" />
-              </span>
+              <ArrowRight size={12} weight="bold" />
             </button>
           </div>
         </div>
       </div>
     );
   };
-
 
   return (
     <div className="flex-1 overflow-y-auto text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
