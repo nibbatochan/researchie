@@ -348,9 +348,9 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [showCanvasMinimap, setShowCanvasMinimap] = useState(false);
 
   return (
-    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-[#EAEEF4] dark:bg-[#09090B] transition-colors">
+    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-br from-[#F3F6FB] via-[#ECF0F7] to-[#E1E7F2] dark:bg-none dark:bg-[#09090B] transition-colors">
       {/* Sticky Toolbar */}
-      <div className="px-3 py-1.5 md:px-5 md:py-2 border-b border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD]/95 dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div className="px-3 py-1.5 md:px-5 md:py-2 border-b border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         {/* Project Title and Round Tags Button at the Left */}
         <div className="min-w-0 flex items-center gap-2">
           {project.parentId && (

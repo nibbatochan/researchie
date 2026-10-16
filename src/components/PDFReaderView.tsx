@@ -1690,7 +1690,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         {/* ── Custom Native-Style PDF Canvas (PDF.js Renderer with Integrated Left Panel) ── */}
         <div
           ref={pagesContainerRef}
-          className="flex-1 overflow-hidden flex flex-col items-center bg-[#EAEEF4] dark:bg-[#09090B] relative transition-colors"
+          className="grid-soft flex-1 overflow-hidden flex flex-col items-center bg-gradient-to-br from-[#F3F6FB] via-[#ECF0F7] to-[#E1E7F2] dark:bg-none dark:bg-[#09090B] relative transition-colors"
         >
           {isLoadingDocs ? (
             /* ── Rich Document Reader Loading Skeleton (Smooth transition between sub-projects) ── */

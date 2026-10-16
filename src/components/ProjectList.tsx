@@ -285,7 +285,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     <aside className={`w-full md:w-64 border flex flex-col flex-shrink-0 select-none transition-all ${blend ? 'h-full border-y-0 border-l-0 bg-[#E7EBF2] dark:bg-[#121214] border-[#D2DAE8] dark:border-[#27272A] overflow-hidden' : 'h-full border-y-0 border-l-0 bg-[#E7EBF2] dark:bg-[#121214] border-[#D2DAE8] dark:border-[#27272A]'}`}>
       
       {/* Brand & Workspace Header */}
-      <div className={`px-4 py-3.5 border-b flex items-center justify-between ${blend ? 'border-[#D2DAE8] dark:border-[#27272A]' : 'border-[#D2DCEA] dark:border-[#27272A]'}`}>
+      <div className={`px-4 py-3.5 border-b flex items-center justify-between bg-white dark:bg-transparent ${blend ? 'border-[#D2DAE8] dark:border-[#27272A]' : 'border-[#D2DCEA] dark:border-[#27272A]'}`}>
         <div
           onClick={() => onWorkspaceModeChange?.('dashboard')}
           className="flex items-center gap-2.5 cursor-pointer group"
@@ -517,7 +517,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       </div>
 
       {/* Footer Navigation Dock */}
-      <div className={`px-3.5 py-2.5 border-t space-y-2 ${blend ? 'border-[#D2DAE8] bg-[#DCE1EB]/70 dark:border-[#27272A] dark:bg-[#09090B]/60' : 'border-[#D2DAE8] dark:border-[#27272A] bg-[#DCE1EB]/70 dark:bg-[#09090B]/60'}`}>
+      <div className={`px-3.5 py-2.5 border-t space-y-2 ${blend ? 'border-[#D2DAE8] bg-white dark:border-[#27272A] dark:bg-[#09090B]/60' : 'border-[#D2DAE8] dark:border-[#27272A] bg-white dark:bg-[#09090B]/60'}`}>
         {/* Workspace Mode Switcher - Only show when a project is open (not on dashboard) */}
         {onWorkspaceModeChange && workspaceMode !== 'dashboard' && (
           <div className="space-y-1">
