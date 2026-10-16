@@ -147,14 +147,15 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Decided: One interface (store.ts) with two plugs, Supabase per user and local files. Local mode now touches only local files and never writes to Supabase (you chose this).
           | Done: Atoms, projects, documents, search, rebuild-context and share all call `store`. Decision 22. The old pgvector search call and the local mirror are removed. 16 clips that lived only in the old Supabase project no longer show locally; they are untouched there.
           | Notes: Browser suite and unit tests re-run against it.
-    - [in progress] Review the npm security warnings {S-50}
+    - [done] Review the npm security warnings {S-50}
           | What: npm audit reports 12 findings (down from 13). The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tools.
           | Checked 2026-10-16 (npm audit, 12 findings: 6 moderate, 6 high, 0 critical). None touches what testers send to the site:
           |   - tailwindcss, braces, micromatch, fast-glob, chokidar (6 high/moderate): build-time file matching on our own source. Fixing needs Tailwind 3 to 4.
           |   - next and postcss (2): postcss runs on our own CSS at build time, not on anything a user sends. Fixing needs Next 15 to 16.
           |   - mammoth, argparse, sprintf-js (3): mammoth reads uploaded Word files. The flagged code is argparse's command-line parser, which mammoth's library path does not use; npm's suggested fix is an old version (0.3.29), so it is not a fix.
           | Recommendation: do not upgrade now. Tailwind 4 and Next 16 are large changes for no reduction in what a tester can reach. Re-check when you plan the next framework upgrade, or sooner if npm reports a critical one.
-          | Left: Your decision: accept this, or schedule the Tailwind 4 and Next 16 upgrades.
+          | Decided 2026-10-16: accepted for now. The non-breaking `npm audit fix` changes nothing (still 12), so only major upgrades would clear them.
+          | Notes: Re-check at the next planned framework upgrade, or sooner if npm reports a critical finding.
     - [in progress] Ask for an invite code when someone signs up {S-51}
           | What: Set SIGNUP_INVITE_CODE and the sign-up form asks for it; wrong guesses are limited per address. Without it anyone who finds the address can register.
           | Done: Built and unit-tested; checked on a local server (v1.9.1).
