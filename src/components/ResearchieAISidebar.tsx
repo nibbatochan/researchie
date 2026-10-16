@@ -1002,31 +1002,28 @@ User Question: ${query.trim()}`,
                           setSelectedTemplate(tmpl.id);
                           setSummarizeView('chat');
                         }}
-                        className={`w-full p-3 rounded-2xl border text-left text-xs transition-all flex flex-col gap-1.5 cursor-pointer group hover:shadow-md ${
+                        className={`w-full p-1.5 rounded-lg border text-left text-xs transition-colors flex flex-col gap-0.5 cursor-pointer group ${
                           isSelected
-                            ? 'bg-white dark:bg-[#1C1C20] border-[#325FEC] dark:border-[#518FFF] shadow-xs'
-                            : 'bg-white dark:bg-[#18181B] border-[#D9E1EC] dark:border-[#27272A] hover:border-slate-400 dark:hover:border-zinc-600'
+                            ? 'bg-transparent border-[#325FEC] dark:border-[#518FFF]'
+                            : 'bg-transparent border-transparent hover:bg-[#EEF3F8] dark:hover:bg-[#18181B]'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-blue-50 text-[#325FEC] dark:bg-blue-950/60 dark:text-[#518FFF]' : 'bg-[#EEF3F8] text-slate-700 dark:bg-[#27272A] dark:text-zinc-300'}`}>
-                              <Icon size={16} />
+                            <div className={`p-1 rounded-md ${isSelected ? 'bg-blue-50 text-[#325FEC] dark:bg-blue-950/60 dark:text-[#518FFF]' : 'bg-[#EEF3F8] text-slate-700 dark:bg-[#27272A] dark:text-zinc-300'}`}>
+                              <Icon size={12} />
                             </div>
-                            <span className="font-display font-semibold text-sm text-[#0F172A] dark:text-white truncate">
+                            <span className="font-display font-semibold text-xs text-[#0F172A] dark:text-white truncate">
                               {tmpl.label}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EEF3F8] dark:bg-[#27272A] text-slate-600 dark:text-zinc-400 border border-[#D9E1EC] dark:border-[#27272A]">
-                              {tmpl.badge}
-                            </span>
                             <CaretRight size={14} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                           </div>
                         </div>
 
                         {/* Reduced clutter: clean description without unnecessary sub-headings */}
-                        <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed pl-8">
+                        <p className="text-[10px] text-slate-600 dark:text-zinc-400 leading-snug pl-7">
                           {tmpl.description}
                         </p>
                       </button>

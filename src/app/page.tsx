@@ -419,6 +419,8 @@ export default function DashboardPage() {
             onDeleteProject={handleRequestDeleteProject}
             onOpenShareModal={authRequired ? (proj) => handleOpenShareModal(proj) : undefined}
             onOpenDocuments={() => {
+              // 'all' makes the library list the PDFs of every project and sub-project.
+              setActiveProjectId('all');
               setWorkspaceMode('reader');
             }}
           />
@@ -509,7 +511,7 @@ export default function DashboardPage() {
         deletedAtom={deletedAtomToast}
         onUndo={handleUndoDeleteAtom}
         onDismiss={() => setDeletedAtomToast(null)}
-        durationMs={8000}
+        durationMs={3000}
       />
 
       {/* Authentication & Social Login Modal */}

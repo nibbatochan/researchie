@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
+  FolderSimple,
   MagnifyingGlass, 
   BookmarkSimple, 
   Rows, 
@@ -354,7 +355,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
         <div className="min-w-0 flex items-center gap-2">
           {project.parentId && (
             <span className="text-xs font-mono text-slate-400 dark:text-zinc-500 hidden sm:inline-flex items-center gap-1">
-              <span>📁 Folder</span>
+              <span className="inline-flex items-center gap-1"><FolderSimple size={12} weight="bold" /><span>Folder</span></span>
               <span>/</span>
             </span>
           )}

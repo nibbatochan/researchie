@@ -352,7 +352,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       </div>
 
       {/* Streams & Folder Hierarchy Tree */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1.5 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin">
         {/* Project Tree */}
         {filteredParents.length === 0 ? (
           <div className="py-8 text-center text-xs text-slate-400 px-3">
@@ -552,16 +552,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
         {/* Utility Bar: Chrome Extension & Settings & Theme */}
         <div className="flex items-center justify-between pt-0.5">
-          {onOpenExtensionGuide && (
-            <button
-              type="button"
-              onClick={onOpenExtensionGuide}
-              className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer"
-            >
-              <PuzzlePiece size={13} className="text-[#325FEC]" />
-              <span>Extension</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setExtensionModalOpen(true)}
+            className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] transition-colors cursor-pointer"
+          >
+            <PuzzlePiece size={13} className="text-[#325FEC]" />
+            <span>Extension</span>
+          </button>
 
           <div className="flex items-center gap-1">
             <button

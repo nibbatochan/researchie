@@ -13,6 +13,7 @@ import {
   LinkSimple,
   Info,
 } from '@phosphor-icons/react';
+import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 
 interface GetExtensionModalProps {
   isOpen: boolean;
@@ -214,6 +215,8 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
                   It needs access to the pages you clip from. Nothing is sent to your account until you connect it with your token and press clip.
                 </span>
               </div>
+
+              <ExtensionConnectionSettings compact />
             </aside>
 
             {/* Right: steps */}

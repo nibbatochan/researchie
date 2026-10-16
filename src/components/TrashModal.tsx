@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Trash, ArrowCounterClockwise, X, FileText, Quotes, Code, Image as ImageIcon, LinkSimple } from '@phosphor-icons/react';
+import { Trash, ArrowCounterClockwise, X, FileText, Quotes, Code, Image as ImageIcon, LinkSimple, ShieldCheck } from '@phosphor-icons/react';
 import { ResearchAtom } from '@/lib/types/research';
 
 interface TrashModalProps {
@@ -148,7 +148,7 @@ export const TrashModal: React.FC<TrashModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 py-2.5 bg-[#EEF3F8] dark:bg-[#18181B] border-t border-[#D9E1EC] dark:border-[#27272A] flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
-          <span>🛡️ Soft-deleted items are safely stored in your session buffer.</span>
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck size={13} weight="bold" className="text-[#325FEC] dark:text-[#518FFF]" /><span>Soft-deleted items are safely stored in your session buffer.</span></span>
           <button
             type="button"
             onClick={onClose}
