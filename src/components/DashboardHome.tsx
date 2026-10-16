@@ -243,8 +243,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       <div key={mainProj.id} className="group relative pt-16">
         {/* The folder behind: tab, back, and a paper for each step of content */}
         <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
-          <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#5B8DF0] dark:bg-[#2E4FA8]" />
-          <div className="absolute inset-x-0 top-5 bottom-0 rounded-t-3xl bg-[#5B8DF0] dark:bg-[#2E4FA8]" />
+          <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
+          <div className="absolute inset-x-0 top-5 bottom-0 rounded-t-3xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
           {papers >= 3 && (
             <div className="absolute inset-x-8 top-6 bottom-0 rounded-t-2xl rotate-[1.6deg] origin-bottom-right shadow-sm bg-white/80 dark:bg-[#BFCDEC]" />
           )}
@@ -261,7 +261,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           )}
         </div>
 
-        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#7FA6F6] to-[#518FFF] dark:from-[#27428F] dark:to-[#1B3173] border-white/30 dark:border-white/15 text-white">
+        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#3F6CE8] to-[#2A4FC4] dark:from-[#1B3078] dark:to-[#122255] border-white/25 dark:border-white/10 text-white">
           <div className="flex items-start justify-between gap-2 min-h-[3.75rem]">
             <div className="min-w-0 space-y-0.5">
               <h3
@@ -315,22 +315,22 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
 
           {/* Sub-projects: a fixed-height list so every folder is the same height */}
-          <div className="mt-3 h-[7.25rem]">
+          <div className="mt-2.5 h-[4.9rem]">
             {subProjects.length === 0 ? (
-              <p className="py-2 text-xs text-white/80">No sub-projects yet</p>
+              <p className="py-1.5 text-[11px] text-white/80">No sub-projects yet</p>
             ) : (
-              <div className="h-full overflow-y-auto space-y-1 pr-0.5">
+              <div className="h-full overflow-y-auto space-y-0.5 pr-0.5">
                 {subProjects.map((sp) => (
                   <div
                     key={sp.id}
                     data-testid="subproject-card"
                     onClick={() => onSelectProject(sp.id, 'feed')}
                     title={sp.title}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors hover:bg-white/15"
+                    className="flex items-center gap-1.5 px-1.5 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/15"
                   >
-                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color="#EAF1FF" size={20} className="!bg-white/15 !border-white/25" />
-                    <span className="text-xs font-medium truncate flex-1">{sp.title}</span>
-                    <span className="text-[10px] font-mono flex-shrink-0 text-white/80">{sp.atomCount || 0}</span>
+                    <ProjectAvatar title={sp.title} folderIcon={sp.folderIcon} seed={sp.id} color="#EAF1FF" size={16} className="!bg-white/15 !border-white/25" />
+                    <span className="text-[11px] font-medium truncate flex-1">{sp.title}</span>
+                    <span className="text-[9px] font-mono flex-shrink-0 text-white/80">{sp.atomCount || 0}</span>
                   </div>
                 ))}
               </div>
