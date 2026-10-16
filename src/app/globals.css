@@ -325,9 +325,10 @@ body {
 .dark .dashboard-shell {
   background-color: #0A0E15;
   background-image:
-    radial-gradient(ellipse 60% 50% at 0% 0%, rgba(50, 95, 236, 0.26) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 55% at 100% 100%, rgba(81, 143, 255, 0.16) 0%, transparent 70%),
-    linear-gradient(135deg, #0A0E15 0%, #0B1424 55%, #101F3F 100%);
+    radial-gradient(ellipse 75% 55% at 50% -8%, rgba(50, 95, 236, 0.58) 0%, transparent 74%),
+    radial-gradient(ellipse 50% 50% at 100% 100%, rgba(81, 143, 255, 0.3) 0%, transparent 72%),
+    radial-gradient(ellipse 45% 45% at 0% 100%, rgba(50, 95, 236, 0.2) 0%, transparent 72%),
+    linear-gradient(180deg, #0A0E15 0%, #0B1322 100%);
 }
 .dashboard-shell::before {
   content: '';
@@ -354,9 +355,22 @@ body {
 }
 .dark .dashboard-shell::before {
   background-image:
-    radial-gradient(circle, rgba(81, 143, 255, 0.7) 1.5px, transparent 2px),
-    linear-gradient(to right, rgba(81, 143, 255, 0.24) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(81, 143, 255, 0.24) 1px, transparent 1px),
-    linear-gradient(to right, rgba(81, 143, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(81, 143, 255, 0.1) 1px, transparent 1px);
+    radial-gradient(circle, rgba(81, 143, 255, 0.4) 1.5px, transparent 2px),
+    linear-gradient(to right, rgba(81, 143, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(81, 143, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(to right, rgba(81, 143, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(81, 143, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Sidebar on the dashboard. Light: a darker off-white with a small blue blur in two corners.
+   Dark: the plain black sidebar it always had. */
+.sidebar-panel {
+  background-color: #E3E8F1;
+  background-image:
+    radial-gradient(circle 150px at 0% 0%, rgba(50, 95, 236, 0.24) 0%, transparent 70%),
+    radial-gradient(circle 170px at 100% 100%, rgba(81, 143, 255, 0.26) 0%, transparent 70%);
+}
+.dark .sidebar-panel {
+  background-color: #121214;
+  background-image: none;
 }
