@@ -310,4 +310,43 @@ body {
   -webkit-box-decoration-break: clone;
 }
 
-
+/* Dashboard shell: one continuous surface behind the sidebar and the dashboard.
+   A soft brand-blue gradient plus a faint 40px grid that only shows at two corners. */
+.dashboard-shell {
+  position: relative;
+  isolation: isolate;
+  background-color: #EAEEF4;
+  background-image:
+    radial-gradient(ellipse 60% 50% at 0% 0%, rgba(50, 95, 236, 0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 55% at 100% 100%, rgba(81, 143, 255, 0.18) 0%, transparent 70%),
+    linear-gradient(135deg, #F1F5FB 0%, #E8EEF8 50%, #DCE6F8 100%);
+}
+.dark .dashboard-shell {
+  background-color: #0A0E15;
+  background-image:
+    radial-gradient(ellipse 60% 50% at 0% 0%, rgba(50, 95, 236, 0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 55% at 100% 100%, rgba(81, 143, 255, 0.12) 0%, transparent 70%),
+    linear-gradient(135deg, #0A0E15 0%, #0B1424 55%, #0F1D3A 100%);
+}
+.dashboard-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(50, 95, 236, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(50, 95, 236, 0.10) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image:
+    radial-gradient(ellipse 38% 45% at 100% 0%, #000 0%, transparent 72%),
+    radial-gradient(ellipse 34% 40% at 0% 100%, #000 0%, transparent 72%);
+  mask-image:
+    radial-gradient(ellipse 38% 45% at 100% 0%, #000 0%, transparent 72%),
+    radial-gradient(ellipse 34% 40% at 0% 100%, #000 0%, transparent 72%);
+}
+.dark .dashboard-shell::before {
+  background-image:
+    linear-gradient(to right, rgba(81, 143, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(81, 143, 255, 0.09) 1px, transparent 1px);
+}

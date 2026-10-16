@@ -216,7 +216,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#EAEEF4] dark:bg-[#09090B] text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
+    <div className="flex-1 overflow-y-auto text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header with Download Extension */}
         <div className="flex items-center justify-end h-8 -mx-4 -mt-4 px-4 mb-4">

@@ -389,7 +389,7 @@ export default function DashboardPage() {
     : [];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[#EAEEF4] dark:bg-[#09090B] text-[#0F172A] dark:text-[#FAFAFA] transition-colors">
+    <div className={`flex flex-col h-screen overflow-hidden text-[#0F172A] dark:text-[#FAFAFA] transition-colors ${workspaceMode === 'dashboard' ? 'dashboard-shell' : 'bg-[#EAEEF4] dark:bg-[#09090B]'}`}>
       {/* Main Workspace Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Project Sidebar */}
