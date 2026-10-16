@@ -2,6 +2,8 @@
 
 Date: 2026-10-16. Status: plan, nothing built. Parent doc: `docs/COMPETITOR_ANALYSIS.md` (section 5, Pillar A; target user: science and medicine thesis students).
 
+> **Update 2026-10-17:** research found gaps in this plan (missing `removal` and republish states, OpenAlex as a third source, "clean" overclaims, page-check security and blocking). The current order of work is in `docs/RESEARCH_AND_BUILD_PLAN.md`; where the two differ, that file wins. Evidence: `docs/RETRACTION_MECHANICS_RESEARCH.md` section 11.
+
 ## Goal
 
 A student can open a project and see, without asking, which of their sources are still sound: not retracted, not corrected, page still says what was clipped. Each problem names the clips it affects and what to do.

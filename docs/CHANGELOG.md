@@ -1,5 +1,18 @@
 # Version Changelog
 
+## [v1.9.15] — 2026-10-17 (Source health, step 3: honest retraction states and OpenAlex)
+### Changed
+- `clean` is now `none_found`. The text names the sources that answered and the date and says it does not prove the paper is sound. No source lists every retraction.
+- New states: `removed` (Crossref `removal`) and `notice` (the clipped item is itself a retraction, correction or concern notice, from Crossref `update-to` pointing at another DOI, PubMed notice types, or OpenAlex type `retraction`).
+- PubMed `RetractedandRepublishedIn` and `CorrectedandRepublishedIn` mark the finding `replaced` with "a newer version was published". The republished version itself is not flagged.
+
+### Added
+- OpenAlex as a third source in `resolver.checkStatus` (`is_retracted`, with the type check so notices are not read as retracted papers). Optional key `OPENALEX_API_KEY` (server only, wired in `src/lib/citations/server.ts`); it works without one at a low shared allowance.
+- Saved real records for removal, notice, republished and OpenAlex cases in `src/lib/citations/fixtures/status-*`.
+
+### Tests
+- `tests/citations-status.test.mjs` is now 30 tests; all 112 citation unit tests pass and `tsc --noEmit` is clean. Live: the 1998 Lancet paper `retracted`, its notice `notice`, a Nature paper `none_found`, a removed paper `removed`, a retracted-and-republished paper `retracted` with `replaced`, a 2026 expression of concern `concern`, and no identifiers `unknown`. These live calls sent no contact email.
+
 ## [v1.9.14] — 2026-10-17 (Source health, part A1: retraction, concern and correction states)
 ### Added
 - `src/lib/citations/status.ts` classifies a paper as `clean`, `retracted`, `concern` (expression of concern, partial retraction), `corrected` or `unknown` from Crossref `updated-by` and PubMed `RetractionIn`, `ExpressionOfConcernIn` and `ErratumIn` links. The worst state wins; `unknown` is the answer when no source replied, never `clean`.

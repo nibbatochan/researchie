@@ -8,8 +8,8 @@ import type { CitationRecord } from './types.ts';
 import { mapCrossrefWork, parseCrossrefResponse } from './crossref.ts';
 import { mapDataCiteDoi } from './datacite.ts';
 import { detectRetraction, mapPubmedSummary } from './pubmed.ts';
-import { classifyCrossrefNotices, classifyPubmedXml, mergeFindings } from './status.ts';
-import type { CrossrefNotice, StatusFinding } from './status.ts';
+import { classifyCrossrefWork, classifyOpenAlex, classifyPubmedXml, describeNoIssue, mergeFindings } from './status.ts';
+import type { CrossrefWorkStatus, OpenAlexWorkStatus, StatusFinding } from './status.ts';
 import type { RetractionHealth } from '../health/types.ts';
 
 export interface HttpResponse {
@@ -40,6 +40,7 @@ export interface ResolverConfig {
   clock?: Clock;
   crossrefMailto?: string;
   ncbi?: { tool: string; email: string; apiKey?: string };
+  openalexKey?: string; // optional; without it OpenAlex is asked keyless, at a low shared daily allowance
 }
 
 export interface Resolution {
@@ -127,6 +128,7 @@ export function createResolver(config: ResolverConfig) {
     doi: createRateLimiter(100, clock),
     datacite: createRateLimiter(100, clock),
     pubmed: createRateLimiter(config.ncbi?.apiKey ? 100 : 334, clock),
+    openalex: createRateLimiter(100, clock),
   };
 
   async function resolveDoi(doi: string, budget: LookupBudget): Promise<Resolution> {
@@ -238,8 +240,8 @@ export function createResolver(config: ResolverConfig) {
       if (budget.take()) {
         const res = await get(`https://api.crossref.org/works/${doiPath(ids.doi)}${mailto}`, { 'User-Agent': userAgent }, config, limiters.crossref, clock);
         if (res?.ok) {
-          const work = ((await res.json()) as { message?: { 'updated-by'?: CrossrefNotice[] } } | null)?.message;
-          if (work) findings.push(classifyCrossrefNotices(work['updated-by']));
+          const work = ((await res.json()) as { message?: CrossrefWorkStatus } | null)?.message;
+          if (work) findings.push(classifyCrossrefWork({ ...work, DOI: work.DOI ?? ids.doi }));
         }
       }
     }
@@ -255,8 +257,24 @@ export function createResolver(config: ResolverConfig) {
       }
     }
 
+    // OpenAlex: one call by DOI, else by PMID. 404 or any failure adds nothing.
+    for (const key of [ids.doi ? `doi:${doiPath(ids.doi)}` : '', ids.pmid ? `pmid:${ids.pmid}` : ''].filter(Boolean)) {
+      if (!budget.take()) break;
+      const params = new URLSearchParams({ select: 'id,type,is_retracted' });
+      if (config.openalexKey) params.set('api_key', config.openalexKey);
+      const res = await get(`https://api.openalex.org/works/${key}?${params}`, { 'User-Agent': userAgent }, config, limiters.openalex, clock);
+      if (!res?.ok) continue;
+      const finding = classifyOpenAlex((await res.json()) as OpenAlexWorkStatus);
+      if (finding) {
+        findings.push(finding);
+        break;
+      }
+    }
+
     const merged = mergeFindings(findings);
-    return { ...merged, checkedAt: new Date(clock.now()).toISOString() };
+    const checkedAt = new Date(clock.now()).toISOString();
+    if (merged.state === 'none_found' && !merged.detail) merged.detail = describeNoIssue(merged.sources, checkedAt);
+    return { ...merged, checkedAt };
   }
 
   return { resolveIdentifiers, searchTitle, checkStatus };

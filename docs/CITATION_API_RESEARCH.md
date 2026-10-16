@@ -12,7 +12,7 @@ Verification labels used in this file:
 - Resolution order for a DOI: Crossref works lookup first. If Crossref returns 404, call the DOI registration agency lookup (`doi.org/doiRA/{doi}`), then DataCite if the RA is DataCite. Use content negotiation (`doi.org/{doi}` with an Accept header) as a fallback when the RA's own API is not implemented.
 - Crossref: send `mailto` (query parameter or User-Agent) to reach the polite pool (10 req/s, 3 concurrent). Read `x-rate-limit-limit`, `x-rate-limit-interval`, and `x-concurrency-limit` on each response. Back off on HTTP 429.
 - DataCite: `https://api.datacite.org/dois/{doi}`. Fields live under `data.attributes`. Send a User-Agent with a contact address for frequent requests. No published rate limit was found.
-- PubMed: E-utilities with `tool` and `email`. Limit is 3 req/s without an API key and 10 req/s with one. Retraction status comes from publication types ("Retracted Publication", "Retraction of Publication") and from Crossref `update-to`. Efetch parameter usage is conflicting across sources and needs checking against NCBI.
+- PubMed: E-utilities with `tool` and `email`. Limit is 3 req/s without an API key and 10 req/s with one. Retraction status comes from publication types ("Retracted Publication", "Retraction of Publication") and from Crossref `updated-by` on the paper (`update-to` is on the notice; corrected 2026-10-17). Efetch parameter usage is conflicting across sources and needs checking against NCBI.
 - Metadata: Highwire `citation_*` tags are Google Scholar's preferred format. Dublin Core is a last resort per Google. schema.org `ScholarlyArticle` is a subtype of `Article`.
 - Style guides: NLM sample references were fetched. APA 7 and AMA 11 primary pages could not be loaded, so their field lists are mostly UNVERIFIED.
 
@@ -55,12 +55,13 @@ Access page table (fetched), per https://crossref.org/documentation/retrieve-met
 
 ### 1.4 Retraction and correction metadata
 
-- Crossref's `update-to` array on a work record. Example from the Crossref blog (fetched, https://www.crossref.org/blog/retraction-watch-retractions-now-in-the-crossref-api/):
+- **Correction 2026-10-17:** the paper carries `updated-by`; the retraction notice carries `update-to`. To check a paper, read `updated-by` on the paper. A work that has `update-to` is itself a notice. Verified live, see `docs/RETRACTION_MECHANICS_RESEARCH.md` section 3.1.
+- Crossref's `update-to` array on a notice record. Example from the Crossref blog (fetched, https://www.crossref.org/blog/retraction-watch-retractions-now-in-the-crossref-api/):
   - Each entry has `DOI`, `type` (e.g., `retraction`), `source`, and `label`. Example shows `"source": "publisher"` and `"source": "retraction-watch"` with a `record-id`.
   - `source` values: "`publisher` or `retraction-watch`" (quote from blog, fetched). The blog text also says the field "states where the retraction came from".
 - Filter for all retractions: `https://api.crossref.org/v1/works?filter=update-type:retraction` (fetched from the blog).
 - Crossmark deposit: the notice's own record carries the link, and Crossref's internal API adds `updated-by` to the original. Source: https://support.crossref.org/hc/en-us/articles/115000501246-Crossmark-registering-updates (snippet, not fetched). **Verified (snippet).**
-- `is-retraction-of` as a field name: **UNVERIFIED**. The search did not confirm it. Use `update-to` as the field to check.
+- `is-retraction-of` as a field name: **not a field** (closed 2026-10-17). Use `updated-by` on the paper.
 - Caveat: the `update-to` / `update-nature` data also includes corrections and expressions of concern, not only retractions. **Verified (snippet)** from https://arxiv.org/pdf/2403.13339. Filter by `type` in the update entry, not just presence.
 
 ---
@@ -156,11 +157,11 @@ Source: https://citation.doi.org/docs.html (fetched; the older citation.crosscit
 
 - Publication types (MeSH-based, indexed in PubMed):
   - "Retracted Publication" (MeSH D016441). Labels the article that was retracted. **Verified (snippet)** from a library source citing the MeSH record.
-  - "Retraction of Publication" (MeSH D016440). Labels the notice that retracts an article. **Verified (snippet)**.
+  - D016440 labels the notice that retracts an article. **Correction 2026-10-17:** the live XML label is "Retraction Notice", not "Retraction of Publication" (PMID 20137807, fetched).
   - Filter syntax: `"Retracted Publication"[PTYP]`. **Verified (snippet)**.
-- MEDLINE XML links the two records through `CommentsCorrections` elements with `RefType` values `RetractionOf` or `PartialRetractionOf`. **Verified (snippet)**. A single notice can point to multiple retracted articles.
+- MEDLINE XML links the two records through `CommentsCorrections` elements with `RefType` values `RetractionOf` (on the notice) and `RetractionIn` (on the paper). **Correction 2026-10-17:** `PartialRetractionOf` does not exist in the PubMed DTD (2025-01-01). A single notice can point to multiple retracted articles.
 - PubMed help page for publication types (https://pubmed.ncbi.nlm.nih.gov/help/): fetched, but the relevant section was past the truncation point. Confirms that publication types can come from the publisher or from MEDLINE indexing. **Verified (fetched)**.
-- Recommended check: use `update-to` from Crossref and `Retracted Publication` from PubMed together. Neither source is complete alone.
+- Recommended check: use `updated-by` from Crossref and `Retracted Publication` from PubMed together, and OpenAlex `is_retracted` as a third source. No source is complete alone.
 
 ---
 
@@ -274,7 +275,7 @@ Primary APA pages (apastyle.apa.org) returned empty content in this session. The
 
 1. **Crossref:** exact date-parts shape (`issued.date-parts`) and whether DOIs need URL encoding in the path. Confirm against a live response.
 2. **Crossref:** the split of single-record vs list-query limits (10/s and 3/s in polite pool). Only search snippets support it. Check the canonical rate-limit page.
-3. **Crossref:** `is-retraction-of` as a field name. Not confirmed; `update-to` is verified.
+3. ~~**Crossref:** `is-retraction-of` as a field name.~~ Closed 2026-10-17: not a field; use `updated-by`.
 4. **DataCite:** numeric rate limits; `volume`, `issue`, and page paths; whether the public API excludes non-Findable DOIs (snippet only).
 5. **DataCite and DOI content negotiation:** rate or User-Agent rules on `doi.org` itself.
 6. **NCBI:** esearch exact URL and parameter names; efetch `rettype`/`retmode` values (sources conflict); esummary parameters and JSON option; the registration procedure for `tool` and `email`. The overview page NBK25497 could not be loaded directly.
