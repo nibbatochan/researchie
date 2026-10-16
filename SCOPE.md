@@ -147,6 +147,10 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Decided: One interface (store.ts) with two plugs, Supabase per user and local files. Local mode now touches only local files and never writes to Supabase (you chose this).
           | Done: Atoms, projects, documents, search, rebuild-context and share all call `store`. Decision 22. The old pgvector search call and the local mirror are removed. 16 clips that lived only in the old Supabase project no longer show locally; they are untouched there.
           | Notes: Browser suite and unit tests re-run against it.
+    - [done] Log the security decisions made for the tester site {S-60}
+          | What: One document that says what was decided for the 5 to 10 person test, why, what it costs and what was left open on purpose.
+          | Done: docs/SECURITY_DECISIONS.md (decisions A1 to G5, accepted gaps, a list for before opening to more people, owner duties, what is not verified) and Decision 24.
+          | Notes: Found while writing it, still open: the block-clip iframe sandbox (scripts plus same-origin), the wildcard CORS header, no Content-Security-Policy, and the tester service key not yet rotated (S-41).
     - [done] Review the npm security warnings {S-50}
           | What: npm audit reports 12 findings (down from 13). The rest need major upgrades (Tailwind 3 to 4, Next 15 to 16, mammoth) and sit mostly in build tools.
           | Checked 2026-10-16 (npm audit, 12 findings: 6 moderate, 6 high, 0 critical). None touches what testers send to the site:

@@ -4,12 +4,12 @@ How to put Researchie online for testers, with their own accounts, their own dat
 Written 2026-10-15. Limits quoted here were read from Vercel's and Supabase's docs on that date; they change.
 
 ## What testers get
-- Sign up with email and password. Google sign-in is a disabled "coming soon" button.
+- Sign up with email and password. Google sign-in is a disabled "coming soon" button until it is set up (`docs/GOOGLE_SIGNIN_SETUP.md`).
 - Their own projects, clips and documents. Nobody else can see them.
 - Their own AI key in Settings -> AI (Groq, Cerebras, OpenRouter or Google AI Studio). The site owner's key is never used.
 - A token (Settings -> Account) that connects the Chrome extension to their account.
 
-Not in this version: sharing and invites between accounts, switching between several saved accounts (use sign out), delete account, the knowledge graph (it runs Python, which Vercel cannot), Google sign-in.
+Added since 2026-10-15: sharing with roles, links and access requests (`docs/SHARING_DESIGN.md`), a remembered-addresses "Switch account" list, deleting your own account with an authenticator app, a saved Notion token, and Google sign-in (off until set up). Not available: the knowledge graph (it runs Python, which Vercel cannot). Security choices and accepted gaps: `docs/SECURITY_DECISIONS.md`.
 
 ## 1. Supabase (a new, separate project)
 Use a new free project for testers, not your personal one. The free plan allows two active projects across your account.
@@ -44,8 +44,8 @@ The free plan has **no automatic backups** and pauses a project after **1 week w
 ## 3. The Chrome extension for testers
 1. Zip the `extension/` folder (or use `release/researchie-extension-*.zip` if you made one).
 2. Each tester: unzip, open `chrome://extensions`, turn on Developer mode, **Load unpacked**, choose the folder.
-3. In the web app: Settings -> Account -> **Create token**, copy it (shown once).
-4. In the extension popup: **Connect account**, paste the site address and the token, press Connect. It checks them before saving.
+3. In the web app: Profile -> **Extension token**, open it and press **Copy token** (the token carries the site address).
+4. In the extension popup: click the link icon next to the on/off switch, paste the token, press Connect. It checks the token with that site before saving.
 5. Until it is connected, clips are held in the extension and the toast says "Not connected".
 
 ## 4. Each tester needs their own AI account

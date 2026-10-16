@@ -107,3 +107,17 @@
 - **Verified live:** Groq 18 of 18; the Chrome extension capture and Undo; the retraction check; a PDF export of the real 77-clip project; the production build.
 - **Open:** AMA forms for four more source types and APA author-date citations; page numbers on the PDF contents page; the eight old PDF entries to delete or re-upload (owner); the PDF export commits to push after a key scan; the unrewritten local branches must not be pushed.
 - **Candidates for the next phase (from the PRD):** shared projects for teams, an offline clip queue, two-way Notion sync. Shared projects need a design conversation first.
+
+## Session Record: Tester Site Security Log (2026-10-16)
+
+### 1. Architectural Decisions
+- **One place for the security choices of the 5 to 10 person tester site:** `docs/SECURITY_DECISIONS.md` lists each decision (accounts and sessions, invite code, isolation, sharing, secrets, the extension, account deletion, web content, hosting and dependencies) with why, what it costs and where it lives, plus the gaps accepted on purpose. Decision 24.
+- **Built in the same stretch of work:** one data layer with local mode kept off Supabase (Decision 22), sharing with roles, links and requests (Decision 23), delete own account with an authenticator app, a remembered-addresses switch-account list, a saved Notion token, QR code set-up, Google sign-in (off until set up) and a fix for an open redirect in the sign-in callback.
+
+### 2. State of Key Files
+- `docs/SECURITY_DECISIONS.md`, `docs/SHARING_DESIGN.md`, `docs/GOOGLE_SIGNIN_SETUP.md`, `docs/TESTER_DEPLOYMENT.md` (brought up to date).
+- `src/lib/data/` (`store.ts`, `cloud.ts`, `localStore.ts`, `roles.ts`, `sharing.ts`), `supabase/migrations/002` to `004`.
+
+### 3. Readiness for Next Phase
+- **Not yet tried on the live site:** sharing, delete account end to end, the saved Notion token, QR set-up, Google sign-in. Migrations 003 and 004 still have to be run on the testers project, then a deploy.
+- **Open security items:** the block-clip iframe sandbox, the wildcard CORS header, no Content-Security-Policy, rotating the tester service key (S-41), and trying the isolation rules with two real accounts.

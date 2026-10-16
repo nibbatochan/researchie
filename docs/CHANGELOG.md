@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.9.12] — 2026-10-16 (Security decisions for the tester site, logged)
+### Added
+- `docs/SECURITY_DECISIONS.md`: every security decision made for the 5 to 10 person tester site, with why it was made, what it costs and where it lives (accounts and sessions, invite code, isolation, sharing, secrets, the extension, account deletion, web content, hosting and dependencies); the gaps accepted on purpose; what to do before opening to more people; what the owner must keep doing; and what is not yet verified. Decision 24 points to it.
+- Spotted while writing it, not fixed: block clips are shown in an iframe with both `allow-scripts` and `allow-same-origin`; the `/api` CORS header is a wildcard with credentials; there is no Content-Security-Policy; and the tester project's service key still has to be rotated (S-41). All are listed in the log with the reason each is tolerable for now.
+
+### Changed
+- `docs/TESTER_DEPLOYMENT.md` brought up to date (sharing, switch account, delete account, Notion token and Google are no longer listed as missing; extension connect steps are the token-only ones).
+
 ## [v1.9.11] — 2026-10-16 (Google sign-in, built; switched on by setup)
 ### Added
 - **Continue with Google.** `/api/auth/google` starts it on the server (the PKCE secret stays in an httpOnly cookie) and Google returns to `/auth/callback`, which stores the session as the same httpOnly cookie email sign-in uses. The same verified email is linked to the existing account. A brand-new Google account must pass `SIGNUP_INVITE_CODE` when it is set (the code typed on the sign-in page travels in a short httpOnly cookie); if not, the account is removed again and the person is sent back with a message.

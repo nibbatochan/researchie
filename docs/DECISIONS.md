@@ -128,6 +128,12 @@
 - **Rationale**: One place to ask "may this person do this" keeps the rules testable with a fake database (`tests/sharing.test.mjs`, 15 cases, including a removed member losing access at once) and keeps S-49's single data layer meaningful. Only a browser session can change sharing, so a leaked extension token cannot widen access.
 - **Limits**: Roles are looked up on every call (no cache), which costs a query but means a removal is instant. A sub-project cannot be shared on its own. Links and access requests are the next steps.
 
+### Decision 24: The Security Choices for the Tester Site Are Logged in One Place
+- **Context**: The tester deployment (5 to 10 invited people) needed many security choices (sessions, invite code, isolation, secrets, sharing, extension tokens, account deletion, dependencies). They were spread over Decisions 16 and 19 to 23, the changelog and the deployment guide, with no single list of what was accepted and why.
+- **Decision**: `docs/SECURITY_DECISIONS.md` is the log. Each entry states the decision, why it was made, what it costs, and where it lives in the code. It also lists the gaps accepted on purpose, what must be done before opening to more people, what the owner must keep doing, and what has not been verified. A new security choice is added there, and a short numbered decision here only when it needs a longer argument.
+- **Rationale**: For a small trusted group, the useful question is "what did we decide to tolerate, and when does that stop being true". A single list answers it and is checked against the code.
+- **Limits**: It describes the code as of 2026-10-16 and is only as current as the last person who updated it.
+
 ---
 
 ## Molecule Build System Log
