@@ -3,7 +3,35 @@
 import React, { useState, useEffect } from 'react';
 import { X, FolderSimple, TreeStructure } from '@phosphor-icons/react';
 import { ResearchProject } from '@/lib/types/research';
-import { ProjectIcon, PROJECT_SHAPES, DEFAULT_SHAPE } from './ProjectIcon';
+import { ProjectIcon, PROJECT_SHAPES, DEFAULT_SHAPE, type ProjectShapeId } from './ProjectIcon';
+
+// How a project shows in the sidebar: its initials, a library icon, or a photo.
+// Stored in folderIcon as 'initials', 'icon:<id>' or 'photo:<data URL>'.
+type AvatarMode = 'initials' | 'icon' | 'photo';
+
+// Shrinks a picked photo to a small square JPEG so the stored value stays short.
+async function photoToAvatar(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not read that image'));
+      el.src = url;
+    });
+    const size = 96;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not available');
+    const side = Math.min(img.width, img.height);
+    ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -39,7 +67,9 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
-  const [shape, setShape] = useState<string>(DEFAULT_SHAPE);
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>('initials');
+  const [avatarIcon, setAvatarIcon] = useState<ProjectShapeId>(DEFAULT_SHAPE);
+  const [avatarPhoto, setAvatarPhoto] = useState<string | null>(null);
   const [parentId, setParentId] = useState<string | null>(initialParentId);
   const [loading, setLoading] = useState(false);
 
@@ -59,18 +89,26 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     if (!title.trim()) return;
 
     setLoading(true);
+    const folderIcon =
+      avatarMode === 'photo' && avatarPhoto
+        ? `photo:${avatarPhoto}`
+        : avatarMode === 'icon'
+          ? `icon:${avatarIcon}`
+          : 'initials';
     try {
       await onCreate({
         title: title.trim(),
         description: description.trim(),
         color_badge: color,
-        folderIcon: shape,
+        folderIcon,
         parentId: parentId || null,
       });
       setTitle('');
       setDescription('');
       setColor(COLOR_OPTIONS[0]);
-      setShape(DEFAULT_SHAPE);
+      setAvatarMode('initials');
+      setAvatarIcon(DEFAULT_SHAPE);
+      setAvatarPhoto(null);
       setParentId(null);
       onClose();
     } finally {
@@ -147,28 +185,86 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
           <div>
             <label className="block text-xs font-mono text-slate-500 dark:text-zinc-400 mb-2 uppercase">
-              Project Shape
+              Avatar
             </label>
-            <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Project shape">
-              {PROJECT_SHAPES.map((s) => (
+            <div className="flex items-center gap-2 mb-3" role="radiogroup" aria-label="Avatar type">
+              {(['initials', 'icon', 'photo'] as const).map((m) => (
                 <button
-                  key={s.id}
+                  key={m}
                   type="button"
                   role="radio"
-                  aria-checked={shape === s.id}
-                  aria-label={s.label}
-                  title={s.label}
-                  onClick={() => setShape(s.id)}
-                  className={`h-9 rounded-lg flex items-center justify-center text-[#0F172A] dark:text-white border transition-colors ${
-                    shape === s.id
-                      ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
-                      : 'border-[#D2DCEA] dark:border-[#27272A] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
+                  aria-checked={avatarMode === m}
+                  onClick={() => setAvatarMode(m)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    avatarMode === m
+                      ? 'border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white'
+                      : 'border-[#D2DCEA] dark:border-[#27272A] text-slate-500 dark:text-zinc-400 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
                   }`}
                 >
-                  <ProjectIcon shape={s.id} color={color} seed={s.id} size={20} />
+                  {m === 'initials' ? 'Initials' : m === 'icon' ? 'Icon' : 'Profile pic'}
                 </button>
               ))}
             </div>
+
+            {avatarMode === 'initials' && (
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Shows the first two letters of the project name.
+              </p>
+            )}
+
+            {avatarMode === 'icon' && (
+              <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Icon">
+                {PROJECT_SHAPES.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={avatarIcon === s.id}
+                    aria-label={s.label}
+                    title={s.label}
+                    onClick={() => setAvatarIcon(s.id)}
+                    className={`h-9 rounded-full flex items-center justify-center text-[#0F172A] dark:text-white border transition-colors ${
+                      avatarIcon === s.id
+                        ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
+                        : 'border-[#D2DCEA] dark:border-[#27272A] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
+                    }`}
+                  >
+                    <ProjectIcon shape={s.id} color={color} seed={s.id} size={18} />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {avatarMode === 'photo' && (
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full overflow-hidden border border-[#D2DCEA] dark:border-[#27272A] bg-[#EEF3F8] dark:bg-[#18181B] flex items-center justify-center text-[10px] text-slate-400">
+                  {avatarPhoto ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarPhoto} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    'No photo'
+                  )}
+                </div>
+                <label className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#D2DCEA] dark:border-[#27272A] text-slate-600 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] cursor-pointer">
+                  {avatarPhoto ? 'Change photo' : 'Choose photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      try {
+                        setAvatarPhoto(await photoToAvatar(file));
+                      } catch {
+                        setAvatarPhoto(null);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
           <div>

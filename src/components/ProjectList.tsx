@@ -24,7 +24,7 @@ import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 import { ThemeToggle } from './ThemeToggle';
 import { ResearchieLogo } from './ResearchieLogo';
 import { UserProfileButton } from './UserProfileButton';
-import { ProjectIcon } from './ProjectIcon';
+import { ProjectAvatar } from './ProjectAvatar';
 import { GetExtensionModal } from './GetExtensionModal';
 import { useSettings } from '@/lib/settings/settingsContext';
 
@@ -101,17 +101,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   };
 
   const storage = useMemo(() => calculateStorageUsage(atoms), [atoms, calculateStorageUsage]);
-
-  // Helper to get initials from project title
-  const getInitials = (title: string): string => {
-    return title
-      .split(' ')
-      .map((word) => word[0])
-      .filter(Boolean)
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   // Group all main projects and sub-projects uniformly
   const { allParentProjects, subProjectsByParent } = useMemo(() => {
@@ -195,23 +184,42 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           {/* Project Icons */}
           {workspaceMode !== 'dashboard' && (
             <div className="flex flex-col items-center gap-1.5 max-h-[42vh] overflow-y-auto scrollbar-none w-full">
-              {projects.filter((p) => p.id !== 'all').map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => onSelectProject(p.id)}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer text-[#0F172A] dark:text-white ${
-                    activeProjectId === p.id
-                      ? 'border-2 border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B]'
-                      : 'border border-transparent hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20]'
-                  }`}
-                  title={`${p.title} (${p.atomCount || 0} clips)`}
-                  aria-label={p.title}
-                  aria-current={activeProjectId === p.id ? 'true' : undefined}
-                >
-                  <ProjectIcon shape={p.folderIcon} color={p.color} seed={p.id} size={18} />
-                </button>
-              ))}
+              {projects.filter((p) => p.id !== 'all' && !p.parentId).map((p) => {
+                const isActive = activeProjectId === p.id;
+                const kids = projects.filter((c) => c.parentId === p.id);
+                return (
+                  <React.Fragment key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectProject(p.id)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                        isActive ? 'ring-2 ring-[#325FEC] dark:ring-[#518FFF] ring-offset-1 ring-offset-[#FAFBFD] dark:ring-offset-[#121214]' : 'hover:opacity-80'
+                      }`}
+                      title={`${p.title} (${p.atomCount || 0} clips)`}
+                      aria-label={p.title}
+                      aria-current={isActive ? 'true' : undefined}
+                    >
+                      <ProjectAvatar title={p.title} folderIcon={p.folderIcon} seed={p.id} color={p.color} size={32} />
+                    </button>
+                    {kids.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => onSelectProject(c.id)}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                          activeProjectId === c.id
+                            ? 'ring-2 ring-[#325FEC] dark:ring-[#518FFF] ring-offset-1 ring-offset-[#FAFBFD] dark:ring-offset-[#121214]'
+                            : 'opacity-70 hover:opacity-100'
+                        }`}
+                        title={`${p.title} / ${c.title} (${c.atomCount || 0} clips)`}
+                        aria-label={c.title}
+                      >
+                        <ProjectAvatar title={c.title} folderIcon={c.folderIcon} seed={c.id} color={c.color} size={22} />
+                      </button>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
 
               <button
                 type="button"
@@ -391,9 +399,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                     )}
 
                     {/* Round Container with Initials */}
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#325FEC] to-[#518FFF] flex items-center justify-center flex-shrink-0 text-white text-[10px] font-semibold">
-                      {getInitials(parent.title)}
-                    </div>
+                    <ProjectAvatar title={parent.title} folderIcon={parent.folderIcon} seed={parent.id} color={parent.color} size={24} />
 
                     {/* Blue dot to the left of project name if updated from plugin */}
                     {updatedProjectIds.has(parent.id) && (
@@ -467,7 +473,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                 title="New information updated from plugin"
                               />
                             )}
-                            <span className="truncate">{child.title}</span>
+                            <ProjectAvatar title={child.title} folderIcon={child.folderIcon} seed={child.id} color={child.color} size={18} />
+                            <span className="truncate" title={child.title}>{child.title}</span>
                           </div>
 
                           <div className="flex items-center gap-1">

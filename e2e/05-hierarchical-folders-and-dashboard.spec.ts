@@ -6,9 +6,9 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
     await page.waitForTimeout(600);
   });
 
-  test('renders starting Dashboard Landing screen with Recently Accessed carousel and folders', async ({ page }) => {
+  test('renders starting Dashboard Landing screen with Recent carousel and folders', async ({ page }) => {
     // If not already on dashboard, click Dashboard Hub in sidebar
-    const dashboardLink = page.locator('button:has-text("Dashboard Hub")').first();
+    const dashboardLink = page.locator('[title="Go to Dashboard"]').first();
     if (await dashboardLink.isVisible()) {
       await dashboardLink.click();
       await page.waitForTimeout(400);
@@ -19,7 +19,7 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
     await expect(welcomeHeader).toBeVisible({ timeout: 10000 });
 
     // Verify Recently Accessed Section
-    const recentlyAccessed = page.locator('h2:has-text("Recently Accessed"), h2:has-text("Jump Back In")').first();
+    const recentlyAccessed = page.locator('h2:has-text("Recent"), h2:has-text("Jump Back In")').first();
     await expect(recentlyAccessed).toBeVisible({ timeout: 10000 });
 
     // Verify Project Folders & Sub-projects section
@@ -28,7 +28,7 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
   });
 
   test('displays nested project structure (Main Project contains Sub-Projects)', async ({ page }) => {
-    const dashboardLink = page.locator('button:has-text("Dashboard Hub"), button:has-text("Dashboard")').first();
+    const dashboardLink = page.locator('[title="Go to Dashboard"]').first();
     if (await dashboardLink.isVisible()) {
       await dashboardLink.click();
       await page.waitForTimeout(400);
@@ -44,7 +44,7 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
   });
 
   test('clicking a project or sub-project drills down directly into that workspace', async ({ page }) => {
-    const dashboardLink = page.locator('button:has-text("Dashboard Hub"), button:has-text("Dashboard")').first();
+    const dashboardLink = page.locator('[title="Go to Dashboard"]').first();
     if (await dashboardLink.isVisible()) {
       await dashboardLink.click();
       await page.waitForTimeout(400);

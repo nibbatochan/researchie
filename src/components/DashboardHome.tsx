@@ -395,7 +395,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   {/* Top: Folder Illustration, Project Info & Delete Button */}
                   <div className="space-y-3.5">
                     <div className="flex items-start justify-between gap-3">
-                      <FolderIllustration color={mainProj.color || '#325FEC'} className="w-14 h-14 flex-shrink-0" />
+                      <FolderIllustration color="#325FEC" className="w-14 h-14 flex-shrink-0" />
                       
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         <span className="text-[10.5px] font-mono px-2 py-0.5 rounded-full bg-[#EEF3F8] dark:bg-[#18181B] text-slate-600 dark:text-zinc-400 border border-[#D2DCEA] dark:border-[#27272A]">
