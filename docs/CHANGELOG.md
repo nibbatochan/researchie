@@ -1,5 +1,14 @@
 # Version Changelog
 
+## [v1.9.14] — 2026-10-17 (Source health, part A1: retraction, concern and correction states)
+### Added
+- `src/lib/citations/status.ts` classifies a paper as `clean`, `retracted`, `concern` (expression of concern, partial retraction), `corrected` or `unknown` from Crossref `updated-by` and PubMed `RetractionIn`, `ExpressionOfConcernIn` and `ErratumIn` links. The worst state wins; `unknown` is the answer when no source replied, never `clean`.
+- `resolver.checkStatus({ doi, pmid })` in `src/lib/citations/lookup.ts` re-checks one source live with the existing rate limits and lookup budget.
+- `src/lib/health/types.ts` defines `SourceHealth`; clips can carry it in `metadata.health` (no database change). Nothing writes it yet: the runner and the screens are parts A3 and A4 of `docs/PILLAR_A_SOURCE_HEALTH_PLAN.md`.
+
+### Tests
+- `tests/citations-status.test.mjs` (16 tests) with real Crossref and PubMed records saved as `src/lib/citations/fixtures/status-*`. All 98 citation unit tests pass; `tsc --noEmit` is clean. Live: the retracted 1998 Lancet paper returned `retracted`, a clean Nature paper `clean`, and a paper with a 2026 expression of concern `concern`.
+
 ## [v1.9.13] — 2026-10-16 (Testers can get the extension from the dashboard)
 ### Added
 - A "Download extension" button (puzzle-piece icon) at the top right of the dashboard opens "Researchie for Chrome", a wide two-column dialog: download card with version and size, what it does, six install steps in three groups, then updating and troubleshooting. `src/components/GetExtensionModal.tsx`.

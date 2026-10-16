@@ -1,8 +1,10 @@
 export type AtomType = 'text' | 'link' | 'image' | 'block' | 'quote' | 'note' | 'document';
 
 import type { CitationRecord } from '../citations/types';
+import type { SourceHealth } from '../health/types';
 
 export interface ProvenanceMetadata {
+  health?: SourceHealth; // source health checks (retraction, page); see src/lib/health/types.ts
   citation?: CitationRecord; // resolved on demand; see src/lib/citations/metadata.ts
   pageIdentifiers?: { doi?: string; pmid?: string }; // read from the page's citation meta tags at clip time
   pageInfo?: { url: string; title?: string; siteName?: string; author?: string; published?: string; updated?: string }; // web-source fallback

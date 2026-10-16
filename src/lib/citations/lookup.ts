@@ -8,6 +8,9 @@ import type { CitationRecord } from './types.ts';
 import { mapCrossrefWork, parseCrossrefResponse } from './crossref.ts';
 import { mapDataCiteDoi } from './datacite.ts';
 import { detectRetraction, mapPubmedSummary } from './pubmed.ts';
+import { classifyCrossrefNotices, classifyPubmedXml, mergeFindings } from './status.ts';
+import type { CrossrefNotice, StatusFinding } from './status.ts';
+import type { RetractionHealth } from '../health/types.ts';
 
 export interface HttpResponse {
   status: number;
@@ -224,5 +227,37 @@ export function createResolver(config: ResolverConfig) {
     return candidates.length > 0 ? { candidates } : { candidates, reason: 'not_found' };
   }
 
-  return { resolveIdentifiers, searchTitle };
+  // Re-checks one source for retraction, expression of concern and correction.
+  // Asks Crossref (DOI) and PubMed (PMID) and combines the answers. A source that
+  // cannot be reached adds nothing: if none answers the state is 'unknown', never 'clean'.
+  async function checkStatus(ids: { doi?: string; pmid?: string }, budget = new LookupBudget()): Promise<RetractionHealth> {
+    const findings: StatusFinding[] = [];
+
+    if (ids.doi) {
+      const mailto = config.crossrefMailto ? `?mailto=${encodeURIComponent(config.crossrefMailto)}` : '';
+      if (budget.take()) {
+        const res = await get(`https://api.crossref.org/works/${doiPath(ids.doi)}${mailto}`, { 'User-Agent': userAgent }, config, limiters.crossref, clock);
+        if (res?.ok) {
+          const work = ((await res.json()) as { message?: { 'updated-by'?: CrossrefNotice[] } } | null)?.message;
+          if (work) findings.push(classifyCrossrefNotices(work['updated-by']));
+        }
+      }
+    }
+
+    if (ids.pmid) {
+      const ncbi = config.ncbi
+        ? { tool: config.ncbi.tool, email: config.ncbi.email, ...(config.ncbi.apiKey ? { api_key: config.ncbi.apiKey } : {}) }
+        : {};
+      const query = new URLSearchParams({ db: 'pubmed', id: ids.pmid, ...ncbi, rettype: 'abstract', retmode: 'xml' });
+      if (budget.take()) {
+        const res = await get(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${query}`, {}, config, limiters.pubmed, clock);
+        if (res?.ok) findings.push(classifyPubmedXml(await res.text()));
+      }
+    }
+
+    const merged = mergeFindings(findings);
+    return { ...merged, checkedAt: new Date(clock.now()).toISOString() };
+  }
+
+  return { resolveIdentifiers, searchTitle, checkStatus };
 }
