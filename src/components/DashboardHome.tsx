@@ -241,28 +241,28 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     const iconBtn = 'text-slate-400 hover:text-[#325FEC] hover:bg-[#325FEC]/10 dark:hover:text-[#8DB4FF]';
 
     return (
-      <div key={mainProj.id} className="group relative pt-16">
-        {/* The folder behind: tab, back, and a paper for each step of content */}
-        <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
-          <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#E3E7EF] dark:bg-[#232A3B]" />
-          <div className="absolute inset-x-0 top-5 bottom-0 rounded-t-3xl bg-[#E3E7EF] dark:bg-[#232A3B]" />
+      <div key={mainProj.id} className="group relative pt-20">
+        {/* The folder behind: a blue tab and back, and a sheet of paper for each step of content */}
+        <div className="absolute inset-x-0 top-0 h-32 pointer-events-none">
+          <div className="absolute left-0 top-0 h-8 w-28 rounded-t-2xl bg-[#3E6DF2]" />
+          <div className="absolute inset-x-0 top-3 bottom-0 rounded-t-3xl bg-gradient-to-b from-[#4C7BFA] to-[#325FEC] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]" />
           {papers >= 3 && (
-            <div className="absolute inset-x-8 top-6 bottom-0 rounded-t-2xl rotate-[1.6deg] origin-bottom-right bg-[#EEF1F7] dark:bg-[#2A3247] shadow-sm" />
+            <div className="absolute inset-x-8 top-7 bottom-0 rounded-t-xl rotate-[1.6deg] origin-bottom-right bg-[#E4E9F3] shadow-sm" />
           )}
           {papers >= 2 && (
-            <div className="absolute inset-x-6 top-8 bottom-0 rounded-t-2xl -rotate-[1.2deg] origin-bottom-left bg-white dark:bg-[#2E364B] shadow-sm" />
+            <div className="absolute inset-x-6 top-9 bottom-0 rounded-t-xl -rotate-[1.2deg] origin-bottom-left bg-white shadow-sm" />
           )}
           {papers >= 1 && (
-            <div className="absolute inset-x-4 top-10 bottom-0 rounded-t-2xl bg-[#F6F8FB] dark:bg-[#353E55] shadow-sm">
+            <div className="absolute inset-x-4 top-11 bottom-0 rounded-t-xl bg-[#F4F6FA] shadow-sm">
               <div className="mx-4 mt-3 space-y-1.5">
-                <div className="h-1 w-1/4 rounded bg-[#325FEC]/50 dark:bg-[#518FFF]/60" />
-                <div className="h-1 w-3/5 rounded bg-[#D9DFEA] dark:bg-white/15" />
+                <div className="h-1 w-1/4 rounded bg-[#325FEC]/60" />
+                <div className="h-1 w-3/5 rounded bg-[#CBD3E3]" />
               </div>
             </div>
           )}
         </div>
 
-        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-white to-[#EFF1F6] dark:from-[#1D2333] dark:to-[#161B29] border-[#E1E6EF] dark:border-white/10 text-[#0F172A] dark:text-white">
+        <div className="dark relative rounded-3xl border p-4 shadow-[0_16px_32px_-18px_rgba(0,0,0,0.7)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#1B1B1F] to-[#111113] border-white/10 text-white">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
               <h3
