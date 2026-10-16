@@ -217,18 +217,21 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#EAEEF4] dark:bg-[#09090B] text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-8 relative">
-        <button
-          type="button"
-          onClick={() => setExtensionOpen(true)}
-          title="Download the Chrome extension"
-          aria-label="Download the Chrome extension"
-          data-testid="get-extension-button"
-          className="absolute top-0 right-0 inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#325FEC] dark:text-[#518FFF] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
-        >
-          <PuzzlePiece size={15} weight="bold" />
-          <span>Download extension</span>
-        </button>
+      <div className="max-w-6xl mx-auto space-y-8">
+        {/* Header with Download Extension */}
+        <div className="flex items-center justify-end h-8 -mx-4 -mt-4 px-4 mb-4">
+          <button
+            type="button"
+            onClick={() => setExtensionOpen(true)}
+            title="Download the Chrome extension"
+            aria-label="Download the Chrome extension"
+            data-testid="get-extension-button"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#325FEC] dark:text-[#518FFF] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
+          >
+            <PuzzlePiece size={15} weight="bold" />
+            <span>Download extension</span>
+          </button>
+        </div>
         <GetExtensionModal isOpen={extensionOpen} onClose={() => setExtensionOpen(false)} />
 
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}

@@ -183,15 +183,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
           <button
             type="button"
-            onClick={() => setExtensionModalOpen(true)}
-            className="p-1.5 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-            title="Download Chrome extension"
-          >
-            <PuzzlePiece size={16} />
-          </button>
-
-          <button
-            type="button"
             onClick={onToggleCollapse}
             className="p-1.5 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
             title="Expand Workspace Panel"
@@ -305,14 +296,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setExtensionModalOpen(true)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
-            title="Download Chrome extension"
-          >
-            <PuzzlePiece size={15} />
-          </button>
-          <button
-            type="button"
             onClick={onToggleCollapse}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] transition-colors cursor-pointer"
             title="Collapse Sidebar"
@@ -372,7 +355,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             const isSharedParent = parent.role === 'editor' || parent.role === 'viewer';
             const firstShared = isSharedParent && !filteredParents.slice(0, parentIdx).some((p) => p.role === 'editor' || p.role === 'viewer');
             const canManageParent = !isSharedParent;
-            const isParentActive = activeProjectId === parent.id;
+            const isParentActive = workspaceMode !== 'dashboard' && activeProjectId === parent.id;
             const subProjects = subProjectsByParent.get(parent.id) || [];
             const hasSubProjects = subProjects.length > 0;
             const isFolderCollapsed = !searchQuery.trim() && collapsedFolderIds.has(parent.id);
@@ -466,7 +449,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 {!isFolderCollapsed && hasSubProjects && (
                   <div className="pl-3.5 space-y-1 ml-3 border-l-2 border-[#CBD5E1] dark:border-[#27272A]">
                     {subProjects.map((child) => {
-                      const isChildActive = activeProjectId === child.id;
+                      const isChildActive = workspaceMode !== 'dashboard' && activeProjectId === child.id;
                       return (
                         <div
                           key={child.id}
