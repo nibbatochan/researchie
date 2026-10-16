@@ -360,10 +360,10 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             </span>
           )}
           <h1 
-            title={project.title}
+            title={workspaceMode === 'reader' && project.id === 'all' ? 'Document Library' : project.title}
             className="text-xs md:text-sm font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA] tracking-tight truncate max-w-[130px] sm:max-w-[200px] md:max-w-[280px] lg:max-w-md"
           >
-            {project.title}
+            {workspaceMode === 'reader' && project.id === 'all' ? 'Document Library' : project.title}
           </h1>
 
           {workspaceMode === 'feed' && selectedTag && (
@@ -766,7 +766,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
         {workspaceMode === 'reader' ? (
           <div className="flex-1 min-w-0 h-full overflow-hidden relative">
             <PDFReaderView
-              projectId={project.id === 'all' ? 'proj-ai-main' : project.id}
+              projectId={project.id}
               projectTitle={project.title}
               targetDocId={targetDocId}
               targetPage={targetPage}

@@ -244,6 +244,9 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [uploadStatusText, setUploadStatusText] = useState('');
   const uploadIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [uploadFileName, setUploadFileName] = useState('');
+  // Library view (projectId 'all') has no project of its own: the upload picks one.
+  const [libraryProjects, setLibraryProjects] = useState<{ id: string; title: string; parentId?: string | null }[]>([]);
+  const [uploadTargetId, setUploadTargetId] = useState('');
   const [uploadAuthor, setUploadAuthor] = useState('');
   const [uploadSourceUrl, setUploadSourceUrl] = useState('');
   const [uploadContent, setUploadContent] = useState('');
@@ -461,6 +464,9 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     return documents.find((d) => d.id === activeDocId) || documents[0] || null;
   }, [documents, activeDocId]);
 
+  // The project new clips and notes are saved to. In library view that is the open document's project.
+  const writeProjectId = projectId === 'all' ? activeDocument?.projectId || '' : projectId;
+
   const saveDocsToLocal = (updatedDocs: ResearchDocument[]) => {
     try {
       cacheSet(localCacheKey, JSON.stringify(updatedDocs));
@@ -623,8 +629,30 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (projectId !== 'all') return;
+    let live = true;
+    fetch('/api/projects', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!live || !Array.isArray(j.data)) return;
+        const list = j.data.filter((p: any) => p.id !== 'all');
+        setLibraryProjects(list);
+        setUploadTargetId((prev) => prev || list[0]?.id || '');
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
+
   const handleConfirmUpload = async () => {
     if (!uploadFileName.trim() || isUploadingFile) return;
+    const targetProjectId = projectId === 'all' ? uploadTargetId : projectId;
+    if (!targetProjectId) {
+      setUploadStatusText('Choose a project to save this document in.');
+      return;
+    }
     setIsUploadingFile(true);
     setUploadProgress(65);
     setUploadStatusText('Saving document to project library...');
@@ -641,7 +669,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectId,
+          projectId: targetProjectId,
           title: cleanTitle,
           filename: uploadFileName.trim(),
           fileSize: uploadFileSize, // <--- Accurately pass the formatted file size
@@ -892,7 +920,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     // Send citation directly to project stream feed if callback provided
     if (onCreateAtom) {
       onCreateAtom({
-        projectId,
+        projectId: writeProjectId,
         type: 'quote',
         title: `"${highlightText.slice(0, 50)}..." — p. ${pageNum}`,
         content: {
@@ -1071,7 +1099,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     const savedPage = firstCite?.pageNumber || currentPage;
 
     const payload = {
-      projectId,
+      projectId: writeProjectId,
       type: 'note' as AtomType,
       title: questionTitle,
       content: {
@@ -1390,6 +1418,16 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                               <h4 className="font-display font-semibold text-xs md:text-sm text-[#0F172A] dark:text-white group-hover:text-[#325FEC] dark:group-hover:text-[#518FFF] transition-colors line-clamp-2">
                                 {doc.title || doc.filename}
                               </h4>
+
+                              {projectId === 'all' && (
+                                <p className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 truncate" title={doc.projectId}>
+                                  {(() => {
+                                    const own = libraryProjects.find((p) => p.id === doc.projectId);
+                                    const parent = own?.parentId ? libraryProjects.find((p) => p.id === own.parentId) : undefined;
+                                    return parent ? `${parent.title} / ${own?.title}` : own?.title || 'Unknown project';
+                                  })()}
+                                </p>
+                              )}
 
                               {doc.author && (
                                 <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
@@ -2389,6 +2427,25 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                       >
                         Edit
                       </button>
+                    </div>
+                  )}
+
+                  {projectId === 'all' && (
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono uppercase text-slate-400">Save to project</label>
+                      <select
+                        value={uploadTargetId}
+                        onChange={(e) => setUploadTargetId(e.target.value)}
+                        className="w-full bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-xl px-3 py-1.5 text-xs text-[#0F172A] dark:text-[#FAFAFA] outline-none focus:border-[#325FEC]"
+                      >
+                        {libraryProjects.length === 0 && <option value="">No projects yet</option>}
+                        {libraryProjects.map((p) => {
+                          const parent = libraryProjects.find((x) => x.id === p.parentId);
+                          return (
+                            <option key={p.id} value={p.id}>{parent ? `${parent.title} / ${p.title}` : p.title}</option>
+                          );
+                        })}
+                      </select>
                     </div>
                   )}
 
