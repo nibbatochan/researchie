@@ -36,7 +36,6 @@ import { isPinned, sortPinnedFirst } from '@/lib/atoms/pin';
 import { ResearchAtom, ResearchProject, AtomType } from '@/lib/types/research';
 import { AtomCard } from './AtomCard';
 import { ExportProjectModal } from './ExportProjectModal';
-import { CanvasExportModal } from './CanvasExportModal';
 import { ResearchieAISidebar, AISidebarTab } from './ResearchieAISidebar';
 import { ResearchieAIFAB } from './ResearchieAIFAB';
 import { ResearchCanvas } from './ResearchCanvas';
@@ -178,7 +177,8 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isCanvasExportOpen, setIsCanvasExportOpen] = useState(false);
+  // Goes up each time Export is pressed on the canvas; the canvas, which holds the data, opens the dialog.
+  const [canvasExportSignal, setCanvasExportSignal] = useState(0);
   // AI Assistant Sidebar & FAB State
   const [isAISidebarOpen, setIsAISidebarOpen] = useState(false);
   const [aiSidebarTab, setAiSidebarTab] = useState<AISidebarTab>('ask');
@@ -401,7 +401,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
 
               <button
                 type="button"
-                onClick={() => setIsCanvasExportOpen(true)}
+                onClick={() => setCanvasExportSignal((n) => n + 1)}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 border border-[#D9E1EC] dark:border-[#27272A] transition-all"
                 title="Export Canvas (PNG, JPEG, SVG)"
               >
@@ -785,7 +785,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               onOpenPdfReader={onOpenPdfReader}
               showMinimap={showCanvasMinimap}
               onToggleMinimap={() => setShowCanvasMinimap((prev) => !prev)}
-              onExportTrigger={() => setIsCanvasExportOpen(true)}
+              exportOpenSignal={canvasExportSignal}
               isSidebarCollapsed={isSidebarCollapsed}
               onToggleSidebar={onToggleSidebar}
               onOpenAISidebar={(tab, initialSelection) => {
@@ -897,18 +897,6 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
         selectedAtoms={selectedAtomsList}
       />
 
-      {/* Figma-Style Canvas Image Export Modal (PNG, JPEG, SVG across scales & scopes) */}
-      <CanvasExportModal
-        isOpen={isCanvasExportOpen}
-        onClose={() => setIsCanvasExportOpen(false)}
-        project={project}
-        nodes={[]}
-        folders={[]}
-        shapes={[]}
-        drawings={[]}
-        selectedIds={selectedIds}
-        atomsById={atomsMap}
-      />
     </div>
   );
 };

@@ -36,6 +36,8 @@ export interface CanvasAtomNode {
   locked?: boolean;
   color?: string;
   mode?: CanvasNodeMode;
+  /** Degrees, clockwise, around the centre. Missing means 0. */
+  rotation?: number;
 }
 
 export interface CanvasFolder {
@@ -59,6 +61,10 @@ export interface CanvasShape {
   strokeWidth?: number;
   textColor?: string;
   fontWeight?: 'normal' | 'medium' | 'semibold' | 'bold';
+  /** Text size in px. Missing means 12. */
+  fontSize?: number;
+  /** Degrees, clockwise, around the centre. Missing means 0. */
+  rotation?: number;
   x: number;
   y: number;
   width: number;

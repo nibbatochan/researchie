@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, DownloadSimple, Check, Image as ImageIcon } from '@phosphor-icons/react';
-import { CanvasAtomNode, CanvasFolder, CanvasShape, CanvasDrawingPath } from '@/lib/types/canvas';
+import { CanvasAtomNode, CanvasFolder, CanvasShape, CanvasDrawingPath, CanvasConnector } from '@/lib/types/canvas';
+import { boxCenter } from '@/lib/canvas/geometry';
+import { buildCanvasSvg, type ExportAtom } from '@/lib/canvas/exportSvg';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 
 interface CanvasExportModalProps {
@@ -12,14 +14,28 @@ interface CanvasExportModalProps {
   nodes: CanvasAtomNode[];
   folders: CanvasFolder[];
   shapes: CanvasShape[];
+  connectors?: CanvasConnector[];
   drawings: CanvasDrawingPath[];
   selectedIds: Set<string>;
   atomsById: Map<string, ResearchAtom>;
+  /** Real heights of atom cards, which grow with their text. */
+  nodeHeights?: Record<string, number>;
 }
 
 export type ExportFormat = 'png' | 'jpeg' | 'svg';
 export type ExportScale = 0.25 | 0.5 | 1 | 2 | 3 | 4;
 export type ExportScope = 'canvas' | 'section' | 'selection';
+
+const MAX_SIDE = 8192;
+
+function download(href: string, name: string) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
   isOpen,
@@ -28,213 +44,133 @@ export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
   nodes,
   folders,
   shapes,
+  connectors = [],
   drawings,
   selectedIds,
   atomsById,
+  nodeHeights,
 }) => {
   const [format, setFormat] = useState<ExportFormat>('png');
   const [scale, setScale] = useState<ExportScale>(2);
   const [scope, setScope] = useState<ExportScope>('canvas');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [selectedFolderId, setSelectedFolderId] = useState<string>(folders[0]?.id || '');
   const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep the chosen section valid when sections are added or removed
+  useEffect(() => {
+    if (!folders.some((f) => f.id === selectedFolderId)) setSelectedFolderId(folders[0]?.id || '');
+  }, [folders, selectedFolderId]);
+
+  // A scope with nothing in it cannot stay selected
+  useEffect(() => {
+    if (scope === 'selection' && selectedIds.size === 0) setScope('canvas');
+    if (scope === 'section' && folders.length === 0) setScope('canvas');
+  }, [scope, selectedIds.size, folders.length]);
 
   if (!isOpen) return null;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setIsExporting(true);
+    setError(null);
     try {
-      // Determine items in export scope
-      let exportNodes = nodes;
-      let exportShapes = shapes;
-      let exportDrawings = drawings;
+      const heightOf = (n: CanvasAtomNode) => nodeHeights?.[n.instanceId] ?? n.height ?? 120;
+
+      let exNodes = nodes;
+      let exShapes = shapes;
+      let exFolders = folders;
+      let exConnectors = connectors;
+      let exDrawings = drawings;
 
       if (scope === 'selection') {
-        exportNodes = nodes.filter((n) => selectedIds.has(n.instanceId));
-        exportShapes = shapes.filter((s) => selectedIds.has(s.id));
-      } else if (scope === 'section' && selectedFolderId) {
-        const targetFolder = folders.find((f) => f.id === selectedFolderId);
-        if (targetFolder) {
-          exportNodes = nodes.filter(
-            (n) =>
-              n.x >= targetFolder.x &&
-              n.x <= targetFolder.x + targetFolder.width &&
-              n.y >= targetFolder.y &&
-              n.y <= targetFolder.y + targetFolder.height
-          );
-          exportShapes = shapes.filter(
-            (s) =>
-              s.x >= targetFolder.x &&
-              s.x <= targetFolder.x + targetFolder.width &&
-              s.y >= targetFolder.y &&
-              s.y <= targetFolder.y + targetFolder.height
-          );
+        exNodes = nodes.filter((n) => selectedIds.has(n.instanceId));
+        exShapes = shapes.filter((sh) => selectedIds.has(sh.id));
+        exFolders = folders.filter((f) => selectedIds.has(f.id));
+        const ids = new Set([...exNodes.map((n) => n.instanceId), ...exShapes.map((sh) => sh.id), ...exFolders.map((f) => f.id)]);
+        exConnectors = connectors.filter((c) => ids.has(c.fromId) && ids.has(c.toId));
+        exDrawings = [];
+      } else if (scope === 'section') {
+        const target = folders.find((f) => f.id === selectedFolderId);
+        if (target) {
+          const inside = (cx: number, cy: number) =>
+            cx >= target.x && cx <= target.x + target.width && cy >= target.y && cy <= target.y + target.height;
+          exNodes = nodes.filter((n) => {
+            const c = boxCenter({ x: n.x, y: n.y, width: n.width || 340, height: heightOf(n) });
+            return inside(c.x, c.y);
+          });
+          exShapes = shapes.filter((sh) => {
+            const c = boxCenter(sh);
+            return inside(c.x, c.y);
+          });
+          exFolders = [target];
+          const ids = new Set([...exNodes.map((n) => n.instanceId), ...exShapes.map((sh) => sh.id)]);
+          exConnectors = connectors.filter((c) => ids.has(c.fromId) && ids.has(c.toId));
+          exDrawings = drawings.filter((d) => d.points.some((p) => inside(p.x, p.y)));
         }
       }
 
-      // Calculate Bounding Box
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
+      const atoms = new Map<string, ExportAtom>();
+      atomsById.forEach((a, id) =>
+        atoms.set(id, {
+          type: a.type,
+          title: a.title,
+          text: a.content?.rawText || a.content?.text || a.content?.description || '',
+          pageTitle: a.metadata?.pageTitle,
+          sourceUrl: a.metadata?.sourceUrl,
+        })
+      );
 
-      exportNodes.forEach((n) => {
-        minX = Math.min(minX, n.x);
-        minY = Math.min(minY, n.y);
-        maxX = Math.max(maxX, n.x + (n.width || 340));
-        maxY = Math.max(maxY, n.y + (n.height || 140));
+      const built = buildCanvasSvg({
+        nodes: exNodes,
+        folders: exFolders,
+        shapes: exShapes,
+        connectors: exConnectors,
+        drawings: exDrawings,
+        atoms,
+        nodeHeights,
+        theme,
       });
 
-      exportShapes.forEach((s) => {
-        minX = Math.min(minX, s.x);
-        minY = Math.min(minY, s.y);
-        maxX = Math.max(maxX, s.x + s.width);
-        maxY = Math.max(maxY, s.y + s.height);
-      });
-
-      if (minX === Infinity) {
-        minX = 0;
-        minY = 0;
-        maxX = 800;
-        maxY = 600;
-      }
-
-      const padding = 60;
-      const contentW = Math.max(maxX - minX + padding * 2, 400);
-      const contentH = Math.max(maxY - minY + padding * 2, 300);
-
-      const targetWidth = Math.round(contentW * scale);
-      const targetHeight = Math.round(contentH * scale);
-
-      // SVG Export Format
-      if (format === 'svg') {
-        let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${targetWidth}" height="${targetHeight}" viewBox="0 0 ${contentW} ${contentH}">
-          <rect width="100%" height="100%" fill="#09090B"/>
-          <g transform="translate(${-minX + padding}, ${-minY + padding})">`;
-
-        // Draw shapes in SVG
-        exportShapes.forEach((s) => {
-          const fill = s.color?.includes('bg-transparent') ? 'none' : '#18181B';
-          const stroke = s.strokeColor || '#325FEC';
-          const sw = s.strokeWidth || 2;
-          svgContent += `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
-            <text x="${s.x + s.width / 2}" y="${s.y + s.height / 2 + 5}" font-family="sans-serif" font-size="13" fill="#FAFAFA" text-anchor="middle">${s.text || ''}</text>`;
-        });
-
-        // Draw atom cards in SVG
-        exportNodes.forEach((n) => {
-          const atom = atomsById.get(n.atomId);
-          const w = n.width || 340;
-          const h = n.height || 140;
-          const text = (atom?.content?.rawText || atom?.content?.text || atom?.title || '').slice(0, 90);
-          svgContent += `<rect x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="16" fill="#18181B" stroke="#27272A" stroke-width="1.5"/>
-            <text x="${n.x + 16}" y="${n.y + 26}" font-family="monospace" font-size="10" font-weight="bold" fill="#325FEC">${(atom?.type || 'NOTE').toUpperCase()}</text>
-            <text x="${n.x + 16}" y="${n.y + 54}" font-family="sans-serif" font-size="12" fill="#E4E4E7">${text}</text>`;
-        });
-
-        // Draw paths in SVG
-        exportDrawings.forEach((d) => {
-          if (d.points.length > 1) {
-            const pData = d.points.reduce((acc, p, idx) => (idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
-            svgContent += `<path d="${pData}" stroke="${d.color}" stroke-width="${d.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-          }
-        });
-
-        svgContent += `</g></svg>`;
-        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${project?.title || 'canvas'}-${scope}@${scale}x.svg`;
-        a.click();
-        URL.revokeObjectURL(url);
+      if (built.empty) {
+        setError('There is nothing to export here yet.');
         setIsExporting(false);
-        onClose();
         return;
       }
 
-      // Raster Export (PNG / JPEG) via Canvas
-      const canvasEl = document.createElement('canvas');
-      canvasEl.width = targetWidth;
-      canvasEl.height = targetHeight;
-      const ctx = canvasEl.getContext('2d');
-      if (!ctx) return;
+      const baseName = `${project?.title || 'canvas'}-${scope}@${scale}x`;
+      const svgBlob = new Blob([built.svg], { type: 'image/svg+xml;charset=utf-8' });
 
-      // Scale transformation
-      ctx.scale(scale, scale);
-      ctx.translate(-minX + padding, -minY + padding);
+      if (format === 'svg') {
+        const url = URL.createObjectURL(svgBlob);
+        download(url, `${baseName}.svg`);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } else {
+        // PNG and JPEG are this same drawing, rendered to pixels
+        const effective = Math.min(scale, MAX_SIDE / Math.max(built.width, built.height));
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Could not draw the canvas.'));
+          img.src = url;
+        });
+        const canvasEl = document.createElement('canvas');
+        canvasEl.width = Math.max(1, Math.round(built.width * effective));
+        canvasEl.height = Math.max(1, Math.round(built.height * effective));
+        const ctx = canvasEl.getContext('2d');
+        if (!ctx) throw new Error('Could not draw the canvas.');
+        ctx.fillStyle = theme === 'dark' ? '#09090B' : '#FAFBFD';
+        ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+        ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
+        URL.revokeObjectURL(url);
+        download(canvasEl.toDataURL(format === 'jpeg' ? 'image/jpeg' : 'image/png', 0.95), `${baseName}.${format}`);
+      }
 
-      // Dark Background
-      ctx.fillStyle = '#09090B';
-      ctx.fillRect(minX - padding, minY - padding, contentW, contentH);
-
-      // Render shapes
-      exportShapes.forEach((s) => {
-        ctx.fillStyle = s.color?.includes('bg-transparent') ? 'transparent' : '#18181B';
-        ctx.strokeStyle = s.strokeColor || '#325FEC';
-        ctx.lineWidth = s.strokeWidth || 2;
-        ctx.beginPath();
-        ctx.roundRect(s.x, s.y, s.width, s.height, 12);
-        ctx.fill();
-        ctx.stroke();
-
-        if (s.text) {
-          ctx.fillStyle = '#FAFAFA';
-          ctx.font = '13px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(s.text.slice(0, 40), s.x + s.width / 2, s.y + s.height / 2 + 5);
-        }
-      });
-
-      // Render atom nodes
-      exportNodes.forEach((n) => {
-        const atom = atomsById.get(n.atomId);
-        const w = n.width || 340;
-        const h = n.height || 140;
-
-        ctx.fillStyle = '#18181B';
-        ctx.strokeStyle = '#27272A';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(n.x, n.y, w, h, 16);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#325FEC';
-        ctx.font = 'bold 10px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText((atom?.type || 'NOTE').toUpperCase(), n.x + 16, n.y + 26);
-
-        ctx.fillStyle = '#E4E4E7';
-        ctx.font = '12px sans-serif';
-        const txt = atom?.content?.rawText || atom?.content?.text || atom?.title || 'Clip note';
-        ctx.fillText(txt.slice(0, 80) + (txt.length > 80 ? '...' : ''), n.x + 16, n.y + 54);
-      });
-
-      // Render freehand drawings
-      exportDrawings.forEach((d) => {
-        if (d.points.length > 1) {
-          ctx.strokeStyle = d.color;
-          ctx.lineWidth = d.strokeWidth;
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.beginPath();
-          d.points.forEach((p, idx) => {
-            if (idx === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          });
-          ctx.stroke();
-        }
-      });
-
-      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-      const dataUrl = canvasEl.toDataURL(mimeType, 0.95);
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `${project?.title || 'canvas'}-${scope}@${scale}x.${format}`;
-      a.click();
       setIsExporting(false);
       onClose();
-    } catch {
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The export failed.');
       setIsExporting(false);
     }
   };
@@ -300,7 +236,7 @@ export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
               >
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
-                    📁 {f.title}
+                    {f.title}
                   </option>
                 ))}
               </select>
@@ -329,6 +265,27 @@ export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
           </div>
         </div>
 
+        {/* Background */}
+        <div className="space-y-1">
+          <label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">Background</label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(['dark', 'light'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTheme(t)}
+                className={`py-1.5 px-1.5 rounded-lg text-[11px] font-medium border text-center capitalize transition-all ${
+                  theme === t
+                    ? 'border-slate-800 dark:border-zinc-300 bg-slate-800 dark:bg-zinc-200 text-white dark:text-zinc-950 font-bold shadow-xs'
+                    : 'border-[#D2DCEA] dark:border-[#27272A] bg-transparent text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 3. Scale Selection (Grayscale selected bg) */}
         <div className="space-y-1">
           <label className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
@@ -352,6 +309,8 @@ export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
           </div>
         </div>
 
+        {error && <p className="text-[11px] text-rose-600 dark:text-rose-400">{error}</p>}
+
         {/* Modal Action Buttons */}
         <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-[#D2DCEA] dark:border-[#27272A]">
           <button
@@ -365,6 +324,7 @@ export const CanvasExportModal: React.FC<CanvasExportModalProps> = ({
           <button
             type="button"
             disabled={isExporting}
+            data-testid="confirm-canvas-export"
             onClick={handleExport}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 shadow-sm transition-all cursor-pointer"
           >

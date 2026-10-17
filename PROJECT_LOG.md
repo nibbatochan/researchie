@@ -121,3 +121,20 @@
 ### 3. Readiness for Next Phase
 - **Not yet tried on the live site:** sharing, delete account end to end, the saved Notion token, QR set-up, Google sign-in. Migrations 003 and 004 still have to be run on the testers project, then a deploy.
 - **Open security items:** the block-clip iframe sandbox, the wildcard CORS header, no Content-Security-Policy, rotating the tester service key (S-41), and trying the isolation rules with two real accounts.
+
+## Session Record: Canvas Audit (2026-10-17)
+
+### 1. Architectural Decisions
+- **Selection handles, rotate handle and connection ports are one layer above all items**, drawn from item boxes (`getItemBox`), not inside each item. An item's own stacking context made them unreachable when a card sat above it.
+- **A box is its unrotated corner plus a rotation about its centre** (`src/lib/canvas/geometry.ts`). Resizing keeps the opposite side fixed on the canvas, also when turned. This is pure code with unit tests.
+- **Text saves as it is typed**, with one undo step when the edit ends; nothing depends on the text box losing focus.
+- **Export draws one SVG** (`src/lib/canvas/exportSvg.ts`); PNG and JPEG are that SVG drawn to pixels. The dialog lives in the canvas, which holds the data.
+- **Sections are an outline**, with their grab areas (edges, name) in a layer above the items.
+
+### 2. State of Key Files
+- `src/components/ResearchCanvas.tsx`, `src/components/CanvasExportModal.tsx`, `src/lib/canvas/`, `src/lib/types/canvas.ts` (rotation, fontSize), `src/components/ProjectTimeline.tsx` (opens the export through a signal).
+- `e2e/22-canvas-tools.spec.ts`, `tests/canvas-geometry.test.mjs`, `tests/canvas-export.test.mjs`.
+
+### 3. Readiness for Next Phase
+- **Not built:** scaling or rotating several selected items together (they can be moved, deleted and layered together); copy, paste and duplicate; the minimap does not navigate.
+- **Not checked:** touch screens and phone width; a canvas with hundreds of items (every item re-renders while one is dragged).

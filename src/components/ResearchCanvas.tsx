@@ -59,7 +59,9 @@ import {
   Star,
   Selection,
   ShareNetwork,
-  Compass
+  Compass,
+  ArrowCounterClockwise,
+  ArrowClockwise
 } from '@phosphor-icons/react';
 import { ResearchAtom, ResearchProject, AtomType } from '@/lib/types/research';
 import { 
@@ -82,6 +84,18 @@ import { semanticHighlightText } from '@/lib/utils/semanticHighlight';
 import { getAtomHighlightText } from '@/components/AtomCard';
 import { buildDeepLink } from '@/lib/utils/textFragments';
 import { usePrefs } from '@/lib/prefs/prefsContext';
+import {
+  boxBounds,
+  boxCenter,
+  angleFrom,
+  normalizeAngle,
+  portPoint,
+  resizeBox,
+  snapAngle,
+  type Box,
+  type ResizeDirection,
+} from '@/lib/canvas/geometry';
+import { CanvasExportModal } from './CanvasExportModal';
 
 const getAtomTypeSemanticStyle = (type: AtomType) => {
   switch (type) {
@@ -116,9 +130,10 @@ interface ResearchCanvasProps {
   onOpenPdfReader?: (docId?: string, pageNumber?: number, text?: string) => void;
   showMinimap?: boolean;
   onToggleMinimap?: () => void;
-  onExportTrigger?: (type: 'all' | 'selection' | 'section') => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  /** Goes up each time the page's Export button is pressed, which opens the export dialog. */
+  exportOpenSignal?: number;
 }
 
 // Finite Infinite Plane Dimensions
@@ -128,6 +143,19 @@ const CANVAS_CENTER_X = CANVAS_WIDTH / 2;
 const CANVAS_CENTER_Y = CANVAS_HEIGHT / 2;
 
 const DRAG_THRESHOLD = 3;
+const DRAWER_WIDTH = 320;
+const HIGHLIGHTER_COLORS = ['#F59E0B', '#FACC15', '#4ADE80', '#F472B6', '#38BDF8'];
+const HIGHLIGHTER_THICKNESSES = [8, 14, 22, 32];
+const ROTATE_HANDLE_OFFSET = 30;
+
+// Smallest size each kind of item can be scaled to.
+const MIN_SIZE = {
+  node: { width: 120, height: 56 },
+  folder: { width: 120, height: 80 },
+  text: { width: 24, height: 16 },
+  line: { width: 24, height: 8 },
+  shape: { width: 24, height: 24 },
+};
 
 const SECTION_COLORS = [
   { name: 'Blue', border: 'border-blue-500/50', bg: 'bg-blue-500/5', headerBg: 'bg-blue-600', text: 'text-blue-600 dark:text-blue-400' },
@@ -169,8 +197,6 @@ const SHAPE_FILL_PRESETS = [
   { name: 'White / Neutral', bg: 'bg-white dark:bg-[#18181B]', stroke: '#94A3B8', text: 'text-slate-900 dark:text-zinc-100' },
 ];
 
-type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
-
 type CanvasDragState =
   | {
       type: 'item';
@@ -195,6 +221,17 @@ type CanvasDragState =
       initialY: number;
       initialW: number;
       initialH: number;
+      initialRotation: number;
+      initialFontSize: number;
+    }
+  | {
+      type: 'rotate';
+      id: string;
+      itemType: 'node' | 'shape';
+      centerX: number;
+      centerY: number;
+      startAngle: number;
+      initialRotation: number;
     }
   | {
       type: 'marquee';
@@ -205,6 +242,40 @@ type CanvasDragState =
     }
   | null;
 
+const distanceToSegment = (p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) => {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+};
+
+const strokeNear = (points: Array<{ x: number; y: number }>, pt: { x: number; y: number }, radius: number) => {
+  if (points.length === 1) return Math.hypot(points[0].x - pt.x, points[0].y - pt.y) < radius;
+  for (let i = 1; i < points.length; i++) {
+    if (distanceToSegment(pt, points[i - 1], points[i]) < radius) return true;
+  }
+  return false;
+};
+
+const HANDLE_ANGLE: Record<ResizeDirection, number> = { n: 0, ne: 45, e: 90, se: 135, s: 180, sw: 225, w: 270, nw: 315 };
+const resizeCursor = (dir: ResizeDirection, rotation: number) => {
+  const a = (((HANDLE_ANGLE[dir] + rotation) % 180) + 180) % 180;
+  if (a < 22.5 || a >= 157.5) return 'ns-resize';
+  if (a < 67.5) return 'nesw-resize';
+  if (a < 112.5) return 'ew-resize';
+  return 'nwse-resize';
+};
+
+const STICKY_STROKES: Record<string, string> = {
+  Yellow: '#FACC15',
+  Blue: '#38BDF8',
+  Green: '#4ADE80',
+  Purple: '#A78BFA',
+  Rose: '#FB7185',
+};
+
 export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   project,
   atoms,
@@ -214,9 +285,9 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   onOpenPdfReader,
   showMinimap = false,
   onToggleMinimap,
-  onExportTrigger,
   isSidebarCollapsed,
   onToggleSidebar,
+  exportOpenSignal,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -287,14 +358,67 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   const [drawerFilter, setDrawerFilter] = useState<string>('all');
   const [draggingAtomId, setDraggingAtomId] = useState<string | null>(null);
 
-  // Hovered item ID for atoms to show action buttons on hover only
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-
   // Inline editing
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // Export menu in canvas header
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  // Export dialog (opened from the page's Export button)
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  useEffect(() => {
+    if (exportOpenSignal) setIsExportOpen(true);
+  }, [exportOpenSignal]);
+
+  // Real heights of atom cards. They grow with their content, so the stored height is only a minimum.
+  const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
+  const nodeEls = useRef(new Map<string, HTMLElement>());
+  const nodeObserver = useRef<ResizeObserver | null>(null);
+  const nodeRefCache = useRef(new Map<string, (el: HTMLElement | null) => void>());
+  useEffect(() => {
+    const ro = new ResizeObserver((entries) => {
+      setMeasuredHeights((prev) => {
+        let next = prev;
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement;
+          const id = el.dataset.nodeId;
+          if (!id) continue;
+          const h = el.offsetHeight;
+          if (Math.abs((prev[id] ?? -1) - h) > 0.5) {
+            if (next === prev) next = { ...prev };
+            next[id] = h;
+          }
+        }
+        return next;
+      });
+    });
+    nodeObserver.current = ro;
+    nodeEls.current.forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, []);
+  const nodeRef = (id: string) => {
+    let cb = nodeRefCache.current.get(id);
+    if (!cb) {
+      cb = (el) => {
+        if (el) {
+          nodeEls.current.set(id, el);
+          nodeObserver.current?.observe(el);
+        } else {
+          const old = nodeEls.current.get(id);
+          if (old) nodeObserver.current?.unobserve(old);
+          nodeEls.current.delete(id);
+        }
+      };
+      nodeRefCache.current.set(id, cb);
+    }
+    return cb;
+  };
+  const nodeHeight = useCallback(
+    (n: CanvasAtomNode) => measuredHeights[n.instanceId] ?? n.height ?? 100,
+    [measuredHeights]
+  );
+  const eraserDidErase = useRef(false);
+  const pendingFit = useRef(false);
+  const initialPlacementDone = useRef(false);
+  const textDirty = useRef(false);
+  const fitRef = useRef<(maxZoom?: number) => void>(() => {});
 
   // Lookup map for fast atom resolution by atomId
   const atomsById = useMemo(() => {
@@ -340,58 +464,58 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   }, [historyIndex]);
 
   const prefs = usePrefs();
-  // Load Canvas Data per project
+  // Load the canvas of the open project. A project with nothing saved starts empty.
   useEffect(() => {
+    let data: CanvasData | null = null;
     try {
       const raw = prefs.get(canvasStorageKey);
-      if (raw) {
-        const data: CanvasData = JSON.parse(raw);
-        setNodes(data.nodes || []);
-        setFolders(data.folders || []);
-        setShapes(data.shapes || []);
-        setConnectors(data.connectors || []);
-        setDrawings(data.drawings || []);
-        setHistory([{
-          nodes: data.nodes || [],
-          folders: data.folders || [],
-          shapes: data.shapes || [],
-          connectors: data.connectors || [],
-          drawings: data.drawings || [],
-        }]);
-        setHistoryIndex(0);
-        return;
-      }
+      if (raw) data = JSON.parse(raw);
     } catch {}
 
-    // First time initializing: Populate initial atoms in compact mode
-    if (atoms.length > 0) {
-      const initialNodes: CanvasAtomNode[] = atoms.slice(0, 6).map((atom, idx) => {
-        const col = idx % 3;
-        const row = Math.floor(idx / 3);
-        return {
-          instanceId: `inst-${atom.id}-${Date.now()}-${idx}`,
-          atomId: atom.id,
-          x: CANVAS_CENTER_X - 520 + col * 380,
-          y: CANVAS_CENTER_Y - 260 + row * 240,
-          width: 340,
-          mode: 'compact',
-        };
-      });
-      setNodes(initialNodes);
-      setFolders([]);
-      setShapes([]);
-      setConnectors([]);
-      setDrawings([]);
-      setHistory([{
-        nodes: initialNodes,
-        folders: [],
-        shapes: [],
-        connectors: [],
-        drawings: [],
-      }]);
-      setHistoryIndex(0);
-    }
+    const loaded = {
+      nodes: data?.nodes || [],
+      folders: data?.folders || [],
+      shapes: data?.shapes || [],
+      connectors: data?.connectors || [],
+      drawings: data?.drawings || [],
+    };
+    setNodes(loaded.nodes);
+    setFolders(loaded.folders);
+    setShapes(loaded.shapes);
+    setConnectors(loaded.connectors);
+    setDrawings(loaded.drawings);
+    setHistory([loaded]);
+    setHistoryIndex(0);
+    setSelectedIds(new Set());
+    setEditingItemId(null);
+    setMeasuredHeights({});
+    initialPlacementDone.current = !!data;
+    pendingFit.current = true;
   }, [canvasStorageKey, projectId]);
+
+  // First visit: put the first clips on the canvas once this project's clips have arrived.
+  useEffect(() => {
+    if (initialPlacementDone.current) return;
+    const own = atoms.filter((a) => projectId === 'all' || a.projectId === projectId);
+    if (own.length === 0) return;
+    initialPlacementDone.current = true;
+    const initialNodes: CanvasAtomNode[] = own.slice(0, 6).map((atom, idx) => {
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+      return {
+        instanceId: `inst-${atom.id}-${Date.now()}-${idx}`,
+        atomId: atom.id,
+        x: CANVAS_CENTER_X - 520 + col * 380,
+        y: CANVAS_CENTER_Y - 260 + row * 240,
+        width: 340,
+        mode: 'compact',
+      };
+    });
+    setNodes(initialNodes);
+    setHistory([{ nodes: initialNodes, folders: [], shapes: [], connectors: [], drawings: [] }]);
+    setHistoryIndex(0);
+    pendingFit.current = true;
+  }, [atoms, projectId, canvasStorageKey]);
 
   // Auto-Save Canvas with Debounce per project
   useEffect(() => {
@@ -452,78 +576,86 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     }
   }, [history, historyIndex]);
 
-  // Layer Reordering: Ctrl + [ (Send backward), Ctrl + ] (Bring forward)
-  const handleLayerOrder = useCallback((direction: 'backward' | 'forward') => {
-    if (selectedIds.size === 0) return;
-    setNodes((prev) => {
-      const arr = [...prev];
-      selectedIds.forEach((selId) => {
-        const idx = arr.findIndex((n) => n.instanceId === selId);
-        if (idx !== -1) {
-          if (direction === 'forward' && idx < arr.length - 1) {
-            const temp = arr[idx];
-            arr[idx] = arr[idx + 1];
-            arr[idx + 1] = temp;
-          } else if (direction === 'backward' && idx > 0) {
-            const temp = arr[idx];
-            arr[idx] = arr[idx - 1];
-            arr[idx - 1] = temp;
-          }
-        }
-      });
-      return arr;
-    });
-    setShapes((prev) => {
-      const arr = [...prev];
-      selectedIds.forEach((selId) => {
-        const idx = arr.findIndex((s) => s.id === selId);
-        if (idx !== -1) {
-          if (direction === 'forward' && idx < arr.length - 1) {
-            const temp = arr[idx];
-            arr[idx] = arr[idx + 1];
-            arr[idx + 1] = temp;
-          } else if (direction === 'backward' && idx > 0) {
-            const temp = arr[idx];
-            arr[idx] = arr[idx - 1];
-            arr[idx - 1] = temp;
-          }
-        }
-      });
-      return arr;
-    });
-  }, [selectedIds]);
+  // Stacking: every shape and atom has a z value. A missing value falls back to the old order
+  // (shapes in the order they were made, then atoms), so canvases saved earlier look the same.
+  const zById = useMemo(() => {
+    const map: Record<string, number> = {};
+    shapes.forEach((sh, i) => (map[sh.id] = sh.zIndex ?? 10 + i));
+    nodes.forEach((n, i) => (map[n.instanceId] = n.zIndex ?? 10 + shapes.length + i));
+    return map;
+  }, [shapes, nodes]);
+  const topZ = useCallback(() => Math.max(9, ...Object.values(zById)) + 1, [zById]);
 
-  // Keyboard Shortcuts: Space, Undo/Redo, Delete, Layering, Escape
+  // Layer Reordering: Ctrl + [ (Send backward), Ctrl + ] (Bring forward)
+  const handleLayerOrder = useCallback(
+    (direction: 'backward' | 'forward') => {
+      if (selectedIds.size === 0) return;
+      const stack = [
+        ...shapes.map((sh) => ({ id: sh.id, z: zById[sh.id] })),
+        ...nodes.map((n) => ({ id: n.instanceId, z: zById[n.instanceId] })),
+      ]
+        .sort((a, b) => a.z - b.z)
+        .map((i) => i.id);
+
+      if (direction === 'forward') {
+        for (let i = stack.length - 2; i >= 0; i--) {
+          if (selectedIds.has(stack[i]) && !selectedIds.has(stack[i + 1])) [stack[i], stack[i + 1]] = [stack[i + 1], stack[i]];
+        }
+      } else {
+        for (let i = 1; i < stack.length; i++) {
+          if (selectedIds.has(stack[i]) && !selectedIds.has(stack[i - 1])) [stack[i], stack[i - 1]] = [stack[i - 1], stack[i]];
+        }
+      }
+
+      const z = new Map(stack.map((id, i) => [id, 10 + i]));
+      const nextShapes = shapes.map((sh) => ({ ...sh, zIndex: z.get(sh.id) }));
+      const nextNodes = nodes.map((n) => ({ ...n, zIndex: z.get(n.instanceId) }));
+      setShapes(nextShapes);
+      setNodes(nextNodes);
+      pushHistorySnapshot(nextNodes, folders, nextShapes, connectors, drawings);
+    },
+    [selectedIds, shapes, nodes, folders, connectors, drawings, zById, pushHistorySnapshot]
+  );
+
+  // Keyboard Shortcuts: tools, Space to pan, Undo/Redo, Delete, arrows to nudge, Layering, Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (e.code === 'Space') {
+        if (target.tagName !== 'BUTTON') e.preventDefault();
+        setIsSpacePressed(true);
         return;
       }
 
-      if (e.code === 'Space') {
-        setIsSpacePressed(true);
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+      if (mod && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (e.shiftKey) handleRedo();
         else handleUndo();
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+      } else if (mod && (e.key === 'y' || e.key === 'Y')) {
         e.preventDefault();
         handleRedo();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+      } else if (mod && e.key === '[') {
         e.preventDefault();
         handleLayerOrder('backward');
-      } else if ((e.ctrlKey || e.metaKey) && e.key === ']') {
+      } else if (mod && e.key === ']') {
         e.preventDefault();
         handleLayerOrder('forward');
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedConnectorId) {
           e.preventDefault();
-          setConnectors((prev) => {
-            const next = prev.filter((c) => c.id !== selectedConnectorId);
-            pushHistorySnapshot(nodes, folders, shapes, next, drawings);
-            return next;
-          });
+          const next = connectors.filter((c) => c.id !== selectedConnectorId);
+          setConnectors(next);
+          pushHistorySnapshot(nodes, folders, shapes, next, drawings);
           setSelectedConnectorId(null);
         } else if (selectedIds.size > 0) {
           e.preventDefault();
@@ -545,21 +677,29 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
         setSelectedConnectorId(null);
         setEditingItemId(null);
         setIsShapeMenuOpen(false);
-        setIsExportMenuOpen(false);
-      } else if (e.key === 'v' || e.key === 'V') {
         setActiveTool('pointer');
-      } else if (e.key === 'h' || e.key === 'H') {
-        setActiveTool('hand');
-      } else if (e.key === 'c' || e.key === 'C') {
-        setActiveTool('connect');
-      } else if (e.key === 's' || e.key === 'S') {
-        setActiveTool('sticky');
-      } else if (e.key === 't' || e.key === 'T') {
-        setActiveTool('text');
-      } else if (e.key === 'p' || e.key === 'P') {
-        setActiveTool('pen');
-      } else if (e.key === 'e' || e.key === 'E') {
-        setActiveTool('eraser');
+      } else if (!mod && !e.altKey && e.key.startsWith('Arrow') && selectedIds.size > 0) {
+        // Nudge the selection: 1 px, or 10 px with Shift
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        const nextNodes = nodes.map((n) => (selectedIds.has(n.instanceId) ? { ...n, x: n.x + dx, y: n.y + dy } : n));
+        const nextFolders = folders.map((f) => (selectedIds.has(f.id) ? { ...f, x: f.x + dx, y: f.y + dy } : f));
+        const nextShapes = shapes.map((s) => (selectedIds.has(s.id) ? { ...s, x: s.x + dx, y: s.y + dy } : s));
+        setNodes(nextNodes);
+        setFolders(nextFolders);
+        setShapes(nextShapes);
+        pushHistorySnapshot(nextNodes, nextFolders, nextShapes, connectors, drawings);
+      } else if (!mod && !e.altKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'v') setActiveTool('pointer');
+        else if (k === 'h') setActiveTool('hand');
+        else if (k === 'c') setActiveTool('connect');
+        else if (k === 's') setActiveTool('sticky');
+        else if (k === 't') setActiveTool('text');
+        else if (k === 'p') setActiveTool('pen');
+        else if (k === 'e') setActiveTool('eraser');
       }
     };
 
@@ -586,35 +726,49 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     }, 400);
   }, []);
 
-  // Zoom with Wheel / Trackpad Pinch
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    if (!containerRef.current) return;
-
-    if (e.altKey || e.ctrlKey || e.metaKey) {
-      triggerZoomMinimap();
+  // Zoom the view around a point (coordinates are relative to the canvas element)
+  const zoomAt = useCallback(
+    (nextZoom: number, anchorX: number, anchorY: number) => {
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.15), 2.5);
-
-      const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
-      const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
-
-      setZoom(newZoom);
+      const z = Math.min(Math.max(nextZoom, 0.15), 2.5);
+      const newPanX = anchorX - (anchorX - pan.x) * (z / zoom);
+      const newPanY = anchorY - (anchorY - pan.y) * (z / zoom);
+      setZoom(z);
       setPan({
-        x: Math.max(-CANVAS_WIDTH * newZoom + 400, Math.min(rect.width - 200, newPanX)),
-        y: Math.max(-CANVAS_HEIGHT * newZoom + 300, Math.min(rect.height - 150, newPanY)),
+        x: Math.max(-CANVAS_WIDTH * z + 400, Math.min(rect.width - 200, newPanX)),
+        y: Math.max(-CANVAS_HEIGHT * z + 300, Math.min(rect.height - 150, newPanY)),
       });
-    } else {
-      setPan((prev) => ({
-        x: prev.x - e.deltaX * 0.9,
-        y: prev.y - e.deltaY * 0.9,
-      }));
-    }
-  }, [zoom, pan, triggerZoomMinimap]);
+      triggerZoomMinimap();
+    },
+    [zoom, pan, triggerZoomMinimap]
+  );
+
+  // The zoom buttons zoom around the middle of the view
+  const zoomByButton = (delta: number) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    zoomAt(zoom + delta, rect.width / 2, rect.height / 2);
+  };
+
+  // Wheel: Ctrl, Alt or Cmd zooms, plain wheel pans. This is a native listener because React's onWheel
+  // is passive and cannot stop the browser from zooming the whole page.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as HTMLElement).closest('[data-canvas-no-wheel]')) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        zoomAt(zoom * (e.deltaY < 0 ? 1.12 : 0.88), e.clientX - rect.left, e.clientY - rect.top);
+      } else {
+        setPan((prev) => ({ x: prev.x - e.deltaX * 0.9, y: prev.y - e.deltaY * 0.9 }));
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoom, zoomAt]);
 
   // Helper to convert screen client coords to canvas coordinates
   const clientToCanvas = useCallback((clientX: number, clientY: number) => {
@@ -638,7 +792,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
   const getContainedEntities = useCallback((folder: CanvasFolder) => {
     const containedNodes = nodes
-      .filter((n) => isContainedInFolder(n.x + (n.width || 340) / 2, n.y + 40, folder))
+      .filter((n) => isContainedInFolder(n.x + (n.width || 340) / 2, n.y + nodeHeight(n) / 2, folder))
       .map((n) => n.instanceId);
 
     const containedShapes = shapes
@@ -650,44 +804,30 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       .map((f) => f.id);
 
     return { containedNodes, containedShapes, containedFolders };
-  }, [nodes, shapes, folders]);
+  }, [nodes, shapes, folders, nodeHeight]);
 
-  // Helper to get port position for any canvas item
-  const getPortCoordinates = useCallback((entityId: string, port: 'top' | 'bottom' | 'left' | 'right' = 'right') => {
-    const node = nodes.find((n) => n.instanceId === entityId);
-    if (node) {
-      const w = node.width || 340;
-      const h = node.height || 100;
-      switch (port) {
-        case 'top': return { x: node.x + w / 2, y: node.y };
-        case 'bottom': return { x: node.x + w / 2, y: node.y + h };
-        case 'left': return { x: node.x, y: node.y + h / 2 };
-        case 'right': return { x: node.x + w, y: node.y + h / 2 };
-      }
-    }
+  // The box of any canvas item: where it is, how big, and how far it is turned
+  const getItemBox = useCallback(
+    (entityId: string): (Box & { kind: 'node' | 'shape' | 'folder' }) | null => {
+      const node = nodes.find((n) => n.instanceId === entityId);
+      if (node) return { kind: 'node', x: node.x, y: node.y, width: node.width || 340, height: nodeHeight(node), rotation: node.rotation || 0 };
+      const folder = folders.find((f) => f.id === entityId);
+      if (folder) return { kind: 'folder', x: folder.x, y: folder.y, width: folder.width, height: folder.height, rotation: 0 };
+      const shape = shapes.find((sh) => sh.id === entityId);
+      if (shape) return { kind: 'shape', x: shape.x, y: shape.y, width: shape.width, height: shape.height, rotation: shape.rotation || 0 };
+      return null;
+    },
+    [nodes, folders, shapes, nodeHeight]
+  );
 
-    const folder = folders.find((f) => f.id === entityId);
-    if (folder) {
-      switch (port) {
-        case 'top': return { x: folder.x + folder.width / 2, y: folder.y };
-        case 'bottom': return { x: folder.x + folder.width / 2, y: folder.y + folder.height };
-        case 'left': return { x: folder.x, y: folder.y + folder.height / 2 };
-        case 'right': return { x: folder.x + folder.width, y: folder.y + folder.height / 2 };
-      }
-    }
-
-    const shape = shapes.find((s) => s.id === entityId);
-    if (shape) {
-      switch (port) {
-        case 'top': return { x: shape.x + shape.width / 2, y: shape.y };
-        case 'bottom': return { x: shape.x + shape.width / 2, y: shape.y + shape.height };
-        case 'left': return { x: shape.x, y: shape.y + shape.height / 2 };
-        case 'right': return { x: shape.x + shape.width, y: shape.y + shape.height / 2 };
-      }
-    }
-
-    return null;
-  }, [nodes, folders, shapes]);
+  // Helper to get port position for any canvas item (follows rotation)
+  const getPortCoordinates = useCallback(
+    (entityId: string, port: 'top' | 'bottom' | 'left' | 'right' = 'right') => {
+      const box = getItemBox(entityId);
+      return box ? portPoint(box, port) : null;
+    },
+    [getItemBox]
+  );
 
   // Handle Drag Atom from Drawer onto Canvas
   const handleDropOnCanvas = (e: React.DragEvent) => {
@@ -703,6 +843,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       y: y - 50,
       width: 340,
       mode: 'compact',
+      zIndex: topZ(),
     };
 
     const nextNodes = [...nodes, newInstance];
@@ -726,12 +867,37 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       y: y - 50 + offset,
       width: 340,
       mode: 'compact',
+      zIndex: topZ(),
     };
 
     const nextNodes = [...nodes, newInstance];
     setNodes(nextNodes);
     pushHistorySnapshot(nextNodes, folders, shapes, connectors, drawings);
     setSelectedIds(new Set([newInstance.instanceId]));
+  };
+
+  // Ends a text edit. The text is already saved as it is typed; this records one undo step.
+  // Text that was left empty is removed, like in other design tools.
+  const finishEditing = () => {
+    if (editingItemId === null) return;
+    const editing = shapes.find((sh) => sh.id === editingItemId);
+    if (editing && editing.type === 'text' && editing.text.trim() === '') {
+      const nextShapes = shapes.filter((sh) => sh.id !== editing.id);
+      const nextConnectors = connectors.filter((c) => c.fromId !== editing.id && c.toId !== editing.id);
+      setShapes(nextShapes);
+      setConnectors(nextConnectors);
+      pushHistorySnapshot(nodes, folders, nextShapes, nextConnectors, drawings);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(editing.id);
+        return next;
+      });
+      textDirty.current = false;
+    } else if (textDirty.current) {
+      pushHistorySnapshot(nodes, folders, shapes, connectors, drawings);
+      textDirty.current = false;
+    }
+    setEditingItemId(null);
   };
 
   // Creation of tools
@@ -744,7 +910,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     const newFolder: CanvasFolder = {
       id: `folder-${Date.now()}`,
       title: `Section ${folders.length + 1}`,
-      color: `${colorObj.border} ${colorObj.bg} ${colorObj.text} ${colorObj.headerBg}`,
+      color: colorObj.border,
       x: x - 260,
       y: y - 220,
       width: 520,
@@ -758,87 +924,72 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
   };
 
   const handleCreateShapeAt = (type: CanvasShapeType, canvasX?: number, canvasY?: number) => {
+    const preset = SHAPE_FILL_PRESETS[shapes.length % SHAPE_FILL_PRESETS.length];
+    let w = 220;
+    let h = 130;
+    let fontSize = 13;
+    let colorClass = preset.bg;
+    let strokeColor = preset.stroke;
+    let strokeWidth = 2;
+
+    if (type === 'sticky') {
+      const sticky = STICKY_COLORS[shapes.length % STICKY_COLORS.length];
+      w = 200;
+      h = 160;
+      fontSize = 14;
+      colorClass = sticky.bg;
+      strokeColor = STICKY_STROKES[sticky.name] || '#FACC15';
+      strokeWidth = 1.5;
+    } else if (type === 'text') {
+      w = 240;
+      h = 44;
+      fontSize = 20;
+      colorClass = 'bg-transparent';
+      strokeColor = 'transparent';
+      strokeWidth = 0;
+    } else if (type === 'square' || type === 'circle') {
+      w = 160;
+      h = 160;
+    } else if (type === 'ellipse') {
+      h = 140;
+    } else if (type === 'line') {
+      w = 200;
+      h = 24;
+    } else if (type === 'arrow') {
+      w = 200;
+      h = 32;
+    } else if (type === 'polygon') {
+      w = 180;
+      h = 160;
+    } else if (type === 'star') {
+      w = 180;
+      h = 180;
+    }
+
     let posX = canvasX;
     let posY = canvasY;
-
     if (posX === undefined || posY === undefined) {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const pt = clientToCanvas(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      posX = pt.x - 110;
-      posY = pt.y - 70;
-    }
-
-    const defaultPreset = SHAPE_FILL_PRESETS[shapes.length % SHAPE_FILL_PRESETS.length];
-    let w = 220;
-    let h = 130;
-    let initialText = 'Double click to edit...';
-    let colorClass = defaultPreset.bg;
-    let strokeColor = defaultPreset.stroke;
-    let strokeWidth = 2;
-
-    if (type === 'sticky') {
-      const stickyColor = STICKY_COLORS[shapes.length % STICKY_COLORS.length];
-      w = 200;
-      h = 160;
-      initialText = 'Write note here...';
-      colorClass = stickyColor.bg;
-      strokeColor = stickyColor.border.includes('amber') ? '#FACC15' : '#38BDF8';
-      strokeWidth = 1.5;
-    } else if (type === 'text') {
-      w = 240;
-      h = 45;
-      initialText = 'Click to edit text';
-      colorClass = 'bg-transparent';
-      strokeColor = 'transparent';
-      strokeWidth = 0;
-    } else if (type === 'square') {
-      w = 160;
-      h = 160;
-      initialText = '';
-    } else if (type === 'rectangle') {
-      w = 220;
-      h = 130;
-      initialText = '';
-    } else if (type === 'circle') {
-      w = 160;
-      h = 160;
-      initialText = '';
-    } else if (type === 'ellipse') {
-      w = 220;
-      h = 140;
-      initialText = '';
-    } else if (type === 'line') {
-      w = 200;
-      h = 24;
-      initialText = '';
-    } else if (type === 'arrow') {
-      w = 200;
-      h = 32;
-      initialText = '';
-    } else if (type === 'polygon') {
-      w = 180;
-      h = 160;
-      initialText = '';
-    } else if (type === 'star') {
-      w = 180;
-      h = 180;
-      initialText = '';
+      posX = pt.x - w / 2;
+      posY = pt.y - h / 2;
     }
 
     const newShape: CanvasShape = {
       id: `shape-${Date.now()}`,
       type,
-      text: initialText,
+      text: '',
       color: colorClass,
       strokeColor,
       strokeWidth,
-      textColor: '#0F172A',
       fontWeight: 'medium',
+      fontSize,
       x: posX,
       y: posY,
       width: w,
       height: h,
+      zIndex: topZ(),
     };
 
     const nextShapes = [...shapes, newShape];
@@ -847,12 +998,63 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     setSelectedIds(new Set([newShape.id]));
     setActiveTool('pointer');
     setIsShapeMenuOpen(false);
+    // Notes and text are made to be typed into: start typing at once.
+    if (type === 'sticky' || type === 'text') setEditingItemId(newShape.id);
+  };
+
+  // Erase every drawing the pointer touches
+  const eraseDrawingsAt = (pt: { x: number; y: number }) => {
+    const radius = 12 / zoom + 4;
+    setDrawings((prev) => {
+      const next = prev.filter((d) => !strokeNear(d.points, pt, radius + d.strokeWidth / 2));
+      if (next.length === prev.length) return prev;
+      eraserDidErase.current = true;
+      return next;
+    });
   };
 
   // Canvas Mouse Down: Tool selection / Pan / Marquee / Draw
   const handleMouseDownCanvas = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
+    // The toolbar, the drawer, the zoom bar and the like are not the canvas
+    if (target.closest('[data-canvas-ui]')) return;
+    const canvasPt = clientToCanvas(e.clientX, e.clientY);
+
+    // Clicking away from a text being edited ends the edit
+    finishEditing();
+
+    // New notes and text are placed wherever you click
+    // (preventDefault: otherwise the browser takes focus away from the text box that is about to open)
+    if (activeTool === 'sticky') {
+      e.preventDefault();
+      handleCreateShapeAt('sticky', canvasPt.x - 100, canvasPt.y - 80);
+      return;
+    }
+    if (activeTool === 'text') {
+      e.preventDefault();
+      handleCreateShapeAt('text', canvasPt.x - 120, canvasPt.y - 22);
+      return;
+    }
+
+    // Drawing tools work on top of anything
+    if (activeTool === 'pen' || activeTool === 'highlighter') {
+      const isPen = activeTool === 'pen';
+      setActiveDrawing({
+        id: `draw-${Date.now()}`,
+        tool: activeTool,
+        points: [canvasPt],
+        color: isPen ? penColor : highlighterColor,
+        strokeWidth: isPen ? penThickness : highlighterThickness,
+      });
+      return;
+    }
+
+    // Eraser: rub out drawings (items are erased by clicking them)
+    if (activeTool === 'eraser') {
+      eraseDrawingsAt(canvasPt);
+      return;
+    }
 
     const isBackground =
       isSpacePressed ||
@@ -861,72 +1063,35 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       target.tagName === 'svg' ||
       target.classList.contains('canvas-background-plane');
 
-    const canvasPt = clientToCanvas(e.clientX, e.clientY);
+    if (!isBackground) return;
 
-    // Drawing tool: Pen or Highlighter
-    if (activeTool === 'pen' || activeTool === 'highlighter') {
-      const isPen = activeTool === 'pen';
-      const newPath: CanvasDrawingPath = {
-        id: `draw-${Date.now()}`,
-        tool: activeTool,
-        points: [canvasPt],
-        color: isPen ? penColor : highlighterColor,
-        strokeWidth: isPen ? penThickness : highlighterThickness,
-      };
-      setActiveDrawing(newPath);
-      return;
+    if (isSpacePressed || activeTool === 'hand') {
+      setIsPanning(true);
+      setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    } else {
+      // Start Marquee Selection Box
+      setDragState({
+        type: 'marquee',
+        startCanvasX: canvasPt.x,
+        startCanvasY: canvasPt.y,
+        currentCanvasX: canvasPt.x,
+        currentCanvasY: canvasPt.y,
+      });
+      if (!e.shiftKey) {
+        setSelectedIds(new Set());
+      }
     }
 
-    // Eraser Tool
-    if (activeTool === 'eraser') {
-      return;
-    }
-
-    // Click on Canvas background
-    if (isBackground) {
-      if (activeTool === 'sticky') {
-        handleCreateShapeAt('sticky', canvasPt.x - 100, canvasPt.y - 80);
-        return;
-      }
-      if (activeTool === 'text') {
-        handleCreateShapeAt('text', canvasPt.x - 100, canvasPt.y - 20);
-        return;
-      }
-      if (activeTool === 'section') {
-        handleCreateNewSection();
-        return;
-      }
-
-      if (isSpacePressed || activeTool === 'hand') {
-        setIsPanning(true);
-        setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      } else {
-        // Start Marquee Selection Box
-        setDragState({
-          type: 'marquee',
-          startCanvasX: canvasPt.x,
-          startCanvasY: canvasPt.y,
-          currentCanvasX: canvasPt.x,
-          currentCanvasY: canvasPt.y,
-        });
-        if (!e.shiftKey) {
-          setSelectedIds(new Set());
-        }
-      }
-
-      setSelectedConnectorId(null);
-      setConnectingFrom(null);
-      setEditingItemId(null);
-      setIsShapeMenuOpen(false);
-      setIsExportMenuOpen(false);
-    }
+    setSelectedConnectorId(null);
+    setConnectingFrom(null);
+    setIsShapeMenuOpen(false);
   };
 
-  // Mouse Move: Dragging, Resizing, Marquee, Drawing, Connectors
-  const handleMouseMove = (e: React.MouseEvent) => {
+  // Mouse Move: Dragging, Resizing, Rotating, Marquee, Drawing, Connectors
+  const handleMouseMove = (e: Pick<MouseEvent, 'clientX' | 'clientY' | 'buttons' | 'shiftKey'>) => {
     if (!containerRef.current) return;
     const canvasPt = clientToCanvas(e.clientX, e.clientY);
-    setMouseCanvasPos(canvasPt);
+    if (connectingFrom) setMouseCanvasPos(canvasPt);
 
     // Pan Viewport
     if (isPanning) {
@@ -941,22 +1106,16 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     if (activeDrawing) {
       setActiveDrawing((prev) => {
         if (!prev) return null;
-        return {
-          ...prev,
-          points: [...prev.points, canvasPt],
-        };
+        const last = prev.points[prev.points.length - 1];
+        if (last && Math.hypot(last.x - canvasPt.x, last.y - canvasPt.y) < 1 / zoom) return prev;
+        return { ...prev, points: [...prev.points, canvasPt] };
       });
       return;
     }
 
     // Eraser Tool Drag
     if (activeTool === 'eraser' && e.buttons === 1) {
-      setDrawings((prev) =>
-        prev.filter((d) => {
-          const near = d.points.some((p) => Math.hypot(p.x - canvasPt.x, p.y - canvasPt.y) < 20);
-          return !near;
-        })
-      );
+      eraseDrawingsAt(canvasPt);
     }
 
     if (!dragState) return;
@@ -973,24 +1132,20 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       const maxX = Math.max(dragState.startCanvasX, canvasPt.x);
       const minY = Math.min(dragState.startCanvasY, canvasPt.y);
       const maxY = Math.max(dragState.startCanvasY, canvasPt.y);
+      const hits = (b: Box) => {
+        const bb = boxBounds(b);
+        return bb.maxX >= minX && bb.minX <= maxX && bb.maxY >= minY && bb.minY <= maxY;
+      };
 
       const matched = new Set<string>();
       nodes.forEach((n) => {
-        const w = n.width || 340;
-        const h = n.height || 100;
-        if (n.x + w >= minX && n.x <= maxX && n.y + h >= minY && n.y <= maxY) {
-          matched.add(n.instanceId);
-        }
+        if (hits({ x: n.x, y: n.y, width: n.width || 340, height: nodeHeight(n), rotation: n.rotation })) matched.add(n.instanceId);
       });
-      shapes.forEach((s) => {
-        if (s.x + s.width >= minX && s.x <= maxX && s.y + s.height >= minY && s.y <= maxY) {
-          matched.add(s.id);
-        }
+      shapes.forEach((sh) => {
+        if (hits(sh)) matched.add(sh.id);
       });
       folders.forEach((f) => {
-        if (f.x + f.width >= minX && f.x <= maxX && f.y + f.height >= minY && f.y <= maxY) {
-          matched.add(f.id);
-        }
+        if (hits(f)) matched.add(f.id);
       });
       setSelectedIds(matched);
       return;
@@ -1009,97 +1164,83 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
       const deltaX = (e.clientX - dragState.startClientX) / zoom;
       const deltaY = (e.clientY - dragState.startClientY) / zoom;
+      const starts = dragState.startPositions;
 
-      const allMovedNodeIds = new Set([
-        ...Object.keys(dragState.startPositions).filter((id) => nodes.some((n) => n.instanceId === id)),
-        ...(dragState.containedNodeIds || []),
-      ]);
+      setNodes((prev) => prev.map((n) => (starts[n.instanceId] ? { ...n, x: starts[n.instanceId].x + deltaX, y: starts[n.instanceId].y + deltaY } : n)));
+      setShapes((prev) => prev.map((sh) => (starts[sh.id] ? { ...sh, x: starts[sh.id].x + deltaX, y: starts[sh.id].y + deltaY } : sh)));
+      setFolders((prev) => prev.map((f) => (starts[f.id] ? { ...f, x: starts[f.id].x + deltaX, y: starts[f.id].y + deltaY } : f)));
+      return;
+    }
 
-      const allMovedShapeIds = new Set([
-        ...Object.keys(dragState.startPositions).filter((id) => shapes.some((s) => s.id === id)),
-        ...(dragState.containedShapeIds || []),
-      ]);
+    // 8-Way Resizing: the opposite side stays put, also when the item is turned
+    if (dragState.type === 'resize') {
+      const deltaX = (e.clientX - dragState.startClientX) / zoom;
+      const deltaY = (e.clientY - dragState.startClientY) / zoom;
+      const corner = dragState.direction.length === 2;
 
-      const allMovedFolderIds = new Set([
-        ...Object.keys(dragState.startPositions).filter((id) => folders.some((f) => f.id === id)),
-        ...(dragState.containedFolderIds || []),
-      ]);
+      const shape = dragState.itemType === 'shape' ? shapes.find((sh) => sh.id === dragState.id) : undefined;
+      const isText = shape?.type === 'text';
+      const isLine = shape?.type === 'line' || shape?.type === 'arrow';
+      const min =
+        dragState.itemType === 'node'
+          ? MIN_SIZE.node
+          : dragState.itemType === 'folder'
+            ? MIN_SIZE.folder
+            : isText
+              ? MIN_SIZE.text
+              : isLine
+                ? MIN_SIZE.line
+                : MIN_SIZE.shape;
 
-      if (allMovedNodeIds.size > 0) {
-        setNodes((prev) =>
-          prev.map((n) => {
-            const start = dragState.startPositions[n.instanceId];
-            return start ? { ...n, x: start.x + deltaX, y: start.y + deltaY } : n;
-          })
-        );
-      }
+      const next = resizeBox(
+        {
+          x: dragState.initialX,
+          y: dragState.initialY,
+          width: dragState.initialW,
+          height: dragState.initialH,
+          rotation: dragState.initialRotation,
+        },
+        dragState.direction,
+        deltaX,
+        deltaY,
+        // Shift keeps the shape of any item; text always scales as a whole from a corner
+        { minWidth: min.width, minHeight: min.height, keepAspect: corner && (e.shiftKey || isText) }
+      );
 
-      if (allMovedShapeIds.size > 0) {
+      if (dragState.itemType === 'node') {
+        setNodes((prev) => prev.map((n) => (n.instanceId === dragState.id ? { ...n, x: next.x, y: next.y, width: next.width, height: next.height } : n)));
+      } else if (dragState.itemType === 'shape') {
+        const scale = dragState.initialH > 0 ? next.height / dragState.initialH : 1;
         setShapes((prev) =>
-          prev.map((s) => {
-            const start = dragState.startPositions[s.id];
-            return start ? { ...s, x: start.x + deltaX, y: start.y + deltaY } : s;
-          })
+          prev.map((sh) =>
+            sh.id === dragState.id
+              ? {
+                  ...sh,
+                  x: next.x,
+                  y: next.y,
+                  width: next.width,
+                  height: next.height,
+                  fontSize: isText && corner ? Math.min(240, Math.max(8, Math.round(dragState.initialFontSize * scale))) : sh.fontSize,
+                }
+              : sh
+          )
         );
-      }
-
-      if (allMovedFolderIds.size > 0) {
-        setFolders((prev) =>
-          prev.map((f) => {
-            const start = dragState.startPositions[f.id];
-            return start ? { ...f, x: start.x + deltaX, y: start.y + deltaY } : f;
-          })
-        );
+      } else {
+        setFolders((prev) => prev.map((f) => (f.id === dragState.id ? { ...f, x: next.x, y: next.y, width: next.width, height: next.height } : f)));
       }
       return;
     }
 
-    // 8-Way Resizing
-    if (dragState.type === 'resize') {
-      const deltaX = (e.clientX - dragState.startClientX) / zoom;
-      const deltaY = (e.clientY - dragState.startClientY) / zoom;
-
-      let newX = dragState.initialX;
-      let newY = dragState.initialY;
-      let newW = dragState.initialW;
-      let newH = dragState.initialH;
-
-      const dir = dragState.direction;
-      if (dir.includes('e')) newW = Math.max(160, dragState.initialW + deltaX);
-      if (dir.includes('s')) newH = Math.max(70, dragState.initialH + deltaY);
-      if (dir.includes('w')) {
-        const potentialW = dragState.initialW - deltaX;
-        if (potentialW >= 160) {
-          newW = potentialW;
-          newX = dragState.initialX + deltaX;
-        }
-      }
-      if (dir.includes('n')) {
-        const potentialH = dragState.initialH - deltaY;
-        if (potentialH >= 70) {
-          newH = potentialH;
-          newY = dragState.initialY + deltaY;
-        }
-      }
-
+    // Rotating around the centre of the item
+    if (dragState.type === 'rotate') {
+      const angle = angleFrom({ x: dragState.centerX, y: dragState.centerY }, canvasPt);
+      let rotation = normalizeAngle(dragState.initialRotation + (angle - dragState.startAngle));
+      if (e.shiftKey) rotation = snapAngle(rotation, 15);
+      rotation = Math.round(rotation * 10) / 10;
       if (dragState.itemType === 'node') {
-        setNodes((prev) =>
-          prev.map((n) =>
-            n.instanceId === dragState.id ? { ...n, x: newX, y: newY, width: newW, height: newH } : n
-          )
-        );
-      } else if (dragState.itemType === 'shape') {
-        setShapes((prev) =>
-          prev.map((s) =>
-            s.id === dragState.id ? { ...s, x: newX, y: newY, width: newW, height: newH } : s
-          )
-        );
-      } else if (dragState.itemType === 'folder') {
-        setFolders((prev) =>
-          prev.map((f) =>
-            f.id === dragState.id ? { ...f, x: newX, y: newY, width: newW, height: newH } : f
-          )
-        );
+        setNodes((prev) => prev.map((n) => (n.instanceId === dragState.id ? { ...n, rotation } : n)));
+      } else {
+        setShapes((prev) => prev.map((sh) => (sh.id === dragState.id ? { ...sh, rotation } : sh)));
       }
     }
   };
@@ -1118,11 +1259,17 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       setActiveDrawing(null);
     }
 
-    // Commit drag/resize movement
+    // Rubbed-out drawings are one undo step
+    if (eraserDidErase.current) {
+      eraserDidErase.current = false;
+      pushHistorySnapshot(nodes, folders, shapes, connectors, drawings);
+    }
+
+    // Commit drag/resize/rotate movement
     if (dragState) {
       if (dragState.type === 'item' && dragState.isDragging) {
         pushHistorySnapshot(nodes, folders, shapes, connectors, drawings);
-      } else if (dragState.type === 'resize') {
+      } else if (dragState.type === 'resize' || dragState.type === 'rotate') {
         pushHistorySnapshot(nodes, folders, shapes, connectors, drawings);
       }
       setDragState(null);
@@ -1152,29 +1299,59 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     }
   };
 
+  // Always call the latest handlers from the window listeners
+  const moveRef = useRef(handleMouseMove);
+  const upRef = useRef(handleMouseUp);
+  moveRef.current = handleMouseMove;
+  upRef.current = handleMouseUp;
+  useEffect(() => {
+    const move = (e: MouseEvent) => moveRef.current(e);
+    const up = () => upRef.current();
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, []);
+
   // Generic Item Mouse Down for Dragging / Selection
   const handleItemMouseDown = (
     e: React.MouseEvent,
     id: string,
     itemType: 'node' | 'shape' | 'folder'
   ) => {
+    if (e.button !== 0) return;
+    // Panning, drawing and placing notes or text also work on top of items: the canvas handles those.
+    if (
+      isSpacePressed ||
+      activeTool === 'hand' ||
+      activeTool === 'pen' ||
+      activeTool === 'highlighter' ||
+      activeTool === 'sticky' ||
+      activeTool === 'text'
+    ) {
+      return;
+    }
     e.stopPropagation();
-    if (isSpacePressed || activeTool === 'hand' || activeTool === 'connect') return;
+    if (activeTool === 'connect') return;
+    if (editingItemId && editingItemId !== id) finishEditing();
 
     if (activeTool === 'eraser') {
-      if (itemType === 'node') {
-        const nextNodes = nodes.filter((n) => n.instanceId !== id);
-        setNodes(nextNodes);
-        pushHistorySnapshot(nextNodes, folders, shapes, connectors, drawings);
-      } else if (itemType === 'shape') {
-        const nextShapes = shapes.filter((s) => s.id !== id);
-        setShapes(nextShapes);
-        pushHistorySnapshot(nodes, folders, nextShapes, connectors, drawings);
-      } else if (itemType === 'folder') {
-        const nextFolders = folders.filter((f) => f.id !== id);
-        setFolders(nextFolders);
-        pushHistorySnapshot(nodes, nextFolders, shapes, connectors, drawings);
-      }
+      const nextNodes = itemType === 'node' ? nodes.filter((n) => n.instanceId !== id) : nodes;
+      const nextShapes = itemType === 'shape' ? shapes.filter((sh) => sh.id !== id) : shapes;
+      const nextFolders = itemType === 'folder' ? folders.filter((f) => f.id !== id) : folders;
+      const nextConnectors = connectors.filter((c) => c.fromId !== id && c.toId !== id);
+      setNodes(nextNodes);
+      setShapes(nextShapes);
+      setFolders(nextFolders);
+      setConnectors(nextConnectors);
+      pushHistorySnapshot(nextNodes, nextFolders, nextShapes, nextConnectors, drawings);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       return;
     }
 
@@ -1193,8 +1370,8 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     nextSelected.forEach((selId) => {
       const n = nodes.find((node) => node.instanceId === selId);
       if (n) startPositions[selId] = { x: n.x, y: n.y };
-      const s = shapes.find((shape) => shape.id === selId);
-      if (s) startPositions[selId] = { x: s.x, y: s.y };
+      const sh = shapes.find((shape) => shape.id === selId);
+      if (sh) startPositions[selId] = { x: sh.x, y: sh.y };
       const f = folders.find((folder) => folder.id === selId);
       if (f) startPositions[selId] = { x: f.x, y: f.y };
     });
@@ -1203,6 +1380,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     let containedShapeIds: string[] = [];
     let containedFolderIds: string[] = [];
 
+    // Moving a section moves what is inside it
     if (itemType === 'folder') {
       const folder = folders.find((f) => f.id === id);
       if (folder) {
@@ -1216,8 +1394,8 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           if (n && !startPositions[nid]) startPositions[nid] = { x: n.x, y: n.y };
         });
         containedShapeIds.forEach((sid) => {
-          const s = shapes.find((shape) => shape.id === sid);
-          if (s && !startPositions[sid]) startPositions[sid] = { x: s.x, y: s.y };
+          const sh = shapes.find((shape) => shape.id === sid);
+          if (sh && !startPositions[sid]) startPositions[sid] = { x: sh.x, y: sh.y };
         });
         containedFolderIds.forEach((fid) => {
           const f = folders.find((fol) => fol.id === fid);
@@ -1240,18 +1418,18 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     });
   };
 
-  // Start 8-way resize
+  // Start 8-way resize from a handle of the selected item
   const handleResizeHandleMouseDown = (
     e: React.MouseEvent,
     id: string,
     itemType: 'node' | 'shape' | 'folder',
-    direction: ResizeDirection,
-    x: number,
-    y: number,
-    width: number,
-    height: number
+    direction: ResizeDirection
   ) => {
     e.stopPropagation();
+    e.preventDefault();
+    const box = getItemBox(id);
+    if (!box) return;
+    const shape = shapes.find((sh) => sh.id === id);
     setDragState({
       type: 'resize',
       id,
@@ -1259,65 +1437,92 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       direction,
       startClientX: e.clientX,
       startClientY: e.clientY,
-      initialX: x,
-      initialY: y,
-      initialW: width,
-      initialH: height,
+      initialX: box.x,
+      initialY: box.y,
+      initialW: box.width,
+      initialH: box.height,
+      initialRotation: box.rotation || 0,
+      initialFontSize: shape?.fontSize ?? 12,
     });
   };
 
-  // Fit to Screen (Calculates precise bounding box with padding)
-  const handleFitToScreen = useCallback(() => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
+  // Start turning the selected item from its rotate handle
+  const handleRotateHandleMouseDown = (e: React.MouseEvent, id: string, itemType: 'node' | 'shape') => {
+    e.stopPropagation();
+    e.preventDefault();
+    const box = getItemBox(id);
+    if (!box) return;
+    const center = boxCenter(box);
+    const pt = clientToCanvas(e.clientX, e.clientY);
+    setDragState({
+      type: 'rotate',
+      id,
+      itemType,
+      centerX: center.x,
+      centerY: center.y,
+      startAngle: angleFrom(center, pt),
+      initialRotation: box.rotation || 0,
+    });
+  };
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    nodes.forEach((n) => {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + (n.width || 340));
-      maxY = Math.max(maxY, n.y + (n.height || 140));
-    });
-    shapes.forEach((s) => {
-      minX = Math.min(minX, s.x);
-      minY = Math.min(minY, s.y);
-      maxX = Math.max(maxX, s.x + s.width);
-      maxY = Math.max(maxY, s.y + s.height);
-    });
-    folders.forEach((f) => {
-      minX = Math.min(minX, f.x);
-      minY = Math.min(minY, f.y);
-      maxX = Math.max(maxX, f.x + f.width);
-      maxY = Math.max(maxY, f.y + f.height);
-    });
+  // Fit to Screen: everything in view, in the part of the canvas the atom drawer does not cover
+  const handleFitToScreen = useCallback(
+    (maxZoom = 1.5) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const inset = isDrawerOpen ? DRAWER_WIDTH : 0;
+      const availW = Math.max(200, rect.width - inset);
 
-    if (minX === Infinity) {
-      setZoom(0.85);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const add = (b: Box) => {
+        const bb = boxBounds(b);
+        minX = Math.min(minX, bb.minX);
+        minY = Math.min(minY, bb.minY);
+        maxX = Math.max(maxX, bb.maxX);
+        maxY = Math.max(maxY, bb.maxY);
+      };
+      nodes.forEach((n) => add({ x: n.x, y: n.y, width: n.width || 340, height: nodeHeight(n), rotation: n.rotation }));
+      shapes.forEach((sh) => add(sh));
+      folders.forEach((f) => add(f));
+      drawings.forEach((d) => d.points.forEach((p) => add({ x: p.x, y: p.y, width: 0, height: 0 })));
+
+      if (minX === Infinity) {
+        setZoom(0.85);
+        setPan({
+          x: inset + availW / 2 - CANVAS_CENTER_X * 0.85,
+          y: rect.height / 2 - CANVAS_CENTER_Y * 0.85,
+        });
+        return;
+      }
+
+      const padding = 120;
+      const contentW = Math.max(maxX - minX, 1);
+      const contentH = Math.max(maxY - minY, 1);
+      const fitZoom = Math.min(
+        Math.max(Math.min((availW - padding) / contentW, (rect.height - padding) / contentH), 0.2),
+        maxZoom
+      );
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      setZoom(fitZoom);
       setPan({
-        x: rect.width / 2 - CANVAS_CENTER_X * 0.85,
-        y: rect.height / 2 - CANVAS_CENTER_Y * 0.85,
+        x: inset + availW / 2 - centerX * fitZoom,
+        y: rect.height / 2 - centerY * fitZoom,
       });
-      return;
-    }
+      triggerZoomMinimap();
+    },
+    [nodes, shapes, folders, drawings, isDrawerOpen, nodeHeight, triggerZoomMinimap]
+  );
+  fitRef.current = handleFitToScreen;
 
-    const padding = 120;
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    const fitZoom = Math.min(
-      Math.max(Math.min((rect.width - padding) / contentW, (rect.height - padding) / contentH), 0.2),
-      1.5
-    );
-
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-
-    setZoom(fitZoom);
-    setPan({
-      x: rect.width / 2 - centerX * fitZoom,
-      y: rect.height / 2 - centerY * fitZoom,
-    });
-    triggerZoomMinimap();
-  }, [nodes, shapes, folders, triggerZoomMinimap]);
+  // After a project loads, bring its content into view once the cards have been measured
+  useEffect(() => {
+    if (!pendingFit.current) return;
+    pendingFit.current = false;
+    setTimeout(() => fitRef.current(1), 140);
+  }, [nodes, shapes, folders]);
 
   // Fullscreen Canvas Toggle: Only toggle fullscreen and collapse side panels, no zoom change
   const toggleFullscreen = () => {
@@ -1331,67 +1536,6 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       }
       return next;
     });
-  };
-
-  // Export Canvas Handler
-  const handleExport = (type: 'all' | 'selection' | 'section') => {
-    setIsExportMenuOpen(false);
-    try {
-      const canvasEl = document.createElement('canvas');
-      canvasEl.width = 1920;
-      canvasEl.height = 1080;
-      const ctx = canvasEl.getContext('2d');
-      if (!ctx) return;
-
-      // Dark Canvas Background
-      ctx.fillStyle = '#09090B';
-      ctx.fillRect(0, 0, 1920, 1080);
-
-      // Header title
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 24px sans-serif';
-      const title = `${project?.title || 'Canvas'} • ${type.toUpperCase()} EXPORT`;
-      ctx.fillText(title, 60, 60);
-
-      ctx.fillStyle = '#71717A';
-      ctx.font = '14px sans-serif';
-      ctx.fillText(`Exported on ${new Date().toLocaleDateString()}`, 60, 90);
-
-      const exportNodes = type === 'selection' && selectedIds.size > 0
-        ? nodes.filter((n) => selectedIds.has(n.instanceId))
-        : nodes;
-
-      exportNodes.slice(0, 16).forEach((n, idx) => {
-        const atom = atomsById.get(n.atomId);
-        const col = idx % 4;
-        const row = Math.floor(idx / 4);
-        const cardX = 60 + col * 440;
-        const cardY = 140 + row * 220;
-
-        ctx.fillStyle = '#18181B';
-        ctx.strokeStyle = '#27272A';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(cardX, cardY, 410, 190, 12);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#325FEC';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText((atom?.type || 'NOTE').toUpperCase(), cardX + 16, cardY + 28);
-
-        ctx.fillStyle = '#F4F4F5';
-        ctx.font = '13px sans-serif';
-        const txt = atom?.content?.rawText || atom?.content?.text || atom?.title || 'Clip note';
-        ctx.fillText(txt.slice(0, 80) + (txt.length > 80 ? '...' : ''), cardX + 16, cardY + 58);
-      });
-
-      const dataUrl = canvasEl.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `${project?.title || 'canvas'}-${type}-export.png`;
-      a.click();
-    } catch {}
   };
 
   // Filter drawer atoms
@@ -1410,134 +1554,99 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     });
   }, [atoms, drawerFilter, drawerSearch, placedAtomCounts]);
 
-  // Selected shape for property tweaking (e.g. font weight, stroke color, fill)
+  // The one selected shape or atom, for the properties bar
   const singleSelectedShape = useMemo(() => {
     if (selectedIds.size === 1) {
       const id = Array.from(selectedIds)[0];
-      return shapes.find((s) => s.id === id) || null;
+      return shapes.find((sh) => sh.id === id) || null;
     }
     return null;
   }, [selectedIds, shapes]);
 
-  // Render SVG Shape Outline Helper (Figma's Basic Shape Set)
+  const singleSelectedNode = useMemo(() => {
+    if (selectedIds.size === 1) {
+      const id = Array.from(selectedIds)[0];
+      return nodes.find((n) => n.instanceId === id) || null;
+    }
+    return null;
+  }, [selectedIds, nodes]);
+
+  // Boxes of everything selected, for the outlines and handles drawn above the items
+  const selectedBoxes = useMemo(() => {
+    const out: Array<Box & { id: string; kind: 'node' | 'shape' | 'folder' }> = [];
+    selectedIds.forEach((id) => {
+      const b = getItemBox(id);
+      if (b) out.push({ ...b, id });
+    });
+    return out;
+  }, [selectedIds, getItemBox]);
+
+  const setRotationOf = (id: string, kind: 'node' | 'shape', value: number) => {
+    const rotation = Math.round(normalizeAngle(value) * 10) / 10;
+    if (kind === 'node') setNodes((prev) => prev.map((n) => (n.instanceId === id ? { ...n, rotation } : n)));
+    else setShapes((prev) => prev.map((sh) => (sh.id === id ? { ...sh, rotation } : sh)));
+  };
+
+  const updateShape = (id: string, patch: Partial<CanvasShape>, record = true) => {
+    const next = shapes.map((sh) => (sh.id === id ? { ...sh, ...patch } : sh));
+    setShapes(next);
+    if (record) pushHistorySnapshot(nodes, folders, next, connectors, drawings);
+  };
+
+  // Render SVG Shape Outline Helper (Figma's Basic Shape Set). Closed shapes are filled with a light
+  // tint of their outline colour.
   const renderShapeSvg = (shape: CanvasShape) => {
     const w = shape.width;
     const h = shape.height;
     const stroke = shape.strokeColor || '#325FEC';
     const strokeW = shape.strokeWidth !== undefined ? shape.strokeWidth : 2;
+    const inset = strokeW / 2;
+    const fill = { fill: stroke, fillOpacity: 0.14 } as const;
 
     switch (shape.type) {
       case 'square':
-        return (
-          <rect
-            x={strokeW}
-            y={strokeW}
-            width={w - strokeW * 2}
-            height={h - strokeW * 2}
-            rx={0}
-            stroke={stroke}
-            strokeWidth={strokeW}
-            className="fill-current"
-          />
-        );
+        return <rect x={inset} y={inset} width={w - strokeW} height={h - strokeW} rx={0} stroke={stroke} strokeWidth={strokeW} {...fill} />;
       case 'circle':
-        return (
-          <circle
-            cx={w / 2}
-            cy={h / 2}
-            r={Math.min(w, h) / 2 - strokeW}
-            stroke={stroke}
-            strokeWidth={strokeW}
-            className="fill-current"
-          />
-        );
+        return <circle cx={w / 2} cy={h / 2} r={Math.max(Math.min(w, h) / 2 - inset, 1)} stroke={stroke} strokeWidth={strokeW} {...fill} />;
       case 'ellipse':
-        return (
-          <ellipse
-            cx={w / 2}
-            cy={h / 2}
-            rx={w / 2 - strokeW}
-            ry={h / 2 - strokeW}
-            stroke={stroke}
-            strokeWidth={strokeW}
-            className="fill-current"
-          />
-        );
+        return <ellipse cx={w / 2} cy={h / 2} rx={Math.max(w / 2 - inset, 1)} ry={Math.max(h / 2 - inset, 1)} stroke={stroke} strokeWidth={strokeW} {...fill} />;
       case 'line':
-        return (
-          <line
-            x1={strokeW}
-            y1={h / 2}
-            x2={w - strokeW}
-            y2={h / 2}
-            stroke={stroke}
-            strokeWidth={Math.max(strokeW, 2)}
-            strokeLinecap="round"
-          />
-        );
-      case 'arrow':
+        return <line x1={inset} y1={h / 2} x2={w - inset} y2={h / 2} stroke={stroke} strokeWidth={Math.max(strokeW, 2)} strokeLinecap="round" />;
+      case 'arrow': {
+        const head = Math.min(14, w / 2);
+        const sw = Math.max(strokeW, 2);
         return (
           <g>
-            <line
-              x1={strokeW}
-              y1={h / 2}
-              x2={w - strokeW * 2 - 10}
-              y2={h / 2}
-              stroke={stroke}
-              strokeWidth={Math.max(strokeW, 2)}
-              strokeLinecap="round"
-            />
-            <polygon
-              points={`${w - strokeW},${h / 2} ${w - strokeW - 12},${h / 2 - 7} ${w - strokeW - 12},${h / 2 + 7}`}
-              fill={stroke}
-            />
+            <line x1={inset} y1={h / 2} x2={w - head} y2={h / 2} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+            <polygon points={`${w - inset},${h / 2} ${w - head - inset},${h / 2 - head / 2} ${w - head - inset},${h / 2 + head / 2}`} fill={stroke} />
           </g>
         );
+      }
       case 'polygon': // Triangle
-        return (
-          <polygon
-            points={`${w / 2},${strokeW} ${w - strokeW},${h - strokeW} ${strokeW},${h - strokeW}`}
-            stroke={stroke}
-            strokeWidth={strokeW}
-            className="fill-current"
-          />
-        );
+        return <polygon points={`${w / 2},${inset} ${w - inset},${h - inset} ${inset},${h - inset}`} stroke={stroke} strokeWidth={strokeW} strokeLinejoin="round" {...fill} />;
       case 'star':
         return (
           <polygon
             points={`${w * 0.5},${h * 0.05} ${w * 0.62},${h * 0.38} ${w * 0.98},${h * 0.38} ${w * 0.69},${h * 0.58} ${w * 0.8},${h * 0.92} ${w * 0.5},${h * 0.72} ${w * 0.2},${h * 0.92} ${w * 0.31},${h * 0.58} ${w * 0.02},${h * 0.38} ${w * 0.38},${h * 0.38}`}
             stroke={stroke}
             strokeWidth={strokeW}
-            className="fill-current"
+            strokeLinejoin="round"
+            {...fill}
           />
         );
       case 'rectangle':
       default:
-        return (
-          <rect
-            x={strokeW}
-            y={strokeW}
-            width={w - strokeW * 2}
-            height={h - strokeW * 2}
-            rx={8}
-            stroke={stroke}
-            strokeWidth={strokeW}
-            className="fill-current"
-          />
-        );
+        return <rect x={inset} y={inset} width={w - strokeW} height={h - strokeW} rx={8} stroke={stroke} strokeWidth={strokeW} {...fill} />;
     }
   };
 
   return (
     <div
       ref={containerRef}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDownCanvas}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDropOnCanvas}
-      className={`relative w-full h-full overflow-hidden select-none font-sans bg-[#FAFBFD] dark:bg-[#09090B] ${
+      className={`relative w-full h-full overflow-clip select-none font-sans bg-[#FAFBFD] dark:bg-[#09090B] ${
         isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : ''
       } ${
         isSpacePressed || activeTool === 'hand' || isPanning
@@ -1555,7 +1664,8 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
     >
       {/* 1. COLLAPSIBLE ATOM SIDE DRAWER WITH OVERSCROLL CONTAINMENT */}
       <div
-        onWheel={(e) => e.stopPropagation()}
+        data-canvas-no-wheel
+        data-canvas-ui
         className={`absolute top-0 left-0 bottom-0 z-40 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md border-r border-[#D2DCEA] dark:border-[#27272A] shadow-2xl transition-all duration-300 flex flex-col overscroll-contain ${
           isDrawerOpen ? 'w-80 translate-x-0' : 'w-80 -translate-x-full pointer-events-none'
         }`}
@@ -1620,7 +1730,6 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
         {/* Atoms List with Isolated Scroll */}
         <div 
-          onWheel={(e) => e.stopPropagation()}
           className="flex-1 overflow-y-auto p-3 space-y-2.5 overscroll-contain"
         >
           {filteredDrawerAtoms.length === 0 ? (
@@ -1689,6 +1798,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       {!isDrawerOpen && (
         <button
           type="button"
+          data-canvas-ui
           onClick={() => setIsDrawerOpen(true)}
           className="absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] shadow-md hover:border-[#325FEC] text-xs font-semibold text-[#0F172A] dark:text-zinc-200 transition-all"
           title="Open Atom Drawer"
@@ -1698,8 +1808,99 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
         </button>
       )}
 
+      {/* 2. BOTTOM ROW: zoom bar on the left, tools in the space that is left */}
+      <div
+        className={`absolute bottom-5 right-5 z-40 flex items-end gap-3 pointer-events-none transition-all duration-300 ${
+          isDrawerOpen ? 'left-[336px]' : 'left-5'
+        } ${showMinimap || isZooming ? 'pr-[188px]' : ''}`}
+      >
+      {/* 10. FLOATING BOTTOM HUD (ZOOM, FIT, SIDEBAR, FULLSCREEN) */}
+      <div
+        data-canvas-ui
+        className="pointer-events-auto flex-shrink-0 flex items-center gap-1.5 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-xl p-1.5 shadow-xl text-xs font-mono text-slate-700 dark:text-zinc-300"
+      >
+        <button
+          type="button"
+          onClick={() => zoomByButton(0.15)}
+          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
+          title="Zoom In"
+        >
+          <Plus size={14} />
+        </button>
+        <span className="px-1 text-[11px] font-semibold min-w-[36px] text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={() => zoomByButton(-0.15)}
+          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
+          title="Zoom Out"
+        >
+          <Minus size={14} />
+        </button>
+
+        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A] mx-0.5" />
+
+        <button
+          type="button"
+          onClick={() => handleFitToScreen()}
+          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
+          title="Fit to Screen"
+        >
+          <ArrowsOut size={14} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (onToggleSidebar) onToggleSidebar();
+          }}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isSidebarCollapsed ? 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] text-slate-400' : 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] text-[#325FEC]'
+          }`}
+          title={isSidebarCollapsed ? 'Expand Project Sidebar' : 'Collapse Project Sidebar'}
+        >
+          <SidebarSimple size={14} />
+        </button>
+
+        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A] mx-0.5" />
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className={`p-1.5 rounded-lg transition-colors ${
+            isFullscreen ? 'bg-[#325FEC] text-white' : 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]'
+          }`}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        >
+          {isFullscreen ? <CornersIn size={14} /> : <CornersOut size={14} />}
+        </button>
+
+        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A] mx-0.5" />
+
+        <button
+          type="button"
+          onClick={handleUndo}
+          disabled={historyIndex <= 0}
+          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+          title="Undo (Ctrl+Z)"
+        >
+          <ArrowCounterClockwise size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={handleRedo}
+          disabled={historyIndex >= history.length - 1}
+          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          <ArrowClockwise size={14} />
+        </button>
+      </div>
+
+        <div className="flex-1 min-w-0 flex justify-center pointer-events-none">
       {/* 2. BOTTOM TOOLBAR: POSITIONED AT BOTTOM OF CANVAS (FIGMA BASIC SHAPES, PEN SIZE DROPDOWN WITH SPACING) */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl px-2.5 py-1.5 shadow-2xl text-xs font-sans">
+      <div data-canvas-ui className="pointer-events-auto max-w-full flex flex-wrap items-center justify-center gap-1.5 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl px-2.5 py-1.5 shadow-2xl text-xs font-sans">
         
         {/* GROUP 1: NAVIGATION & POINTER */}
         <div className="flex items-center gap-0.5 pr-1 border-r border-[#D2DCEA] dark:border-[#27272A]">
@@ -1862,7 +2063,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
                 {/* Spaced Color Palette */}
                 <div className="flex items-center gap-1.5 pl-1.5 border-l border-[#D2DCEA] dark:border-[#27272A]">
-                  {PEN_COLORS.slice(0, 5).map((c) => (
+                  {PEN_COLORS.map((c) => (
                     <button
                       key={c}
                       type="button"
@@ -1892,6 +2093,36 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           >
             <PencilSimple size={15} weight="bold" />
           </button>
+          {activeTool === 'highlighter' && (
+            <div className="flex items-center gap-2.5 pl-1">
+              <select
+                value={highlighterThickness}
+                onChange={(e) => setHighlighterThickness(Number(e.target.value))}
+                className="bg-[#FAFBFD] dark:bg-[#242428] border border-[#D2DCEA] dark:border-[#27272A] rounded-lg px-2 py-1 text-xs text-[#0F172A] dark:text-zinc-200 outline-none focus:border-[#325FEC] cursor-pointer"
+                title="Highlighter Thickness"
+              >
+                {HIGHLIGHTER_THICKNESSES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}px
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5 pl-1.5 border-l border-[#D2DCEA] dark:border-[#27272A]">
+                {HIGHLIGHTER_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setHighlighterColor(c)}
+                    style={{ backgroundColor: c }}
+                    className={`w-4 h-4 rounded-full border border-black/20 transition-transform ${
+                      highlighterColor === c ? 'ring-2 ring-[#325FEC] scale-110' : 'hover:scale-105'
+                    }`}
+                    title={c}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Eraser Tool */}
           <button
@@ -1908,33 +2139,179 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           </button>
         </div>
 
-        {/* FONT WEIGHT CONTROLS FOR SELECTED SHAPE / TEXT */}
-        {singleSelectedShape && (
-          <div className="flex items-center gap-1 pl-2 ml-1 border-l border-[#D2DCEA] dark:border-[#27272A]">
-            <span className="text-[10px] font-mono text-slate-400 uppercase">Weight:</span>
-            {(['normal', 'medium', 'semibold', 'bold'] as const).map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => {
-                  const nextShapes = shapes.map((s) =>
-                    s.id === singleSelectedShape.id ? { ...s, fontWeight: w } : s
-                  );
-                  setShapes(nextShapes);
-                  pushHistorySnapshot(nodes, folders, nextShapes, connectors, drawings);
-                }}
-                className={`px-1.5 py-0.5 rounded text-[10.5px] capitalize transition-colors ${
-                  singleSelectedShape.fontWeight === w
-                    ? 'bg-[#325FEC] text-white font-bold'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]'
-                }`}
-              >
-                {w}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+
+        </div>
+      </div>
+
+      {/* 3. PROPERTIES OF THE SELECTED SHAPE, NOTE, TEXT OR ATOM */}
+      {(singleSelectedShape || singleSelectedNode) && editingItemId === null && activeTool === 'pointer' && (
+        <div data-canvas-ui className="absolute bottom-[78px] left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl px-3 py-1.5 shadow-xl text-xs font-sans text-slate-700 dark:text-zinc-300">
+          {singleSelectedShape && (
+            <>
+              {/* Colour */}
+              <div className="flex items-center gap-1.5" aria-label="Colour">
+                {singleSelectedShape.type === 'sticky'
+                  ? STICKY_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        title={`${c.name} note`}
+                        onClick={() => updateShape(singleSelectedShape.id, { color: c.bg, strokeColor: STICKY_STROKES[c.name] })}
+                        style={{ backgroundColor: STICKY_STROKES[c.name] }}
+                        className={`w-4 h-4 rounded-full border border-black/20 transition-transform ${
+                          singleSelectedShape.strokeColor === STICKY_STROKES[c.name] ? 'ring-2 ring-[#325FEC] scale-110' : 'hover:scale-105'
+                        }`}
+                      />
+                    ))
+                  : singleSelectedShape.type === 'text'
+                    ? [undefined, '#325FEC', '#10B981', '#F59E0B', '#EF4444'].map((c) => (
+                        <button
+                          key={c || 'default'}
+                          type="button"
+                          title={c ? `Text colour ${c}` : 'Default text colour'}
+                          onClick={() => updateShape(singleSelectedShape.id, { textColor: c })}
+                          style={{ backgroundColor: c || '#64748B' }}
+                          className={`w-4 h-4 rounded-full border border-black/20 transition-transform ${
+                            (singleSelectedShape.textColor || undefined) === c ? 'ring-2 ring-[#325FEC] scale-110' : 'hover:scale-105'
+                          }`}
+                        />
+                      ))
+                    : SHAPE_FILL_PRESETS.map((p) => (
+                        <button
+                          key={p.name}
+                          type="button"
+                          title={p.name}
+                          onClick={() => updateShape(singleSelectedShape.id, { strokeColor: p.stroke, color: p.bg })}
+                          style={{ backgroundColor: p.stroke }}
+                          className={`w-4 h-4 rounded-full border border-black/20 transition-transform ${
+                            singleSelectedShape.strokeColor === p.stroke ? 'ring-2 ring-[#325FEC] scale-110' : 'hover:scale-105'
+                          }`}
+                        />
+                      ))}
+              </div>
+
+              {/* Text: weight and size */}
+              {singleSelectedShape.type !== 'line' && singleSelectedShape.type !== 'arrow' && (
+                <>
+                  <div className="flex items-center gap-0.5 pl-3 border-l border-[#D2DCEA] dark:border-[#27272A]" aria-label="Text weight">
+                    {(['normal', 'medium', 'semibold', 'bold'] as const).map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        title={w}
+                        onClick={() => updateShape(singleSelectedShape.id, { fontWeight: w })}
+                        className={`px-1.5 py-0.5 rounded text-[11px] transition-colors ${
+                          w === 'bold' ? 'font-bold' : w === 'semibold' ? 'font-semibold' : w === 'medium' ? 'font-medium' : 'font-normal'
+                        } ${
+                          singleSelectedShape.fontWeight === w
+                            ? 'bg-[#325FEC] text-white'
+                            : 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]'
+                        }`}
+                      >
+                        Aa
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1" aria-label="Text size">
+                    <button
+                      type="button"
+                      title="Smaller text"
+                      onClick={() => updateShape(singleSelectedShape.id, { fontSize: Math.max(8, (singleSelectedShape.fontSize ?? 12) - 1) })}
+                      className="p-1 rounded hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]"
+                    >
+                      <Minus size={11} weight="bold" />
+                    </button>
+                    <span className="w-6 text-center font-mono text-[11px]">{singleSelectedShape.fontSize ?? 12}</span>
+                    <button
+                      type="button"
+                      title="Larger text"
+                      onClick={() => updateShape(singleSelectedShape.id, { fontSize: Math.min(240, (singleSelectedShape.fontSize ?? 12) + 1) })}
+                      className="p-1 rounded hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]"
+                    >
+                      <Plus size={11} weight="bold" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {singleSelectedNode ? (
+            <button
+              type="button"
+              title="Remove from canvas (the clip stays in the timeline)"
+              onClick={() => {
+                const id = singleSelectedNode.instanceId;
+                const nextNodes = nodes.filter((n) => n.instanceId !== id);
+                const nextConnectors = connectors.filter((c) => c.fromId !== id && c.toId !== id);
+                setNodes(nextNodes);
+                setConnectors(nextConnectors);
+                setSelectedIds(new Set());
+                pushHistorySnapshot(nextNodes, folders, shapes, nextConnectors, drawings);
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[11px]"
+            >
+              <Trash size={12} />
+              <span>Remove</span>
+            </button>
+          ) : null}
+
+          {singleSelectedNode?.height ? (
+            <button
+              type="button"
+              title="Let the card grow with its content again"
+              onClick={() => {
+                const next = nodes.map((n) => (n.instanceId === singleSelectedNode.instanceId ? { ...n, height: undefined } : n));
+                setNodes(next);
+                pushHistorySnapshot(next, folders, shapes, connectors, drawings);
+              }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] text-[11px]"
+            >
+              <ArrowsDownUp size={12} />
+              <span>Auto height</span>
+            </button>
+          ) : null}
+
+          {/* Rotation */}
+          <label className="flex items-center gap-1.5 pl-3 border-l border-[#D2DCEA] dark:border-[#27272A]">
+            <ArrowsClockwise size={12} className="text-slate-400" />
+            <input
+              type="number"
+              min={-180}
+              max={180}
+              step={1}
+              aria-label="Rotation in degrees"
+              value={Math.round((singleSelectedShape?.rotation ?? singleSelectedNode?.rotation ?? 0) * 10) / 10}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isNaN(v)) return;
+                if (singleSelectedShape) setRotationOf(singleSelectedShape.id, 'shape', v);
+                else if (singleSelectedNode) setRotationOf(singleSelectedNode.instanceId, 'node', v);
+              }}
+              onBlur={() => pushHistorySnapshot(nodes, folders, shapes, connectors, drawings)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                e.stopPropagation();
+              }}
+              className="w-14 bg-[#FAFBFD] dark:bg-[#242428] border border-[#D2DCEA] dark:border-[#27272A] rounded-lg px-1.5 py-0.5 text-xs font-mono outline-none focus:border-[#325FEC]"
+            />
+            <span className="text-slate-400">°</span>
+            <button
+              type="button"
+              title="Reset rotation"
+              onClick={() => {
+                if (singleSelectedShape) setRotationOf(singleSelectedShape.id, 'shape', 0);
+                else if (singleSelectedNode) setRotationOf(singleSelectedNode.instanceId, 'node', 0);
+                window.setTimeout(() => pushHistorySnapshot(nodes, folders, shapes, connectors, drawings), 0);
+              }}
+              className="p-1 rounded hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]"
+            >
+              <ArrowCounterClockwise size={12} />
+            </button>
+          </label>
+        </div>
+      )}
 
       {/* 4. INFINITE TRANSFORM CONTAINER */}
       <div
@@ -1956,8 +2333,8 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
 
         {/* SVG LAYER: CONNECTORS & WIRE */}
         <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-10"
-          style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px` }}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px`, zIndex: 5 }}
         >
           <defs>
             <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -2068,345 +2445,233 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           )}
         </svg>
 
-        {/* 5. RENDER SECTIONS / GROUPS */}
+        {/* 5. SECTIONS: an outline and a name, nothing inside */}
         {folders.map((folder) => {
           const isSelected = selectedIds.has(folder.id);
+          const borderClass = (folder.color || '').split(' ').find((c) => c.startsWith('border-')) || 'border-slate-500/50';
+          const grab = (e: React.MouseEvent) => handleItemMouseDown(e, folder.id, 'folder');
+          const frame: React.CSSProperties = {
+            transform: `translate(${folder.x}px, ${folder.y}px)`,
+            width: `${folder.width}px`,
+            height: `${folder.height}px`,
+          };
 
           return (
-            <div
-              key={folder.id}
-              onMouseDown={(e) => handleItemMouseDown(e, folder.id, 'folder')}
-              style={{
-                transform: `translate(${folder.x}px, ${folder.y}px)`,
-                width: `${folder.width}px`,
-                height: `${folder.height}px`,
-              }}
-              className={`absolute pointer-events-auto rounded-3xl border-2 transition-shadow group/folder z-0 ${folder.color} ${
-                isSelected ? 'ring-2 ring-[#325FEC] ring-offset-2 shadow-2xl' : 'shadow-sm'
-              }`}
-            >
-              <div className="absolute top-2 left-4 flex items-center gap-2">
-                {editingItemId === folder.id ? (
-                  <input
-                    type="text"
-                    autoFocus
-                    defaultValue={folder.title}
-                    onBlur={(e) => {
-                      const nextFolders = folders.map((f) =>
-                        f.id === folder.id ? { ...f, title: e.target.value.trim() || 'Untitled Section' } : f
-                      );
-                      setFolders(nextFolders);
-                      pushHistorySnapshot(nodes, nextFolders, shapes, connectors, drawings);
-                      setEditingItemId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur();
-                    }}
-                    className="bg-white dark:bg-[#18181B] text-xs font-bold px-2 py-0.5 rounded border border-[#325FEC] outline-none"
-                  />
-                ) : (
-                  <span
-                    onDoubleClick={() => setEditingItemId(folder.id)}
-                    className="text-xs font-display font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-200 cursor-pointer"
-                    title="Double click to rename section"
-                  >
-                    📁 {folder.title}
-                  </span>
-                )}
+            <React.Fragment key={folder.id}>
+              {/* The outline, behind everything. Nothing is painted inside it. */}
+              <div
+                data-testid="canvas-section"
+                style={{ ...frame, zIndex: 1 }}
+                className={`absolute pointer-events-none rounded-3xl border-2 ${isSelected ? 'border-[#325FEC]' : borderClass}`}
+              />
+
+              {/* What can be grabbed: the edges, the name and the ports. They sit above the items so nothing hides them,
+                  and the empty inside stays clickable for what is behind it. */}
+              <div data-testid="canvas-section-chrome" style={{ ...frame, zIndex: 3000 }} className="absolute pointer-events-none">
+                <div onMouseDown={grab} className="absolute -top-2 left-4 right-4 h-4 pointer-events-auto cursor-move" />
+                <div onMouseDown={grab} className="absolute -bottom-2 left-4 right-4 h-4 pointer-events-auto cursor-move" />
+                <div onMouseDown={grab} className="absolute -left-2 top-4 bottom-4 w-4 pointer-events-auto cursor-move" />
+                <div onMouseDown={grab} className="absolute -right-2 top-4 bottom-4 w-4 pointer-events-auto cursor-move" />
+
+                <div className="absolute left-3 bottom-full mb-1.5 pointer-events-auto">
+                  {editingItemId === folder.id ? (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={folder.title}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => {
+                        textDirty.current = true;
+                        const title = e.target.value;
+                        setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, title } : f)));
+                      }}
+                      onBlur={() => {
+                        if (!folder.title.trim()) {
+                          setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, title: 'Untitled Section' } : f)));
+                        }
+                        finishEditing();
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+                        e.stopPropagation();
+                      }}
+                      className="bg-white dark:bg-[#18181B] text-xs font-semibold px-2 py-0.5 rounded border border-[#325FEC] outline-none text-[#0F172A] dark:text-zinc-100"
+                    />
+                  ) : (
+                    <span
+                      onMouseDown={grab}
+                      onDoubleClick={() => setEditingItemId(folder.id)}
+                      className="block whitespace-nowrap text-xs font-display font-semibold text-slate-600 dark:text-zinc-300 cursor-move select-none"
+                      title="Double click to rename"
+                    >
+                      {folder.title}
+                    </span>
+                  )}
+                </div>
+
               </div>
-
-              {/* Ports: ONLY VISIBLE in Connection Mode or while dragging wire */}
-              {(activeTool === 'connect' || connectingFrom !== null) &&
-                (['top', 'bottom', 'left', 'right'] as const).map((port) => (
-                  <button
-                    key={port}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setConnectingFrom({ id: folder.id, port });
-                    }}
-                    onMouseEnter={() => setHoveredPortTarget({ id: folder.id, port })}
-                    onMouseLeave={() => setHoveredPortTarget(null)}
-                    style={{
-                      top: port === 'top' ? -8 : port === 'bottom' ? '100%' : '50%',
-                      left: port === 'left' ? -8 : port === 'right' ? '100%' : '50%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                    className="absolute w-4 h-4 rounded-full bg-white dark:bg-[#18181B] border-2 border-[#325FEC] transition-all flex items-center justify-center cursor-crosshair z-30 hover:scale-130"
-                    title={`Connect ${port}`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#325FEC]" />
-                  </button>
-                ))}
-
-              {/* 8-Way Resize Handles (Only in Pointer mode) */}
-              {isSelected && activeTool !== 'connect' && (
-                <>
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, folder.id, 'folder', 'se', folder.x, folder.y, folder.width, folder.height)} className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-se-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, folder.id, 'folder', 'sw', folder.x, folder.y, folder.width, folder.height)} className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-sw-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, folder.id, 'folder', 'ne', folder.x, folder.y, folder.width, folder.height)} className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-ne-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, folder.id, 'folder', 'nw', folder.x, folder.y, folder.width, folder.height)} className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-nw-resize z-30" />
-                </>
-              )}
-            </div>
+            </React.Fragment>
           );
         })}
 
-        {/* 6. RENDER FLOWCHART SHAPES & STICKY NOTES */}
+        {/* 6. SHAPES, STICKY NOTES AND TEXT */}
         {shapes.map((shape) => {
-          const isSelected = selectedIds.has(shape.id);
+          const canHoldText = shape.type !== 'line' && shape.type !== 'arrow';
+          const isEditing = editingItemId === shape.id;
+          const rotation = shape.rotation || 0;
+          const weightClass =
+            shape.fontWeight === 'bold'
+              ? 'font-bold'
+              : shape.fontWeight === 'semibold'
+                ? 'font-semibold'
+                : shape.fontWeight === 'medium'
+                  ? 'font-medium'
+                  : 'font-normal';
+          const textStyle: React.CSSProperties = {
+            fontSize: shape.fontSize ?? 12,
+            color: shape.textColor && shape.textColor !== '#0F172A' ? shape.textColor : undefined,
+          };
+          const placeholder = shape.type === 'sticky' ? 'Write note here...' : shape.type === 'text' ? 'Text' : '';
 
           return (
             <div
               key={shape.id}
+              data-testid="canvas-shape"
+              data-shape-id={shape.id}
+              data-shape-type={shape.type}
               onMouseDown={(e) => handleItemMouseDown(e, shape.id, 'shape')}
+              onDoubleClick={() => {
+                if (!canHoldText || activeTool !== 'pointer') return;
+                setSelectedIds(new Set([shape.id]));
+                setEditingItemId(shape.id);
+              }}
               style={{
-                transform: `translate(${shape.x}px, ${shape.y}px)`,
+                transform: `translate(${shape.x}px, ${shape.y}px) rotate(${rotation}deg)`,
+                transformOrigin: 'center',
                 width: `${shape.width}px`,
                 height: `${shape.height}px`,
+                zIndex: zById[shape.id],
               }}
-              className={`absolute pointer-events-auto transition-all group/shape z-20 flex items-center justify-center ${
-                shape.color
-              } ${isSelected ? 'ring-2 ring-[#325FEC] shadow-2xl' : ''}`}
+              className="absolute pointer-events-auto group/shape flex items-center justify-center"
             >
-              {/* SVG Background Outline for complex Flowchart Shapes */}
+              {/* Outline of the shape */}
               {shape.type !== 'sticky' && shape.type !== 'text' && (
-                <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
                   {renderShapeSvg(shape)}
                 </svg>
               )}
 
-              {/* Text Inside Shape */}
+              {/* Text inside the shape */}
               <div
-                className={`relative z-10 p-3 w-full h-full flex items-center justify-center text-center text-xs leading-relaxed ${
-                  shape.fontWeight === 'bold'
-                    ? 'font-bold'
-                    : shape.fontWeight === 'semibold'
-                    ? 'font-semibold'
-                    : shape.fontWeight === 'medium'
-                    ? 'font-medium'
-                    : 'font-normal'
-                } ${shape.type === 'sticky' ? 'border rounded-2xl shadow-md ' + shape.color : ''}`}
+                style={{ ...textStyle, borderColor: shape.type === 'sticky' ? shape.strokeColor : undefined }}
+                className={`relative z-10 p-3 w-full h-full flex items-center justify-center text-center leading-snug break-words text-slate-900 dark:text-zinc-100 ${weightClass} ${
+                  shape.type === 'sticky' ? 'border rounded-2xl shadow-md ' + shape.color : ''
+                }`}
               >
-                {editingItemId === shape.id ? (
+                {isEditing ? (
                   <textarea
                     autoFocus
-                    defaultValue={shape.text}
-                    onBlur={(e) => {
-                      const nextShapes = shapes.map((s) =>
-                        s.id === shape.id ? { ...s, text: e.target.value } : s
-                      );
-                      setShapes(nextShapes);
-                      pushHistorySnapshot(nodes, folders, nextShapes, connectors, drawings);
-                      setEditingItemId(null);
+                    value={shape.text}
+                    placeholder={placeholder}
+                    onFocus={(e) => {
+                      const el = e.currentTarget;
+                      el.setSelectionRange(el.value.length, el.value.length);
                     }}
-                    className="w-full h-full bg-transparent resize-none outline-none text-xs text-center"
+                    onChange={(e) => {
+                      textDirty.current = true;
+                      const text = e.target.value;
+                      setShapes((prev) => prev.map((sh) => (sh.id === shape.id ? { ...sh, text } : sh)));
+                    }}
+                    onBlur={finishEditing}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      e.stopPropagation();
+                    }}
+                    className="w-full h-full bg-transparent resize-none outline-none text-center placeholder:opacity-40"
                   />
-                ) : (
-                  <div
-                    onDoubleClick={() => setEditingItemId(shape.id)}
-                    className="cursor-text select-text whitespace-pre-wrap"
-                  >
-                    {shape.text}
-                  </div>
-                )}
+                ) : shape.text ? (
+                  <div className="w-full whitespace-pre-wrap select-none">{shape.text}</div>
+                ) : placeholder ? (
+                  <span className="opacity-40 italic select-none">{placeholder}</span>
+                ) : null}
               </div>
 
-              {/* Ports (Connection Mode Only) */}
-              {(activeTool === 'connect' || connectingFrom !== null) &&
-                (['top', 'bottom', 'left', 'right'] as const).map((port) => (
-                  <button
-                    key={port}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setConnectingFrom({ id: shape.id, port });
-                    }}
-                    onMouseEnter={() => setHoveredPortTarget({ id: shape.id, port })}
-                    onMouseLeave={() => setHoveredPortTarget(null)}
-                    style={{
-                      top: port === 'top' ? -8 : port === 'bottom' ? '100%' : '50%',
-                      left: port === 'left' ? -8 : port === 'right' ? '100%' : '50%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                    className="absolute w-4 h-4 rounded-full bg-white dark:bg-[#18181B] border-2 border-[#325FEC] transition-all flex items-center justify-center cursor-crosshair z-30 hover:scale-130"
-                    title={`Connect ${port}`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#325FEC]" />
-                  </button>
-                ))}
-
-              {/* 8-Way Resize Handles (Only in Pointer mode) */}
-              {isSelected && activeTool !== 'connect' && (
-                <>
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, shape.id, 'shape', 'se', shape.x, shape.y, shape.width, shape.height)} className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-se-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, shape.id, 'shape', 'sw', shape.x, shape.y, shape.width, shape.height)} className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-sw-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, shape.id, 'shape', 'ne', shape.x, shape.y, shape.width, shape.height)} className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-ne-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, shape.id, 'shape', 'nw', shape.x, shape.y, shape.width, shape.height)} className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-nw-resize z-30" />
-                </>
-              )}
             </div>
           );
         })}
 
-        {/* 7. RENDER ATOM BLOCKS (Compact by default, actions on hover only) */}
+        {/* 7. ATOM CARDS */}
         {nodes.map((node) => {
           const atom = atomsById.get(node.atomId);
           if (!atom) return null;
 
-          const isSelected = selectedIds.has(node.instanceId);
-          const isHovered = hoveredNodeId === node.instanceId;
           const isQuote = atom.type === 'quote' || atom.type === 'text';
           const isImage = atom.type === 'image';
           const rawQuote = atom.content?.rawText || atom.content?.text || '';
           const cardWidth = node.width || 340;
-          const cardHeight = node.height;
-
           const source = atom.metadata?.sourceUrl;
-          const highlight = getAtomHighlightText(atom);
-          const targetLink = source ? (highlight ? buildDeepLink(source, undefined, highlight) : source) : '';
-          const docId = atom.metadata?.docId || atom.metadata?.pdfDocId || (atom.content as any)?.docId;
-          const pageNumber = atom.metadata?.pageNumber || atom.metadata?.page || 1;
 
           return (
             <div
               key={node.instanceId}
-              onMouseEnter={() => setHoveredNodeId(node.instanceId)}
-              onMouseLeave={() => setHoveredNodeId(null)}
+              ref={nodeRef(node.instanceId)}
+              data-testid="canvas-atom"
+              data-node-id={node.instanceId}
               onMouseDown={(e) => handleItemMouseDown(e, node.instanceId, 'node')}
               style={{
-                transform: `translate(${node.x}px, ${node.y}px)`,
+                transform: `translate(${node.x}px, ${node.y}px) rotate(${node.rotation || 0}deg)`,
+                transformOrigin: 'center',
                 width: `${cardWidth}px`,
-                minHeight: cardHeight ? `${cardHeight}px` : undefined,
+                height: node.height ? `${node.height}px` : undefined,
+                zIndex: zById[node.instanceId],
               }}
-              className={`absolute pointer-events-auto rounded-2xl border shadow-lg transition-all duration-150 group/atom z-20 flex flex-col justify-between bg-white dark:bg-[#18181B] border-[#D2DCEA] dark:border-[#27272A] p-3.5 ${
-                isSelected ? 'border-[#325FEC] ring-2 ring-[#325FEC]/40 shadow-2xl' : 'hover:border-[#94A3B8] dark:hover:border-[#3F3F46]'
-              }`}
+              className="absolute pointer-events-auto rounded-2xl border shadow-lg group/atom flex flex-col bg-white dark:bg-[#18181B] border-[#D2DCEA] dark:border-[#27272A]"
             >
-              <div>
-                {/* Content */}
-                {isQuote && rawQuote && (
-                  <blockquote className="text-[12.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] font-normal border-l-2 border-[#325FEC] pl-2.5 py-0.5">
-                    "{semanticHighlightText(rawQuote)}"
-                  </blockquote>
-                )}
+              <div className="flex-1 min-h-0 overflow-hidden rounded-2xl p-3.5 flex flex-col justify-between">
+                <div>
+                  {isQuote && rawQuote && (
+                    <blockquote className="text-[12.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] font-normal border-l-2 border-[#325FEC] pl-2.5 py-0.5">
+                      "{semanticHighlightText(rawQuote)}"
+                    </blockquote>
+                  )}
 
-                {atom.type === 'note' && (
-                  <p className="text-[12.5px] leading-relaxed text-[#0F172A] dark:text-zinc-200 line-clamp-3">
-                    {atom.content?.markdownContent || atom.content?.text || atom.content?.description || ''}
-                  </p>
-                )}
+                  {atom.type === 'note' && (
+                    <p className="text-[12.5px] leading-relaxed text-[#0F172A] dark:text-zinc-200 line-clamp-3">
+                      {atom.content?.markdownContent || atom.content?.text || atom.content?.description || ''}
+                    </p>
+                  )}
 
-                {isImage && (atom.content?.imageUrl || (atom.content as any)?.targetUrl) && (
-                  <div className="rounded-lg overflow-hidden border border-[#D2DCEA] dark:border-[#27272A] my-1">
-                    <img
-                      src={atom.content?.imageUrl || (atom.content as any)?.targetUrl}
-                      alt={atom.title || 'Image clip'}
-                      className="w-full max-h-36 object-cover"
-                    />
+                  {isImage && (atom.content?.imageUrl || (atom.content as any)?.targetUrl) && (
+                    <div className="rounded-lg overflow-hidden border border-[#D2DCEA] dark:border-[#27272A] my-1">
+                      <img
+                        src={atom.content?.imageUrl || (atom.content as any)?.targetUrl}
+                        alt={atom.title || 'Image clip'}
+                        draggable={false}
+                        className="w-full max-h-36 object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {/* Source label */}
+                  <div className="pt-2 text-[10px] font-mono text-slate-400 dark:text-zinc-500 truncate">
+                    {atom.metadata?.pageTitle || (source ? source.replace(/^https?:\/\//, '').split('/')[0] : 'source')}
                   </div>
-                )}
-
-                {/* Source label */}
-                <div className="pt-2 text-[10px] font-mono text-slate-400 dark:text-zinc-500 truncate">
-                  {atom.metadata?.pageTitle || (source ? source.replace(/^https?:\/\//, '').split('/')[0] : 'source')}
                 </div>
               </div>
 
-              {/* DETAILED VIEW ACTIONS: VISIBLE ON HOVER ONLY */}
-              {isHovered && (
-                <div className="pt-2 mt-2 border-t border-[#D2DCEA]/60 dark:border-[#27272A] flex items-center justify-between text-[10.5px] animate-fadeIn">
-                  {docId && onOpenPdfReader ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenPdfReader(docId, pageNumber, highlight);
-                      }}
-                      className="flex items-center gap-1 text-[#325FEC] dark:text-[#518FFF] hover:underline font-semibold"
-                    >
-                      <BookOpen size={12} />
-                      <span>Page {pageNumber}</span>
-                    </button>
-                  ) : targetLink ? (
-                    <a
-                      href={targetLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 text-[#325FEC] dark:text-[#518FFF] hover:underline font-semibold"
-                    >
-                      <span>Open Source</span>
-                      <ArrowSquareOut size={11} />
-                    </a>
-                  ) : (
-                    <span />
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextNodes = nodes.filter((n) => n.instanceId !== node.instanceId);
-                      const nextConnectors = connectors.filter((c) => c.fromId !== node.instanceId && c.toId !== node.instanceId);
-                      setNodes(nextNodes);
-                      setConnectors(nextConnectors);
-                      pushHistorySnapshot(nextNodes, folders, shapes, nextConnectors, drawings);
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(node.instanceId);
-                        return next;
-                      });
-                    }}
-                    className="p-1 rounded text-slate-400 hover:text-rose-500 transition-colors"
-                    title="Remove from Canvas (keeps in Timeline)"
-                  >
-                    <Trash size={12} />
-                  </button>
-                </div>
-              )}
-
-              {/* Ports (Connection Mode Only) */}
-              {(activeTool === 'connect' || connectingFrom !== null) &&
-                (['top', 'bottom', 'left', 'right'] as const).map((port) => (
-                  <button
-                    key={port}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setConnectingFrom({ id: node.instanceId, port });
-                    }}
-                    onMouseEnter={() => setHoveredPortTarget({ id: node.instanceId, port })}
-                    onMouseLeave={() => setHoveredPortTarget(null)}
-                    style={{
-                      top: port === 'top' ? -8 : port === 'bottom' ? '100%' : '50%',
-                      left: port === 'left' ? -8 : port === 'right' ? '100%' : '50%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                    className="absolute w-4 h-4 rounded-full bg-white dark:bg-[#18181B] border-2 border-[#325FEC] transition-all flex items-center justify-center cursor-crosshair z-30 hover:scale-130"
-                    title={`Connect from ${port}`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#325FEC]" />
-                  </button>
-                ))}
-
-              {/* 8-Way Resize Handles (Only in Pointer mode) */}
-              {isSelected && activeTool !== 'connect' && (
-                <>
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, node.instanceId, 'node', 'se', node.x, node.y, node.width || 340, node.height || 100)} className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-se-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, node.instanceId, 'node', 'sw', node.x, node.y, node.width || 340, node.height || 100)} className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-sw-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, node.instanceId, 'node', 'ne', node.x, node.y, node.width || 340, node.height || 100)} className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-ne-resize z-30" />
-                  <div onMouseDown={(e) => handleResizeHandleMouseDown(e, node.instanceId, 'node', 'nw', node.x, node.y, node.width || 340, node.height || 100)} className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#325FEC] rounded-xs cursor-nw-resize z-30" />
-                </>
-              )}
             </div>
           );
         })}
 
         {/* 8. FREEHAND DRAWINGS ON TOP OF ATOMS (Higher Z-Index: 30) */}
         <svg
-          className="absolute inset-0 w-full h-full pointer-events-none z-30"
-          style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px` }}
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ width: `${CANVAS_WIDTH}px`, height: `${CANVAS_HEIGHT}px`, zIndex: 4000 }}
         >
           {drawings.map((d) => {
             if (d.points.length < 2) return null;
@@ -2437,7 +2702,137 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           )}
         </svg>
 
-        {/* 9. MARQUEE SELECTION BOX */}
+        {/* 9. SELECTION: outlines, size handles and the rotate handle, above everything */}
+        {activeTool !== 'connect' &&
+          selectedBoxes.map((box) => {
+            const single = selectedBoxes.length === 1 && editingItemId !== box.id;
+            const rotation = box.rotation || 0;
+            const hs = 11 / zoom;
+            const bw = 1.5 / zoom;
+            const handles: Array<{ dir: ResizeDirection; left: string; top: string }> = [
+              { dir: 'nw', left: '0%', top: '0%' },
+              { dir: 'n', left: '50%', top: '0%' },
+              { dir: 'ne', left: '100%', top: '0%' },
+              { dir: 'e', left: '100%', top: '50%' },
+              { dir: 'se', left: '100%', top: '100%' },
+              { dir: 's', left: '50%', top: '100%' },
+              { dir: 'sw', left: '0%', top: '100%' },
+              { dir: 'w', left: '0%', top: '50%' },
+            ];
+            const rotating = dragState?.type === 'rotate' && dragState.id === box.id;
+
+            return (
+              <div
+                key={`sel-${box.id}`}
+                className="absolute pointer-events-none"
+                style={{
+                  transform: `translate(${box.x}px, ${box.y}px) rotate(${rotation}deg)`,
+                  transformOrigin: 'center',
+                  width: box.width,
+                  height: box.height,
+                  zIndex: 5000,
+                }}
+              >
+                <div
+                  className="absolute inset-0 border-[#325FEC]"
+                  style={{ borderWidth: bw * 1.3, borderStyle: single ? 'solid' : 'dashed' }}
+                />
+                {single &&
+                  handles.map((hd) => (
+                    <div
+                      key={hd.dir}
+                      data-handle={hd.dir}
+                      onMouseDown={(e) => handleResizeHandleMouseDown(e, box.id, box.kind, hd.dir)}
+                      style={{
+                        left: hd.left,
+                        top: hd.top,
+                        width: hs,
+                        height: hs,
+                        borderWidth: bw * 1.3,
+                        transform: 'translate(-50%, -50%)',
+                        cursor: resizeCursor(hd.dir, rotation),
+                      }}
+                      className="absolute pointer-events-auto bg-white border-solid border-[#325FEC] rounded-[2px]"
+                    />
+                  ))}
+                {single && box.kind !== 'folder' && (
+                  <>
+                    <div
+                      className="absolute bg-[#325FEC]"
+                      style={{ left: '50%', top: -ROTATE_HANDLE_OFFSET / zoom, width: bw, height: ROTATE_HANDLE_OFFSET / zoom, transform: 'translateX(-50%)' }}
+                    />
+                    <div
+                      data-handle="rotate"
+                      title="Rotate (hold Shift to snap to 15°)"
+                      onMouseDown={(e) => handleRotateHandleMouseDown(e, box.id, box.kind as 'node' | 'shape')}
+                      style={{
+                        left: '50%',
+                        top: -ROTATE_HANDLE_OFFSET / zoom,
+                        width: hs * 1.3,
+                        height: hs * 1.3,
+                        borderWidth: bw * 1.3,
+                        transform: 'translate(-50%, -50%)',
+                        cursor: 'grab',
+                      }}
+                      className="absolute pointer-events-auto bg-white border-solid border-[#325FEC] rounded-full"
+                    />
+                    {rotating && (
+                      <div
+                        className="absolute left-1/2 whitespace-nowrap rounded bg-[#325FEC] text-white font-mono"
+                        style={{
+                          top: -(ROTATE_HANDLE_OFFSET + 26) / zoom,
+                          transform: `translateX(-50%) rotate(${-rotation}deg)`,
+                          fontSize: 11 / zoom,
+                          padding: `${2 / zoom}px ${6 / zoom}px`,
+                        }}
+                      >
+                        {Math.round(rotation)}°
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+
+        {/* 9b. CONNECTION PORTS: in their own layer above everything, so no card can cover one */}
+        {(activeTool === 'connect' || connectingFrom !== null) &&
+          [...nodes.filter((n) => atomsById.has(n.atomId)).map((n) => n.instanceId), ...shapes.map((sh) => sh.id), ...folders.map((f) => f.id)].map((id) => {
+            const box = getItemBox(id);
+            if (!box) return null;
+            return (['top', 'bottom', 'left', 'right'] as const).map((port) => {
+              const p = portPoint(box, port);
+              return (
+                <button
+                  key={`${id}-${port}`}
+                  type="button"
+                  data-port={`${id}:${port}`}
+                  title={`Connect ${port}`}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setConnectingFrom({ id, port });
+                  }}
+                  onMouseEnter={() => setHoveredPortTarget({ id, port })}
+                  onMouseLeave={() => setHoveredPortTarget(null)}
+                  style={{
+                    left: p.x,
+                    top: p.y,
+                    width: 16 / zoom,
+                    height: 16 / zoom,
+                    borderWidth: 2 / zoom,
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 5200,
+                  }}
+                  className="absolute rounded-full border-solid bg-white dark:bg-[#18181B] border-[#325FEC] flex items-center justify-center cursor-crosshair hover:scale-125 transition-transform"
+                >
+                  <span style={{ width: 6 / zoom, height: 6 / zoom }} className="rounded-full bg-[#325FEC]" />
+                </button>
+              );
+            });
+          })}
+
+        {/* 10. MARQUEE SELECTION BOX */}
         {dragState && dragState.type === 'marquee' && (
           <div
             style={{
@@ -2445,85 +2840,16 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
               top: `${Math.min(dragState.startCanvasY, dragState.currentCanvasY)}px`,
               width: `${Math.abs(dragState.currentCanvasX - dragState.startCanvasX)}px`,
               height: `${Math.abs(dragState.currentCanvasY - dragState.startCanvasY)}px`,
+              zIndex: 6000,
             }}
-            className="absolute border border-[#325FEC] bg-[#325FEC]/15 pointer-events-none z-50 rounded-xs"
+            className="absolute border border-[#325FEC] bg-[#325FEC]/15 pointer-events-none rounded-xs"
           />
         )}
       </div>
 
-      {/* 10. FLOATING BOTTOM HUD (ZOOM, FIT, SIDEBAR, FULLSCREEN) */}
-      <div 
-        className={`absolute bottom-5 z-40 flex items-center gap-1.5 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] rounded-xl p-1.5 shadow-xl text-xs font-mono text-slate-700 dark:text-zinc-300 transition-all duration-300 ${
-          isDrawerOpen ? 'left-[336px]' : 'left-5'
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setZoom((z) => Math.min(z + 0.15, 2.5));
-            triggerZoomMinimap();
-          }}
-          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
-          title="Zoom In"
-        >
-          <Plus size={14} />
-        </button>
-        <span className="px-1 text-[11px] font-semibold min-w-[36px] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            setZoom((z) => Math.max(z - 0.15, 0.15));
-            triggerZoomMinimap();
-          }}
-          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
-          title="Zoom Out"
-        >
-          <Minus size={14} />
-        </button>
-
-        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A] mx-0.5" />
-
-        <button
-          type="button"
-          onClick={handleFitToScreen}
-          className="p-1.5 rounded-lg hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] transition-colors"
-          title="Fit to Screen"
-        >
-          <ArrowsOut size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (onToggleSidebar) onToggleSidebar();
-          }}
-          className={`p-1.5 rounded-lg transition-colors ${
-            isSidebarCollapsed ? 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] text-slate-400' : 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A] text-[#325FEC]'
-          }`}
-          title={isSidebarCollapsed ? 'Expand Project Sidebar' : 'Collapse Project Sidebar'}
-        >
-          <SidebarSimple size={14} />
-        </button>
-
-        <div className="h-4 w-px bg-[#D2DCEA] dark:bg-[#27272A] mx-0.5" />
-
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className={`p-1.5 rounded-lg transition-colors ${
-            isFullscreen ? 'bg-[#325FEC] text-white' : 'hover:bg-[#EEF3F8] dark:hover:bg-[#25252A]'
-          }`}
-          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-        >
-          {isFullscreen ? <CornersIn size={14} /> : <CornersOut size={14} />}
-        </button>
-      </div>
-
       {/* 11. MINIMAP: VISIBLE ONLY WHEN TOGGLED FROM TOP NAV OR WHILE ZOOMING */}
       {(showMinimap || isZooming) && (
-        <div className="absolute bottom-5 right-5 z-30 w-44 h-32 rounded-xl bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] shadow-xl overflow-hidden pointer-events-auto p-1 animate-fadeIn">
+        <div data-canvas-ui className="absolute bottom-5 right-5 z-30 w-44 h-32 rounded-xl bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#D2DCEA] dark:border-[#27272A] shadow-xl overflow-hidden pointer-events-auto p-1 animate-fadeIn">
           <div className="relative w-full h-full bg-[#FAFBFD] dark:bg-[#09090B] rounded-lg overflow-hidden border border-[#D2DCEA]/40 dark:border-[#27272A]/40">
             {nodes.map((n) => (
               <div
@@ -2537,6 +2863,18 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
                 className="absolute bg-[#325FEC] rounded-xs"
               />
             ))}
+            {shapes.map((sh) => (
+              <div
+                key={sh.id}
+                style={{
+                  left: `${(sh.x / CANVAS_WIDTH) * 100}%`,
+                  top: `${(sh.y / CANVAS_HEIGHT) * 100}%`,
+                  width: '3px',
+                  height: '3px',
+                }}
+                className="absolute bg-slate-400 rounded-full"
+              />
+            ))}
             {folders.map((f) => (
               <div
                 key={f.id}
@@ -2546,7 +2884,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
                   width: `${(f.width / CANVAS_WIDTH) * 100}%`,
                   height: `${(f.height / CANVAS_HEIGHT) * 100}%`,
                 }}
-                className="absolute border border-blue-400/40 bg-blue-500/10 rounded-xs"
+                className="absolute border border-blue-400/60 rounded-xs"
               />
             ))}
             {containerRef.current && (
@@ -2563,6 +2901,20 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
           </div>
         </div>
       )}
+
+      <CanvasExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        project={project}
+        nodes={nodes}
+        folders={folders}
+        shapes={shapes}
+        connectors={connectors}
+        drawings={drawings}
+        selectedIds={selectedIds}
+        atomsById={atomsById}
+        nodeHeights={measuredHeights}
+      />
     </div>
   );
 };

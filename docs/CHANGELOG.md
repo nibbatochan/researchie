@@ -1,5 +1,34 @@
 # Version Changelog
 
+## [v1.9.16] — 2026-10-17 (Canvas audit: rotation, scaling, text editing, outline-only sections)
+### Fixed
+- **Typed text was lost.** Clicking away from a text box removed it before it could save, so the text went back to "Click to edit text". Text now saves as you type (notes, text, shapes and section names), is one undo step, and an empty text box is removed when you click away. New text and notes open ready to type.
+- **Scaling did nothing on top of cards.** Handles lived inside each item, so a card above the item covered them. Handles, outlines and the rotate handle are now one layer above everything. Edges scale as well as corners, atom cards can be scaled in height, and the smallest sizes are per kind (text and lines can get small).
+- **Connection ports** had the same problem (a card could cover a shape's port); they are in their own layer too.
+- **Rectangles and other shapes drew solid dark**, because the fill used the page's text colour. Closed shapes now have a light tint of their outline colour.
+- **Export was always empty**: the export dialog was handed empty lists. It now lives in the canvas, with the real data, and draws every shape type, rotation, sections as outlines, connectors, drawings and the real heights of cards. PNG, JPEG and SVG are one drawing. New: Light or Dark background. The old unused export code in the canvas is gone.
+- **Layering** ignored shapes versus cards (cards were always on top). Items now have one stacking order, saved with the canvas; Ctrl+[ and Ctrl+] work across both.
+- **Wheel zoom** could zoom the whole page (React's wheel listener is passive); it is a native listener now. The zoom buttons zoom around the middle of the view instead of jumping to a corner. Fit to Screen keeps content clear of the open atom drawer and uses the real card heights; a project's canvas is fitted when it opens.
+- **A project with nothing saved showed the previous project's canvas** (and saved it). It starts empty now, and the first clips are placed once that project's own clips arrive.
+- **Pen, hand and new notes** did nothing when the drag or click began on a card; they work everywhere. The pen also started a stroke from clicks on the toolbar.
+- **Eraser** now rubs out a drawing on a plain click, removes the connectors of an erased item, follows long strokes between their points, and is one undo step.
+- **Tool shortcuts** fired on Ctrl+S, Ctrl+C and the like. They are plain keys only. Space no longer scrolls the page.
+- **Drags** (move, scale, rotate, pen) end wherever the mouse button is released, also outside the canvas.
+- **The zoom bar overlapped the toolbar** on narrower screens; they share one row now.
+
+### Added
+- **Rotation** for atom cards, notes, text and every shape (not sections): a rotate handle above the item, Shift snaps to 15 degrees, and a degrees box with reset. Connectors, selection boxes, Fit to Screen and export follow the turned item.
+- **A properties bar** for the selected item: colour, text weight and size, rotation, Auto height and Remove for cards.
+- **Text** scales with its corner handle.
+- Undo and Redo buttons; arrow keys nudge the selection (Shift for 10 px); highlighter thickness and colours; all seven pen colours.
+
+### Changed
+- **Hover on cards shows nothing** (the Open Source and remove buttons are gone). Cards come off the canvas with Delete or Remove in the properties bar.
+- **A section is only an outline**: no fill, no shadow, nothing inside. Its name sits above the outline. Only its edges and name can be grabbed, so the empty inside stays clickable for what is behind it.
+
+### Tests
+- `tests/canvas-geometry.test.mjs` (9) and `tests/canvas-export.test.mjs` (10); `e2e/22-canvas-tools.spec.ts` (40 tests, real mouse and keyboard).
+
 ## [v1.9.15] — 2026-10-17 (Source health, step 3: honest retraction states and OpenAlex)
 ### Changed
 - `clean` is now `none_found`. The text names the sources that answered and the date and says it does not prove the paper is sound. No source lists every retraction.

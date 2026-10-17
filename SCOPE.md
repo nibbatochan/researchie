@@ -98,6 +98,12 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Notes: v1.8.0 and v1.8.1.
     - [dropped] Drag to reorder cards in the feed {S-39}
           | What: Dropped by you: the feed is a timeline. Pinning (S-35) replaced it.
+  - [done] Spatial canvas {S-66}
+        | What: The whiteboard where clips, notes, shapes and sections are laid out and connected.
+    - [done] Audit every canvas tool and fix what was broken {S-67}
+          | What: Hover buttons removed, rotation for everything except sections, sections as outlines only, typed text kept, every element scalable, and a full pass over every tool.
+          | Done: See v1.9.16 in docs/CHANGELOG.md: 9 unit tests for the geometry, 10 for the export drawing, 40 end-to-end tests on a real mouse and keyboard.
+          | Left: Group scaling and rotation, copy and paste, touch screens. Not tried on the live site.
   - [in progress] Tester site {S-40}
         | What: Lets 5 to 10 testers sign up and use their own private workspace, AI key and Chrome extension on a live site.
         | Done: Accounts, private data, AI keys, the extension token and settings saved in the account; deployed at https://researchie-testers.vercel.app (v1.9.0, v1.9.1).
@@ -259,6 +265,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-17 — Added S-66 (spatial canvas) and S-67 (canvas audit), done.
 - 2026-10-16 — Added S-61 (get the extension to testers, top priority) with S-62 to S-65. Found while checking the tester flow: testers had no way to install the extension.
 - 2026-10-13 — PRD gap check (docs/RESEARCH_TOOL_PRD.md) found items not in the tree; added under {p1}.
 
