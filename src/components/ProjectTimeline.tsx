@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyFeedIllustration } from './illustrations';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FolderSimple,
@@ -79,42 +80,7 @@ interface ProjectTimelineProps {
 }
 
 // ─── Timeline Empty State Vector Illustration ────────────────────────
-export const TimelineEmptyIllustration: React.FC<{ className?: string }> = ({
-  className = 'w-32 h-24 mx-auto mb-3',
-}) => (
-  <svg
-    viewBox="0 0 140 100"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    aria-hidden="true"
-  >
-    {/* Base soft platform glow */}
-    <ellipse cx="70" cy="88" rx="55" ry="6" fill="#CBD5E1" fillOpacity="0.35" className="dark:fill-black dark:fill-opacity-50" />
-    
-    {/* Background Research Sheet */}
-    <rect x="28" y="14" width="48" height="66" rx="5" fill="#FAFBFD" className="dark:fill-[#18181B]" stroke="#D2DCEA" strokeWidth="1.5" />
-    <path d="M36 26H64" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" className="dark:stroke-[#3F3F46]" />
-    <path d="M36 34H68" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" className="dark:stroke-[#3F3F46]" />
-    <path d="M36 42H58" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" className="dark:stroke-[#3F3F46]" />
-
-    {/* Primary Foreground Floating Atom Card */}
-    <rect x="52" y="26" width="60" height="56" rx="7" fill="#FFFFFF" className="dark:fill-[#121214]" stroke="#325FEC" strokeWidth="1.75" />
-    
-    {/* Accent Header Ribbon */}
-    <rect x="52" y="26" width="60" height="12" rx="7" fill="#325FEC" fillOpacity="0.15" />
-    <circle cx="62" cy="32" r="2.5" fill="#325FEC" />
-    <path d="M70 32H98" stroke="#325FEC" strokeWidth="1.75" strokeLinecap="round" />
-
-    {/* Synthesized Highlight Lines */}
-    <path d="M60 48H104" stroke="#325FEC" strokeWidth="2" strokeLinecap="round" />
-    <path d="M60 56H96" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round" className="dark:stroke-[#60A5FA]" />
-    <path d="M60 64H82" stroke="#CBD5E1" strokeWidth="2" strokeLinecap="round" className="dark:stroke-[#3F3F46]" />
-
-    {/* Little Sparkle */}
-    <path d="M102 18L104 22L108 24L104 26L102 30L100 26L96 24L100 22Z" fill="#38BDF8" />
-  </svg>
-);
+export const TimelineEmptyIllustration = EmptyFeedIllustration;
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'All Types', icon: SquaresFour },
@@ -228,6 +194,18 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Clips that arrive while the feed is open (from the extension) fade in. Nothing animates on first load, on a
+  // project switch, or when a filter or search brings older clips back.
+  const knownAtoms = useRef<{ projectId: string; ids: Set<string> }>({ projectId: '', ids: new Set() });
+  const freshAtomIds = useMemo(() => {
+    const known = knownAtoms.current;
+    if (known.projectId !== (project?.id ?? "") || known.ids.size === 0) return new Set<string>();
+    return new Set(atoms.filter((a) => !known.ids.has(a.id)).map((a) => a.id));
+  }, [atoms, (project?.id ?? "")]);
+  useEffect(() => {
+    knownAtoms.current = { projectId: (project?.id ?? ""), ids: new Set(atoms.map((a) => a.id)) };
+  }, [atoms, (project?.id ?? "")]);
 
   const filteredAtoms = useMemo(() => {
     return sortPinnedFirst(atoms.filter((atom) => {
@@ -348,7 +326,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [showCanvasMinimap, setShowCanvasMinimap] = useState(false);
 
   return (
-    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-br from-[#F3F6FB] via-[#ECF0F7] to-[#E1E7F2] dark:bg-none dark:bg-[#09090B] transition-colors">
+    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-br from-[#E3EAF6] via-[#D8E1F1] to-[#C8D4EA] dark:bg-none dark:bg-[#09090B] transition-colors">
       {/* Sticky Toolbar */}
       <div className="px-3 py-1.5 md:px-5 md:py-2 border-b border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         {/* Project Title and Round Tags Button at the Left */}
@@ -803,7 +781,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             {loading ? (
               <TimelineSkeleton count={4} mode={viewMode} />
             ) : filteredAtoms.length === 0 ? (
-              <div className="max-w-md mx-auto my-12 text-center p-8 rounded-2xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] shadow-sm">
+              <div className="animate-popIn max-w-md mx-auto my-12 text-center p-8 rounded-2xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] shadow-sm">
                 <TimelineEmptyIllustration />
                 <h3 className="text-sm md:text-base font-display font-semibold text-[#0F172A] dark:text-[#FAFAFA]">
                   {searchQuery || selectedTag ? 'No matching clips found' : 'No clips saved yet'}
@@ -838,6 +816,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               <div className="max-w-4xl mx-auto flex flex-col gap-[26px]">
                 {filteredAtoms.map((atom) => (
                   <React.Fragment key={atom.id}>
+                    <div className={freshAtomIds.has(atom.id) ? 'animate-clipIn' : undefined}>
                     <AtomCard
                       atom={atom}
                       viewMode={viewMode === 'clean' ? 'clean' : 'detailed'}
@@ -850,6 +829,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                       onTagClick={(t) => setSelectedTag(t === selectedTag ? null : t)}
                       onOpenPdfReader={onOpenPdfReader}
                     />
+                    </div>
                   </React.Fragment>
                 ))}
               </div>

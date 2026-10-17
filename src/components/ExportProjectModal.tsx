@@ -860,7 +860,7 @@ export const ExportProjectModal: React.FC<ExportProjectModalProps> = ({
               }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F8F9FB] dark:bg-[#18181B] hover:bg-slate-100 dark:hover:bg-[#222226] text-slate-700 dark:text-zinc-200 border border-[#E2E5EB] dark:border-[#27272A] font-medium text-xs transition-colors"
             >
-              {copied ? <Check size={14} className="text-[#325FEC] dark:text-[#518FFF]" /> : <Copy size={14} />}
+              <span key={copied ? 'done' : 'idle'} className="animate-swap inline-flex">{copied ? <Check size={14} className="text-[#325FEC] dark:text-[#518FFF]" /> : <Copy size={14} />}</span>
               <span>{copied ? 'Copied to Clipboard' : 'Copy Content'}</span>
             </button>
 

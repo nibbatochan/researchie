@@ -9,5 +9,5 @@ export default function SignupPage() {
     router.replace('/login?tab=register');
   }, [router]);
 
-  return <div className="min-h-screen bg-[#EAEEF4] dark:bg-[#09090B]" />;
+  return <div className="ob-grid min-h-screen bg-[#EAEEF4] dark:bg-[#09090B]" />;
 }

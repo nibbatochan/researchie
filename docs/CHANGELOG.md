@@ -1,5 +1,30 @@
 # Version Changelog
 
+## [v1.9.18] — 2026-10-17 (Small motion, spot illustrations, light-mode greys)
+### Added
+- **Motion for occasional moments only** (one curve, `cubic-bezier(0.16, 1, 0.3, 1)`, transform and opacity, gentler under reduced motion): the Share and Get-extension dialogs now fade and scale in like the others; the undo toast now really slides in (its `animate-slideUp` class had no CSS) and leaves the way it came; a clip that arrives while the feed is open rises in (not on load, project switch or filter); the Copy button's icon swaps with a short pop; dashboard cards step in 40ms apart on first view; blue buttons give a 0.98 press.
+- **Spot illustrations**, sized to their box: empty feed (folder, clip, Send), Trash, Document library, sidebar project list, login (a one-line flow above the card) and the share-page states (locked folder, broken link).
+- **Fading grid** on the login, signup, share and gallery pages.
+### Changed
+- Light mode steps down from pure white: page `#E1E7F0`, surfaces `#EEF2F8`, raised `#F2F5FA`, inset `#E4EAF3`, remapped in one place in `globals.css`.
+- The canvas keeps its dot grid only.
+- Settings, AI tab: removed the dead model dropdown and chunk-depth slider (nothing read them). Added a Setup guide row under Extension.
+
+## [v1.9.17] — 2026-10-17 (Onboarding flow)
+### Added
+- **An onboarding flow** replaces a single "how it works" dialog. First visit opens a brand screen (logo, a two-line promise, tap to begin), then three steps: Set up, What it is, How to use. A progress bar shows the step; Back, Continue and "I'll do this later" move between them.
+- **Set up** is a split view: pick Chrome extension or AI key on the left, do it on the right (download, install steps and token; or key form). The AI key is marked optional ("bring your own") and shows the recommended free providers (Groq, Cerebras) with links. On the tester site each step shows Done or Not done.
+- **Each step has its own surface:** a light slate for Set up, a navy stage for What it is (cards climb like stairs under a large "Clip. Keep. Ask."), and a pale grey with a tinted rail and oversized step numerals for How to use. Dark mode uses three different near-blacks.
+- **How to use** lists five use cases; each shows who it is for and three steps. Shortcut keys sit below.
+- A **How it works** button on the dashboard, left of Download extension, reopens the flow at Set up. Closing at any point is remembered (per account on the tester site, per browser locally).
+- **Full screen.** The flow fills the window (portal to the body). The brand screen has a light grid, drifting key hints, a sentence being clipped, and a cascade of clip cards (text, block, Ask AI with citation styles, PDF). Set up has animated illustrations for the extension (zip to browser to toolbar) and the AI key. The grid is lighter and fades in from the top. How to use shows a timeline instead of numbered cards. The last button is animated (sheen, breathing ring, nested arrow).
+### Removed
+- Settings, AI tab: the "Primary Synthesis Model" dropdown and the "RAG Retrieved Chunks Depth" slider. Neither was read by any AI code, and the dropdown listed Groq models only. The provider and key form is now the one AI setting.
+### Added (Settings)
+- A "Setup guide" row in the Extension section that reopens the onboarding flow.
+### Tests
+- `e2e/23-welcome-modal.spec.ts`; `playwright.config.ts` now starts every spec as someone who already closed the flow.
+
 ## [v1.9.16] — 2026-10-17 (Canvas audit: rotation, scaling, text editing, outline-only sections)
 ### Fixed
 - **Typed text was lost.** Clicking away from a text box removed it before it could save, so the text went back to "Click to edit text". Text now saves as you type (notes, text, shapes and section names), is one undo step, and an empty text box is removed when you click away. New text and notes open ready to type.

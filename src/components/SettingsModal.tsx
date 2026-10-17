@@ -30,6 +30,7 @@ import { AiProviderSettings } from './AiProviderSettings';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { DeleteAccountSettings } from './DeleteAccountSettings';
 import { NotionTokenField } from './NotionTokenField';
+import { WelcomeModal } from './WelcomeModal';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 
 interface SettingsModalProps {
@@ -42,7 +43,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
     settings,
     updateGeneralSettings,
     updateCaptureSettings,
-    updateAiSettings,
     updateNotionSettings,
     resetSettings,
     isSettingsModalOpen,
@@ -57,6 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
 
   const [showNotionToken, setShowNotionToken] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   if (!isSettingsModalOpen) return null;
 
@@ -309,6 +310,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                   </div>
 
                   <ExtensionConnectionSettings />
+
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B]">
+                    <div>
+                      <div className="text-xs font-semibold">Setup guide</div>
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400">Install the extension and add an AI key, step by step.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGuideOpen(true)}
+                      data-testid="open-setup-guide"
+                      className="h-8 px-3.5 rounded-full text-xs font-semibold bg-[#325FEC] hover:bg-[#274AC4] text-white cursor-pointer"
+                    >
+                      Open guide
+                    </button>
+                  </div>
+                  <WelcomeModal isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
                 </div>
               </div>
             )}
@@ -317,61 +334,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
             {activeSettingsTab === 'ai' && (
               <div className="space-y-5 animate-fadeIn">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">AI Model & RAG Inference</h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">Configure LLM providers, retrieval depth, and custom BYOK keys.</p>
+                  <h3 className="text-sm font-semibold text-[#0F172A] dark:text-white">AI Provider & Key</h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">Choose a provider, add your own key, and check that it works.</p>
                 </div>
 
                 <div className="space-y-4">
-                  {/* Model Selector */}
-                  <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Primary Synthesis Model</span>
-                      <span className="text-[11px] text-slate-500 dark:text-zinc-400">Ultra-fast inference powered by Groq LPU engine.</span>
-                    </div>
-                    <select
-                      value={settings.ai.model}
-                      onChange={(e) => {
-                        updateAiSettings({ model: e.target.value as any });
-                        triggerSaveNotification();
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none cursor-pointer"
-                    >
-                      <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (Recommended)</option>
-                      <option value="deepseek-r1-distill-llama-70b">DeepSeek R1 Distill 70B (Reasoning)</option>
-                      <option value="mixtral-8x7b-32768">Mixtral 8x7B (32k Context)</option>
-                      <option value="gemma2-9b-it">Gemma 2 9B IT (Fast)</option>
-                    </select>
-                  </div>
-
                   {/* Bring your own AI key */}
                   <AiProviderSettings />
-
-                  {/* RAG Chunk Count Slider */}
-                  <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">RAG Retrieved Chunks Depth</span>
-                      <span className="font-mono text-xs font-bold text-[#325FEC] dark:text-[#518FFF]">
-                        {settings.ai.ragChunkCount} evidence passages
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      step="1"
-                      value={settings.ai.ragChunkCount}
-                      onChange={(e) => {
-                        updateAiSettings({ ragChunkCount: parseInt(e.target.value) });
-                        triggerSaveNotification();
-                      }}
-                      className="w-full accent-[#325FEC] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                      <span>1 (Fastest)</span>
-                      <span>5 (Balanced)</span>
-                      <span>10 (Deep Context)</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}

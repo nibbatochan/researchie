@@ -138,3 +138,18 @@
 ### 3. Readiness for Next Phase
 - **Not built:** scaling or rotating several selected items together (they can be moved, deleted and layered together); copy, paste and duplicate; the minimap does not navigate.
 - **Not checked:** touch screens and phone width; a canvas with hundreds of items (every item re-renders while one is dragged).
+
+## Session Record: How it works guide (2026-10-17)
+
+### 1. Architectural Decisions
+- **A step-by-step flow, not one tabbed dialog** (brand, set up, what it is, how to use), so each screen shows little and looks different. Animation is CSS only (`.ob-rise`, `.ob-float`), off under reduced motion.
+- **One dialog, no stacked dialogs.** The extension download, token and AI key form are embedded in the Set up tab (`ExtensionConnectionSettings defaultOpen`, `AiProviderSettings`) instead of opening the other modals on top.
+- **"Seen" is a pref** (`researchie_welcome_seen`, versioned by `WELCOME_VERSION`): account-level on the tester site, localStorage locally.
+- **Status claims only what can be proved** (`useSetupStatus`): token used, key saved and not rejected. Checked on open and on window focus.
+
+### 2. State of Key Files
+- `src/components/WelcomeModal.tsx`, `src/components/DashboardHome.tsx`, `src/components/ExtensionConnectionSettings.tsx`, `playwright.config.ts`, `e2e/23-welcome-modal.spec.ts`, research in `docs/ONBOARDING_MODAL_RESEARCH.md`.
+
+### 3. Readiness for Next Phase
+- **Not built:** a "Finish setup" banner on the dashboard for unfinished setup; mobile layout not checked; copy has not been tried on real testers.
+

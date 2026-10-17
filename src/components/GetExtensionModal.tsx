@@ -127,7 +127,7 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-3 sm:p-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-3 sm:p-6 animate-backdropIn"
       onClick={onClose}
       role="presentation"
     >
@@ -137,7 +137,7 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
         aria-labelledby="get-extension-title"
         data-testid="get-extension-modal"
         onClick={(e) => e.stopPropagation()}
-        className="flex flex-col w-full max-w-4xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden rounded-2xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] text-[#0F172A] dark:text-[#FAFAFA] shadow-2xl"
+        className="animate-popIn flex flex-col w-full max-w-4xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-3rem)] overflow-hidden rounded-2xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] text-[#0F172A] dark:text-[#FAFAFA] shadow-2xl"
       >
         {/* Header */}
         <div className="flex items-center gap-4 px-6 py-4 border-b border-[#D2DCEA] dark:border-[#27272A]">

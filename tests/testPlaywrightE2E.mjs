@@ -383,7 +383,7 @@ async function runPlaywrightSuite() {
         const aiTab = page.locator('button:has-text("AI Intelligence")').first();
         await aiTab.click();
         await page.waitForTimeout(300);
-        assert.ok(await page.locator('text=Primary Synthesis Model').isVisible(), 'AI tab content should be visible');
+        assert.ok(await page.locator('text=AI Provider & Key').isVisible(), 'AI tab content should be visible');
 
         // Click Tab 4: Notion & Sync
         const notionTab = page.locator('button:has-text("Notion & Sync")').first();

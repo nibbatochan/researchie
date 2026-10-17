@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FolderSimple,
   FolderOpen,
@@ -15,10 +15,13 @@ import {
   TreeStructure,
   Trash,
   ShareNetwork,
-  PuzzlePiece
+  PuzzlePiece,
+  BookOpenText
 } from '@phosphor-icons/react';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 import { GetExtensionModal } from './GetExtensionModal';
+import { WelcomeModal, WELCOME_SEEN_KEY, WELCOME_VERSION } from './WelcomeModal';
+import { usePrefs } from '@/lib/prefs/prefsContext';
 import { ProjectAvatar } from './ProjectAvatar';
 
 interface DashboardHomeProps {
@@ -31,62 +34,66 @@ interface DashboardHomeProps {
   onOpenShareModal?: (project: ResearchProject) => void;
 }
 
-// ─── Illustration: loose clips joined into one answer ────────────────
-// Neutral cards, one blue accent. Colours switch with the theme through classes.
+// ─── Illustration: clips of every kind rising out of a project folder ───
+// Same blue folder as the project cards, so the dashboard speaks one language. The cards are what we collect:
+// a quote, an image, a table block. Colours switch with the theme through classes.
 export const DashboardHeroIllustration: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => {
-  const card = 'fill-white dark:fill-[#1B2132] stroke-[#DDE3EE] dark:stroke-white/10';
-  const line = 'fill-[#E2E7F0] dark:fill-white/15';
-  const link = 'stroke-[#B9C6E6] dark:stroke-white/25';
-  const halo = 'fill-[#325FEC]/10 dark:fill-[#518FFF]/15';
+  const card = 'fill-white dark:fill-[#1B2132] stroke-[#D5DDEC] dark:stroke-white/15';
+  const line = 'fill-[#DCE3EF] dark:fill-white/20';
   const soft = 'fill-[#EEF2FA] dark:fill-white/10';
-  const dot = 'fill-[#B9C6E6] dark:fill-white/30';
-  const hill = 'fill-[#C9D5F0] dark:fill-white/20';
-  const pill = 'fill-[#94A3B8] dark:fill-white/40';
+  const hill = 'fill-[#C9D5F0] dark:fill-white/25';
   return (
   <svg viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
-    {/* links */}
-    <path d="M86 58 C 112 62, 122 82, 140 98" className={link} strokeWidth="1.5" strokeDasharray="3 5" strokeLinecap="round" />
-    <path d="M206 54 C 184 62, 168 80, 148 98" className={link} strokeWidth="1.5" strokeDasharray="3 5" strokeLinecap="round" />
-    <path d="M80 152 C 106 146, 124 126, 138 108" className={link} strokeWidth="1.5" strokeDasharray="3 5" strokeLinecap="round" />
-    <path d="M212 148 C 190 144, 166 124, 150 108" className={link} strokeWidth="1.5" strokeDasharray="3 5" strokeLinecap="round" />
+    {/* soft ground */}
+    <ellipse cx="140" cy="190" rx="104" ry="6" className="fill-[#325FEC]/10 dark:fill-black/30" />
 
-    {/* centre */}
-    <circle cx="144" cy="102" r="22" className={halo} />
-    <circle cx="144" cy="102" r="15" className="fill-[#325FEC]" />
-    <path d="M137 103 L142 108 L152 96" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    {/* folder, back half */}
+    <path d="M40 104 a14 14 0 0 1 14 -14 h46 a10 10 0 0 1 7 3 l8 8 a10 10 0 0 0 7 3 h64 a14 14 0 0 1 14 14 v62 a14 14 0 0 1 -14 14 h-132 a14 14 0 0 1 -14 -14 z" className="fill-[#325FEC]/15 stroke-[#325FEC]" strokeWidth="2" strokeLinejoin="round" />
 
-    {/* text clip */}
-    <g transform="rotate(-5 66 56)">
-      <rect x="26" y="34" width="80" height="48" rx="9" className={card} />
-      <rect x="35" y="44" width="30" height="4.5" rx="2.25" className="fill-[#325FEC]" />
-      <rect x="35" y="54" width="60" height="3.5" rx="1.75" className={line} />
-      <rect x="35" y="62" width="48" height="3.5" rx="1.75" className={line} />
-      <rect x="35" y="70" width="26" height="3.5" rx="1.75" className={line} />
+    {/* clips rising out */}
+    <g className="ob-drift" style={{ ['--ob-rot' as string]: '-9deg', transformOrigin: '90px 96px' }}>
+      <rect x="54" y="30" width="66" height="76" rx="9" className={card} strokeWidth="1.4" />
+      <text x="63" y="56" fontSize="26" fontWeight="700" className="fill-[#325FEC]" fontFamily="serif">“</text>
+      <rect x="64" y="62" width="46" height="3.5" rx="1.75" className={line} />
+      <rect x="64" y="70" width="38" height="3.5" rx="1.75" className={line} />
+      <rect x="64" y="86" width="40" height="10" rx="5" className="fill-[#325FEC]/20" />
     </g>
-    {/* image clip */}
-    <g transform="rotate(4 214 52)">
-      <rect x="176" y="28" width="76" height="50" rx="9" className={card} />
-      <rect x="184" y="36" width="60" height="26" rx="5" className={soft} />
-      <circle cx="197" cy="45" r="4" className={dot} />
-      <path d="M184 62 L204 48 L218 57 L230 50 L244 60 V62 Z" className={hill} />
-      <rect x="184" y="67" width="34" height="3.5" rx="1.75" className={line} />
+    <g className="ob-drift" style={{ animationDelay: '1.4s', ['--ob-rot' as string]: '0deg' }}>
+      <rect x="106" y="14" width="68" height="82" rx="9" className={card} strokeWidth="1.4" />
+      <rect x="114" y="22" width="52" height="38" rx="5" className={soft} />
+      <circle cx="127" cy="33" r="4.5" className="fill-[#325FEC]/40" />
+      <path d="M114 60 L132 42 L146 54 L156 46 L166 56 V60 Z" className={hill} />
+      <rect x="114" y="68" width="40" height="3.5" rx="1.75" className={line} />
+      <rect x="114" y="76" width="26" height="3.5" rx="1.75" className={line} />
     </g>
-    {/* link clip */}
-    <g transform="rotate(3 64 152)">
-      <rect x="22" y="130" width="82" height="46" rx="9" className={card} />
-      <circle cx="36" cy="144" r="6" className={soft} />
-      <rect x="47" y="140" width="44" height="4.5" rx="2.25" className={pill} />
-      <rect x="32" y="156" width="62" height="3.5" rx="1.75" className={line} />
-      <rect x="32" y="164" width="40" height="3.5" rx="1.75" className={line} />
+    <g className="ob-drift" style={{ animationDelay: '2.6s', ['--ob-rot' as string]: '9deg', transformOrigin: '194px 96px' }}>
+      <rect x="160" y="32" width="66" height="74" rx="9" className={card} strokeWidth="1.4" />
+      <rect x="168" y="42" width="50" height="9" rx="2.5" className="fill-[#325FEC]" />
+      <rect x="168" y="54" width="15" height="9" rx="2" className={soft} />
+      <rect x="185" y="54" width="15" height="9" rx="2" className={soft} />
+      <rect x="202" y="54" width="16" height="9" rx="2" className={soft} />
+      <rect x="168" y="66" width="15" height="9" rx="2" className={soft} />
+      <rect x="185" y="66" width="15" height="9" rx="2" className={soft} />
+      <rect x="202" y="66" width="16" height="9" rx="2" className={soft} />
+      <rect x="168" y="82" width="36" height="3.5" rx="1.75" className={line} />
     </g>
-    {/* quote clip with citation */}
-    <g transform="rotate(-3 220 150)">
-      <rect x="180" y="126" width="84" height="48" rx="9" className={card} />
-      <rect x="189" y="136" width="14" height="3.5" rx="1.75" className={line} />
-      <rect x="189" y="144" width="62" height="3.5" rx="1.75" className={line} />
-      <rect x="189" y="152" width="50" height="3.5" rx="1.75" className={line} />
-      <rect x="225" y="160" width="28" height="9" rx="4.5" className="fill-[#325FEC]" />
-    </g>
+
+    {/* folder, front lip */}
+    <path d="M32 126 a14 14 0 0 1 14 -14 h188 a14 14 0 0 1 14 14 v46 a14 14 0 0 1 -14 14 h-188 a14 14 0 0 1 -14 -14 z" className="fill-white dark:fill-[#18181B] stroke-[#325FEC]" strokeWidth="2.2" strokeLinejoin="round" />
+    <rect x="48" y="130" width="64" height="6" rx="3" className="fill-[#325FEC]" />
+    <rect x="48" y="144" width="104" height="4" rx="2" className={line} />
+    <rect x="48" y="154" width="76" height="4" rx="2" className={line} />
+    <rect x="176" y="130" width="58" height="18" rx="9" className="fill-[#325FEC]/12 dark:fill-[#518FFF]/20" />
+    <text x="205" y="142.5" textAnchor="middle" fontSize="8.5" fontWeight="700" className="fill-[#325FEC] dark:fill-[#8DB4FF]" fontFamily="monospace">12 clips</text>
+
+    {/* a clip being sent in */}
+    <rect x="8" y="58" width="34" height="16" rx="8" className="fill-[#325FEC]" />
+    <text x="25" y="69" textAnchor="middle" fontSize="8" fontWeight="600" fill="white" fontFamily="sans-serif">Send</text>
+    <path className="stroke-[#8FA6DA] dark:stroke-white/40 ob-dash" d="M25 78 C 28 96, 36 108, 52 118" strokeWidth="1.6" strokeDasharray="4 5" strokeLinecap="round" />
+    {/* a cited answer */}
+    <rect x="236" y="48" width="30" height="16" rx="8" className="fill-[#325FEC]" />
+    <text x="251" y="59" textAnchor="middle" fontSize="8" fontWeight="700" fill="white" fontFamily="monospace">[1]</text>
+    <path className="stroke-[#8FA6DA] dark:stroke-white/40 ob-dash" d="M251 66 C 250 82, 240 94, 226 100" strokeWidth="1.6" strokeDasharray="4 5" strokeLinecap="round" />
   </svg>
   );
 };
@@ -151,6 +158,22 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [extensionOpen, setExtensionOpen] = useState(false);
+  const prefs = usePrefs();
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [welcomeFirstRun, setWelcomeFirstRun] = useState(false);
+
+  // First visit: open the guide once. Closing it (any way) remembers that, so it never nags.
+  useEffect(() => {
+    if (prefs.get(WELCOME_SEEN_KEY) === WELCOME_VERSION) return;
+    setWelcomeFirstRun(true);
+    setWelcomeOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closeWelcome = () => {
+    setWelcomeOpen(false);
+    prefs.set(WELCOME_SEEN_KEY, WELCOME_VERSION);
+  };
 
   // Partition projects into Main Projects and Sub-Projects
   const { allMainProjects, subProjectsByParent } = useMemo(() => {
@@ -232,7 +255,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const MUTED = 'text-slate-500 dark:text-zinc-400';
 
   // ─── Folder card: one blue folder for every project, same height for all; papers show how full it is ───
-  const renderFolderCard = (mainProj: ResearchProject) => {
+  const renderFolderCard = (mainProj: ResearchProject, index = 0) => {
     const subProjects = subProjectsByParent.get(mainProj.id) || [];
     const total = folderClips(mainProj);
     const canManage = !isShared(mainProj);
@@ -240,7 +263,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     const papers = total === 0 ? 0 : total < 10 ? 1 : total < 50 ? 2 : 3;
 
     return (
-      <div key={mainProj.id} className="group relative pt-16">
+      <div key={mainProj.id} style={{ ['--i' as string]: index } as React.CSSProperties} className="animate-cardIn group relative pt-16">
         {/* The folder behind: tab, back, and a paper for each step of content */}
         <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
           <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
@@ -368,7 +391,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     <div className="flex-1 overflow-y-auto text-[#0F172A] dark:text-[#FAFAFA] transition-colors p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header with Download Extension */}
-        <div className="flex items-center justify-end h-8 -mx-4 -mt-4 px-4 mb-4">
+        <div className="flex items-center justify-end gap-2 h-8 -mx-4 -mt-4 px-4 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setWelcomeFirstRun(false);
+              setWelcomeOpen(true);
+            }}
+            data-testid="how-it-works-button"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#0F172A] dark:text-[#FAFAFA] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
+          >
+            <BookOpenText size={15} weight="bold" />
+            <span>How it works</span>
+          </button>
           <button
             type="button"
             onClick={() => setExtensionOpen(true)}
@@ -382,6 +417,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           </button>
         </div>
         <GetExtensionModal isOpen={extensionOpen} onClose={() => setExtensionOpen(false)} />
+        <WelcomeModal isOpen={welcomeOpen} onClose={closeWelcome} firstRun={welcomeFirstRun} />
 
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}
         <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 pt-[20px] pb-1">
@@ -443,7 +479,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-              {recentProjects.map((p) => {
+              {recentProjects.map((p, i) => {
                 const parentTitle = getParentTitle(p.parentId);
                 const projAtoms = atoms.filter((a) => a.projectId === p.id);
                 return (
@@ -451,7 +487,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                     key={p.id}
                     data-testid="project-card"
                     onClick={() => onSelectProject(p.id, 'feed')}
-                    className="group relative bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] hover:border-[#325FEC] dark:hover:border-[#518FFF] rounded-2xl p-5 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
+                    style={{ ['--i' as string]: i } as React.CSSProperties}
+                    className="animate-cardIn group relative bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] hover:border-[#325FEC] dark:hover:border-[#518FFF] rounded-2xl p-5 cursor-pointer transition-all shadow-xs hover:shadow-md flex flex-col justify-between"
                   >
                     <div className="space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
@@ -532,7 +569,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
           {/* Folders: one card each */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-            {filteredMainProjects.map((m) => renderFolderCard(m))}
+            {filteredMainProjects.map((m, i) => renderFolderCard(m, i))}
           </div>
         </section>
 

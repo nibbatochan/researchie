@@ -19,7 +19,7 @@ interface TokenRow {
   lastUsedAt: string | null;
 }
 
-export const ExtensionConnectionSettings: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+export const ExtensionConnectionSettings: React.FC<{ compact?: boolean; defaultOpen?: boolean }> = ({ compact = false, defaultOpen = false }) => {
   const { authRequired } = useAuth();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [fresh, setFresh] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export const ExtensionConnectionSettings: React.FC<{ compact?: boolean }> = ({ c
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Closed until the person clicks "Extension token".
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   const load = useCallback(async () => {
     try {

@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyFolderIllustration } from './illustrations';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Plus, 
@@ -358,7 +359,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin">
         {/* Project Tree */}
         {filteredParents.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400 px-3">
+          <div className="animate-popIn py-8 text-center text-xs text-slate-400 px-3 space-y-2">
+            <EmptyFolderIllustration />
             {searchQuery ? 'No projects match your search.' : 'No research projects yet.'}
           </div>
         ) : (

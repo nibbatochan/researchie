@@ -121,8 +121,8 @@ export const ShareAccessModal: React.FC<{
   const row = 'flex items-center gap-2 py-2 border-b border-[#E2E5EB] dark:border-[#27272A] last:border-b-0';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Share ${project.title}`}>
-      <div className="w-full max-w-md max-h-[calc(100vh-32px)] overflow-y-auto bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl shadow-2xl p-5 space-y-4 font-sans">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-backdropIn" role="dialog" aria-modal="true" aria-label={`Share ${project.title}`}>
+      <div className="animate-popIn w-full max-w-md max-h-[calc(100vh-32px)] overflow-y-auto bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl shadow-2xl p-5 space-y-4 font-sans">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white flex items-center gap-1.5">

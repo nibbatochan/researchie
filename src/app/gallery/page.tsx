@@ -166,7 +166,7 @@ const MOCK_STRESS_CARD: ContentCardModel = {
 
 export default function GalleryPage() {
   return (
-    <div className="min-h-screen bg-[#FAFBFD] dark:bg-[#09090B] text-[#0F172A] dark:text-[#F8FAFC] font-sans p-6 md:p-12 transition-colors">
+    <div className="ob-grid min-h-screen bg-[#FAFBFD] dark:bg-[#09090B] text-[#0F172A] dark:text-[#F8FAFC] font-sans p-6 md:p-12 transition-colors">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Gallery Header */}
         <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-[#222225] pb-5">

@@ -1,5 +1,6 @@
 'use client';
 
+import { LockedFolderIllustration, BrokenLinkIllustration } from '@/components/illustrations';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -158,7 +159,7 @@ export default function PublicSharePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans">
+      <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans">
         <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 flex items-center justify-center text-[#325FEC] animate-pulse mb-4">
           <Sparkle size={24} weight="fill" />
         </div>
@@ -194,11 +195,9 @@ export default function PublicSharePage() {
   if (noAccess) {
     const pending = noAccess.request === 'pending';
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
+      <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
         <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 shadow-xl space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 text-[#325FEC] flex items-center justify-center mx-auto">
-            <UsersThree size={24} />
-          </div>
+          <LockedFolderIllustration />
           <h1 className="font-display font-bold text-lg">You need access</h1>
           {pending ? (
             <p className="text-xs text-slate-500 dark:text-zinc-400">Your request was sent. When the owner approves it, the project appears under “Shared with me” in your workspace. No email is sent, so check back later.</p>
@@ -237,11 +236,9 @@ export default function PublicSharePage() {
   if (needsSignIn) {
     const next = encodeURIComponent(`/share/${projectId}`);
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
+      <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
         <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 shadow-xl space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 text-[#325FEC] flex items-center justify-center mx-auto">
-            <UsersThree size={24} />
-          </div>
+          <LockedFolderIllustration />
           <h1 className="font-display font-bold text-lg">Sign in to open this project</h1>
           <p className="text-xs text-slate-500 dark:text-zinc-400">This link lets you edit, so it needs an account. After you sign in you come straight back and the project is added to your workspace.</p>
           <div className="flex items-center justify-center gap-2">
@@ -255,11 +252,9 @@ export default function PublicSharePage() {
 
   if (error || !project) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
+      <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans text-center">
         <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 shadow-xl space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
-            <Globe size={24} />
-          </div>
+          <BrokenLinkIllustration />
           <h1 className="font-display font-bold text-lg">Stream Unavailable</h1>
           <p className="text-xs text-slate-500 dark:text-zinc-400">
             {error || 'This research stream is private or no longer available.'}
@@ -277,7 +272,7 @@ export default function PublicSharePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 font-sans flex flex-col selection:bg-[#325FEC]/20">
+    <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 font-sans flex flex-col selection:bg-[#325FEC]/20">
       
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/85 dark:bg-[#121214]/85 backdrop-blur-md border-b border-[#D2DCEA] dark:border-[#27272A] px-4 md:px-8 py-3.5 flex items-center justify-between">

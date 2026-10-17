@@ -14,10 +14,10 @@
   --color-cyan-blue: #518FFF;
 
   /* Light Theme - Refined Off-Whites with gentle light blue tint & slightly darker canvas for depth */
-  --canvas-bg: #EAEEF4;
-  --card-bg: #FAFBFD;
-  --card-subtle-bg: #EEF3F8;
-  --card-hover-bg: #E2EAF4;
+  --canvas-bg: #E1E7F0;
+  --card-bg: #EEF2F8;
+  --card-subtle-bg: #E4EAF3;
+  --card-hover-bg: #DCE4EF;
   --border-color: #D2DCEA;
   --border-subtle-color: #DFE7F2;
   --text-main: #0F172A;
@@ -373,11 +373,11 @@ body {
   z-index: -1;
   pointer-events: none;
   background-image:
-    radial-gradient(circle, rgba(50, 95, 236, 0.4) 1.5px, transparent 2px),
-    linear-gradient(to right, rgba(50, 95, 236, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(50, 95, 236, 0.2) 1px, transparent 1px),
-    linear-gradient(to right, rgba(50, 95, 236, 0.09) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(50, 95, 236, 0.09) 1px, transparent 1px);
+    radial-gradient(circle, rgba(50, 95, 236, 0.55) 1.5px, transparent 2px),
+    linear-gradient(to right, rgba(50, 95, 236, 0.34) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(50, 95, 236, 0.34) 1px, transparent 1px),
+    linear-gradient(to right, rgba(50, 95, 236, 0.17) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(50, 95, 236, 0.17) 1px, transparent 1px);
   background-size: 96px 96px, 96px 96px, 96px 96px, 24px 24px, 24px 24px;
   background-position: -48px -48px, 0 0, 0 0, 0 0, 0 0;
   -webkit-mask-image:
@@ -408,10 +408,10 @@ body {
   z-index: -1;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(50, 95, 236, 0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(50, 95, 236, 0.1) 1px, transparent 1px),
-    linear-gradient(to right, rgba(50, 95, 236, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(50, 95, 236, 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(50, 95, 236, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(50, 95, 236, 0.22) 1px, transparent 1px),
+    linear-gradient(to right, rgba(50, 95, 236, 0.11) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(50, 95, 236, 0.11) 1px, transparent 1px);
   background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
   -webkit-mask-image:
     radial-gradient(ellipse 30% 36% at 100% 0%, #000 0%, transparent 72%),
@@ -427,3 +427,162 @@ body {
     linear-gradient(to right, rgba(81, 143, 255, 0.045) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(81, 143, 255, 0.045) 1px, transparent 1px);
 }
+
+/* Onboarding flow: cards rise in one after another (delay set inline). */
+@keyframes obRise {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes obFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.ob-rise { opacity: 0; animation: obRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.ob-float { animation: obFloat 5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ob-rise { opacity: 1; animation: none; }
+  .ob-float { animation: none; }
+}
+
+/* Clip demo (onboarding): a 6s loop of select, Send, and the clip landing in a project. */
+@keyframes obSelect { 0%, 12% { transform: scaleX(0); } 30%, 88% { transform: scaleX(1); } 96%, 100% { transform: scaleX(0); } }
+@keyframes obCursor { 0%, 8% { transform: translate(0, 0); opacity: 0; } 12% { opacity: 1; } 30% { transform: translate(8.5rem, 0); opacity: 1; } 42% { transform: translate(8.5rem, 0.1rem) scale(0.88); } 48% { transform: translate(8.5rem, 0) scale(1); } 60%, 100% { transform: translate(8.5rem, 0); opacity: 0; } }
+@keyframes obPill { 0%, 30% { opacity: 0; transform: translateY(4px) scale(0.9); } 38%, 50% { opacity: 1; transform: translateY(0) scale(1); } 56%, 100% { opacity: 0; transform: translateY(0) scale(0.95); } }
+@keyframes obFly { 0%, 50% { opacity: 0; transform: translate(0, 0) scale(1); } 54% { opacity: 1; transform: translate(0, 0) scale(1); } 74% { opacity: 1; transform: translate(6.2rem, 3.4rem) scale(0.7); } 80%, 100% { opacity: 0; transform: translate(6.2rem, 3.4rem) scale(0.6); } }
+@keyframes obLand { 0%, 74% { opacity: 0; transform: translateY(-6px); } 82%, 94% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+.ob-demo-select { transform-origin: left; animation: obSelect 6s ease-in-out infinite; }
+.ob-demo-cursor { animation: obCursor 6s ease-in-out infinite; }
+.ob-demo-pill { animation: obPill 6s ease-in-out infinite; }
+.ob-demo-fly { animation: obFly 6s ease-in-out infinite; }
+.ob-demo-land { animation: obLand 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ob-demo-select { animation: none; transform: scaleX(1); }
+  .ob-demo-cursor, .ob-demo-fly { animation: none; opacity: 0; }
+  .ob-demo-pill, .ob-demo-land { animation: none; opacity: 1; }
+}
+
+/* Onboarding grid texture: fine 28px cells, fading toward the bottom. */
+.ob-grid { position: relative; isolation: isolate; }
+.ob-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(40, 80, 200, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(40, 80, 200, 0.16) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 35%, transparent 72%);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.55) 35%, transparent 72%);
+}
+.dark .ob-grid::before {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+
+/* Brand screen grid: white hairlines on the blue. */
+.ob-grid-brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: radial-gradient(ellipse at 40% 50%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 40% 50%, #000 0%, transparent 75%);
+}
+
+/* Slow drift for floating chips and cards. */
+@keyframes obDrift { 0%, 100% { transform: translate(0, 0) rotate(var(--ob-rot, 0deg)); } 50% { transform: translate(6px, -10px) rotate(var(--ob-rot, 0deg)); } }
+.ob-drift { animation: obDrift 7s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+
+/* The animated finish button: a sheen sweeps across and a ring breathes out. */
+@keyframes obSheen { 0%, 55% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(260%) skewX(-18deg); } }
+@keyframes obRing { 0% { transform: scale(1); opacity: 0.45; } 100% { transform: scale(1.22, 1.5); opacity: 0; } }
+.ob-cta { position: relative; overflow: hidden; }
+.ob-cta::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: obSheen 3.2s cubic-bezier(0.32, 0.72, 0, 1) infinite; pointer-events: none; }
+.ob-cta-ring { animation: obRing 2.4s cubic-bezier(0.32, 0.72, 0, 1) infinite; }
+
+/* Timeline line draws itself down. */
+@keyframes obGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.ob-line { transform-origin: top; animation: obGrowY 0.9s cubic-bezier(0.32, 0.72, 0, 1) 0.1s both; }
+
+/* Setup illustrations. */
+@keyframes obDrop { 0%, 8% { transform: translateY(-1.6rem); opacity: 0; } 24%, 90% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(0); opacity: 0; } }
+@keyframes obPop { 0%, 26% { transform: scale(0); opacity: 0; } 34%, 90% { transform: scale(1); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes obTravel { 0% { transform: translateX(0); opacity: 0; } 10% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translateX(4.5rem); opacity: 0; } }
+@keyframes obKeyIn { 0%, 6% { transform: translateX(-2.2rem) rotate(-20deg); opacity: 0; } 26%, 90% { transform: translateX(0) rotate(0); opacity: 1; } 100% { opacity: 0; } }
+@keyframes obTypeIn { 0%, 24% { transform: scaleX(0); } 58%, 92% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+.ob-ill-drop { animation: obDrop 5s cubic-bezier(0.32, 0.72, 0, 1) infinite; }
+.ob-ill-pop { animation: obPop 5s cubic-bezier(0.32, 0.72, 0, 1) infinite; }
+.ob-ill-travel { animation: obTravel 5s ease-in-out infinite; }
+.ob-ill-key { animation: obKeyIn 5s cubic-bezier(0.32, 0.72, 0, 1) infinite; }
+.ob-ill-type { transform-origin: left; animation: obTypeIn 5s steps(9, end) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ob-drift, .ob-ill-travel, .ob-ill-key, .ob-ill-drop, .ob-cta::after, .ob-cta-ring, .ob-line { animation: none; }
+  .ob-ill-pop, .ob-ill-drop, .ob-ill-key { opacity: 1; transform: none; }
+  .ob-ill-type { animation: none; transform: scaleX(1); }
+  .ob-cta-ring { opacity: 0; }
+}
+
+/* Onboarding steps: a blue glow rising from the bottom, thinner on each step. */
+.ob-glow-1 { background-image: linear-gradient(to top, rgba(50, 95, 236, 0.3) 0%, rgba(50, 95, 236, 0.12) 35%, transparent 72%); }
+.ob-glow-2 { background-image: linear-gradient(to top, rgba(50, 95, 236, 0.2) 0%, rgba(50, 95, 236, 0.08) 35%, transparent 72%); }
+.ob-glow-3 { background-image: linear-gradient(to top, rgba(50, 95, 236, 0.1) 0%, rgba(50, 95, 236, 0.04) 35%, transparent 72%); }
+/* Dark mode: no glow. Flat near-blacks, with the grid as the only texture. */
+.dark .ob-glow-1, .dark .ob-glow-2, .dark .ob-glow-3 { background-image: none; }
+
+/* The grid thins out with the glow, step by step. */
+.ob-glow-2.ob-grid::before { opacity: 0.75; }
+.ob-glow-3.ob-grid::before { opacity: 0.5; }
+
+/* Dashboard hero: the dashed flow lines slowly travel. */
+@keyframes obDash { to { stroke-dashoffset: -18; } }
+.ob-dash { animation: obDash 2.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .ob-dash { animation: none; } }
+
+/* Light mode grey scale. The screens were built with pure white and near-white surfaces, which read as too
+   bright. Remap them in one place so every screen steps down together:
+   page #E1E7F0, inset #E4EAF3, surface #EEF2F8, raised #F2F5FA (was white). Dark mode is untouched. */
+html:not(.dark) .bg-white { background-color: #F2F5FA; }
+html:not(.dark) .bg-\[\#FAFBFD\],
+html:not(.dark) .bg-\[\#F8FAFC\],
+html:not(.dark) .bg-slate-50 { background-color: #EEF2F8; }
+html:not(.dark) .bg-\[\#F4F6F9\] { background-color: #E9EEF5; }
+html:not(.dark) .bg-\[\#EEF3F8\] { background-color: #E4EAF3; }
+html:not(.dark) .hover\:bg-white:hover { background-color: #F7F9FC; }
+html:not(.dark) .hover\:bg-\[\#EEF3F8\]:hover { background-color: #DCE4EF; }
+
+/* ── Motion for small, occasional moments. One curve, transform and opacity only, gentler under reduced motion. ── */
+:root { --ease-ui: cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(100%); } }
+@keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes swapIn { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+.animate-backdropIn { animation: backdropIn 0.2s var(--ease-ui) both; }
+.animate-slideUp { animation: toastIn 0.2s var(--ease-ui) both; }
+.animate-slideDown { animation: toastOut 0.16s var(--ease-ui) both; }
+.animate-clipIn { animation: riseIn 0.2s var(--ease-ui) backwards; }
+.animate-swap { animation: swapIn 0.15s var(--ease-ui) both; }
+/* Cards on the dashboard: --i is the card's position, 40ms apart, at most six steps. */
+.animate-cardIn { animation: riseIn 0.25s var(--ease-ui) backwards; animation-delay: calc(min(var(--i, 0), 6) * 40ms); }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes toastIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes riseIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes swapIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* Press feedback on filled blue buttons. Skips buttons that set their own duration (the onboarding ones). */
+button.bg-\[\#325FEC\]:not([class*="duration-"]):not(:disabled),
+a.bg-\[\#325FEC\]:not([class*="duration-"]) {
+  transition: transform 120ms var(--ease-ui), background-color 150ms var(--ease-ui), color 150ms var(--ease-ui),
+    border-color 150ms var(--ease-ui), box-shadow 150ms var(--ease-ui), opacity 150ms var(--ease-ui);
+}
+button.bg-\[\#325FEC\]:not([class*="duration-"]):not(:disabled):active,
+a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }

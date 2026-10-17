@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyLibraryIllustration } from './illustrations';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   FileText,
@@ -1690,7 +1691,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         {/* ── Custom Native-Style PDF Canvas (PDF.js Renderer with Integrated Left Panel) ── */}
         <div
           ref={pagesContainerRef}
-          className="grid-soft flex-1 overflow-hidden flex flex-col items-center bg-gradient-to-br from-[#F3F6FB] via-[#ECF0F7] to-[#E1E7F2] dark:bg-none dark:bg-[#09090B] relative transition-colors"
+          className="grid-soft flex-1 overflow-hidden flex flex-col items-center bg-gradient-to-br from-[#E3EAF6] via-[#D8E1F1] to-[#C8D4EA] dark:bg-none dark:bg-[#09090B] relative transition-colors"
         >
           {isLoadingDocs ? (
             /* ── Rich Document Reader Loading Skeleton (Smooth transition between sub-projects) ── */
@@ -1998,8 +1999,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             {/* Document List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {documents.length === 0 ? (
-                <div className="text-center py-6">
-                  <FileText size={24} className="mx-auto text-slate-300 dark:text-zinc-600 mb-1.5" />
+                <div className="animate-popIn text-center py-6">
+                  <EmptyLibraryIllustration className="w-20 h-14 mx-auto mb-1" />
                   <p className="text-xs text-slate-400 dark:text-zinc-500">No documents listed yet.</p>
                 </div>
               ) : (

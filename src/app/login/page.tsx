@@ -1,5 +1,6 @@
 'use client';
 
+import { AuthIllustration } from '@/components/illustrations';
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -124,7 +125,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#EAEEF4] dark:bg-[#09090B] flex flex-col justify-center items-center p-4 font-sans text-slate-800 dark:text-zinc-200">
+    <div className="ob-grid min-h-screen bg-[#EAEEF4] dark:bg-[#09090B] flex flex-col justify-center items-center p-4 font-sans text-slate-800 dark:text-zinc-200">
       
       {/* Return to App Bar */}
       <div className="w-full max-w-md mb-4 flex items-center justify-between">
@@ -137,6 +138,8 @@ function LoginContent() {
         </Link>
         <span className="text-[11px] font-mono text-slate-400">{authRequired ? 'Tester access' : 'Local mode'}</span>
       </div>
+
+      <AuthIllustration className="w-44 h-12 mx-auto mb-3 animate-popIn" />
 
       {/* Main Authentication Card */}
       <div className="w-full max-w-md bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl shadow-2xl overflow-hidden animate-popIn">

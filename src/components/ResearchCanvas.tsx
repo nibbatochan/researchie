@@ -1646,7 +1646,7 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       onMouseDown={handleMouseDownCanvas}
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDropOnCanvas}
-      className={`relative w-full h-full overflow-clip select-none font-sans bg-[#FAFBFD] dark:bg-[#09090B] ${
+      className={`relative w-full h-full overflow-clip select-none font-sans bg-[#DCE4F2] dark:bg-[#09090B] ${
         isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : ''
       } ${
         isSpacePressed || activeTool === 'hand' || isPanning
@@ -2324,9 +2324,9 @@ export const ResearchCanvas: React.FC<ResearchCanvasProps> = ({
       >
         {/* Infinite Dot Grid */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20"
+          className="absolute inset-0 pointer-events-none opacity-60 dark:opacity-20"
           style={{
-            backgroundImage: `radial-gradient(circle, #94A3B8 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(circle, #5B74A8 1.2px, transparent 1.2px)`,
             backgroundSize: `24px 24px`,
           }}
         />

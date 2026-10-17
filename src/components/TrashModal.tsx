@@ -1,5 +1,6 @@
 'use client';
 
+import { EmptyTrashIllustration } from './illustrations';
 import React from 'react';
 import { Trash, ArrowCounterClockwise, X, FileText, Quotes, Code, Image as ImageIcon, LinkSimple, ShieldCheck } from '@phosphor-icons/react';
 import { ResearchAtom } from '@/lib/types/research';
@@ -75,8 +76,8 @@ export const TrashModal: React.FC<TrashModalProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {deletedAtoms.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 dark:text-zinc-500 space-y-2">
-              <Trash size={32} className="mx-auto opacity-40" />
+            <div className="animate-popIn py-10 text-center text-slate-400 dark:text-zinc-500 space-y-2">
+              <EmptyTrashIllustration />
               <p className="text-xs font-sans">Trash is empty. No deleted clips in buffer.</p>
             </div>
           ) : (
