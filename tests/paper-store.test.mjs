@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createOutline, addPart, setSectionDraft, replaceDraft, restorePreviousDraft, setSectionDone, parseOutline } from '../src/lib/paper/outline.ts';
+import { createOutline, addPart, setSectionDraft, replaceDraft, restorePreviousDraft, setSectionDone, setSectionAuthored, sectionStatus, parseOutline } from '../src/lib/paper/outline.ts';
 import { serializeOutline, readOutline, outlineKey, MAX_OUTLINE_BYTES } from '../src/lib/paper/store.ts';
 
 const sec = (o, key) => o.sections.find((s) => s.key === key);
@@ -78,4 +78,26 @@ test('restore with nothing to restore changes nothing; a new draft reopens a don
   assert.equal(sec(o, 'methods').done, undefined);
   const back = parseOutline(JSON.parse(JSON.stringify(o)));
   assert.equal(sec(back, 'methods').draft.previous.sentences[0].text, 'a');
+});
+
+test('own text is saved with its citation keys, unused keys are dropped, and it survives save and load', () => {
+  let o = createOutline('imrad');
+  const id = sec(o, 'introduction').id;
+  o = setSectionAuthored(o, id, { text: 'Earlier work [@Lee2020] agrees.', cites: { Lee2020: 'q1', Abe2018: 'q2' }, aiAssisted: true });
+  assert.deepEqual(sec(o, 'introduction').cites, { Lee2020: 'q1' });
+  assert.equal(sec(o, 'introduction').aiAssisted, true);
+  assert.equal(sectionStatus(sec(o, 'introduction')), 'has-evidence');
+  const back = readOutline(serializeOutline(o).json);
+  assert.deepEqual(back, o);
+});
+
+test('empty text removes the text, its keys and the AI flag; text with no citations still counts as started', () => {
+  let o = createOutline('imrad');
+  const id = sec(o, 'introduction').id;
+  o = setSectionAuthored(o, id, { text: 'Just words.', cites: {}, aiAssisted: true });
+  assert.equal(sectionStatus(sec(o, 'introduction')), 'framed');
+  o = setSectionAuthored(o, id, { text: '   ', cites: { A: 'x' } });
+  assert.equal(sec(o, 'introduction').text, undefined);
+  assert.equal(sec(o, 'introduction').cites, undefined);
+  assert.equal(sec(o, 'introduction').aiAssisted, undefined);
 });

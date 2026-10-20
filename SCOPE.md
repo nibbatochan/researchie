@@ -249,9 +249,11 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Model: Sonnet · M · medium
           | Done: 2026-10-20. Saved as account preferences (src/lib/paper/store.ts, usePrefs): follows the account on the tester site, stays in the browser in local mode. Each person has their own outline of a project. 60 KB cap per outline, shown as a "Not saved" banner. Draft again keeps the old draft; Restore previous draft swaps back.
           | Left: Not tested with a real signed-in account (local mode only). The 256 KB limit on all settings is shared across projects.
-    - [not started] Equations, figures and tables in the preview {S-139}
+    - [done] Equations, figures and tables in the preview {S-139}
           | What: KaTeX for equations, captions and numbering for figures and tables. See section 5 of docs/research/paper-preview.md.
           | Model: Sonnet · M · medium
+          | Done: 2026-10-21. LaTeX maths in your own text ($x^2$, $$...$$, \ce{H2O}) is drawn with KaTeX (MIT; mhchem for chemistry) in notes, draft sentences and section points; display equations are numbered (1), (2). Image clips become numbered figures and clips holding an HTML table become numbered tables, with captions and the source in text and in the reference list. A table keeps only the text of its cells. Checklist: a figure or table with no source blocks; borrowed ones warn about permission; no caption warns. A draft may only copy equations from a clip.
+          | Left: Maths must be typed by the user as LaTeX; equations in a PDF's text are not recovered. No TikZ or custom LaTeX packages. No cross-references by number inside the text yet ("see Figure 1" is typed by hand). Single column, no page breaks.
     - [done] Check Harvard and IEEE layouts against the style guides {S-140}
           | What: Layouts were written from the pattern as known. Verify against Cite Them Right (or the CSL style harvard-cite-them-right) and the IEEE Reference Guide.
           | Model: Sonnet · S · medium
@@ -262,13 +264,17 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Model: Sonnet · M · medium
           | Done: 2026-10-21. RIS and BibTeX files (or pasted text) are read in src/lib/citations/importRefs.ts, matched to the project's PDFs and non-PDF clips by DOI, then title, and attached from the outline's side list (ImportRefsPanel.tsx). Unmatched or ambiguous entries get a picker. A citation that would be replaced is shown, and a known retraction is kept. New PATCH /api/documents sets a PDF's citation. Covers the file part of S-109.
           | Left: Zotero's own API (S-109 remainder). Imported records are marked "manual" because nothing is checked online. Title matches need a person to confirm they are the same paper.
-    - [not started] Write your own section text {S-142}
+    - [done] Write your own section text {S-142}
           | What: An editor for typing a section yourself, with citations inserted from clips. Today own words only enter as notes.
           | Model: Sonnet · L · medium
+          | Done: Full editor, 2026-10-21. "Write my own text" in every section: plain paragraphs, LaTeX maths, and citations inserted from a list of clips that carry a citation as [@Kim2021] tokens (src/lib/paper/authored.ts, SectionEditor.tsx). Each key is explained under the text. The preview draws the tokens as Harvard or numbered markers, with a page only after a direct quotation. Checks: a key must point at a clip that exists and can be cited (not an AI summary, not a clip without reference details); a quotation must be word for word in the cited clip; words copied from a cited clip need quotation marks; retraction is checked on cited clips; sentences with no citation only warn. "Move the AI draft into my text" turns a draft into editable text and records that AI helped, shown in the preview notes (can be unticked). When a section has its own text, it replaces the draft and loose clips in the preview.
+          | Left: No bold, italic, headings or lists inside the text. No "see Figure 1" cross-references by number. Keys stay readable but the citation is chosen from a list, not typed freehand. Figures and tables still come from clips placed in the section's parts and follow the text.
           | Done: Small version, 2026-10-20: "Save as my own text" in the paste box makes a Mine note. Full editor not built.
-    - [not started] Export the preview to PDF {S-143}
+    - [done] Export the preview to PDF {S-143}
           | What: Pages, two columns, running headers (paged.js is MIT).
           | Model: Sonnet · M · medium
+          | Done: 2026-10-21. "Download preview as PDF" in the preview opens the browser's print window (choose Save as PDF) on a separate white A4 page built from the preview (src/lib/paper/printDoc.ts, PaperPreview.tsx). Every printed sheet carries "Preview only. Not journal formatting..." as a fixed footer that does not depend on browser support; page numbers use CSS page margin boxes where the browser has them. One or two columns (saved choice); figures, tables and equations keep together. Checked by printing the page to a real PDF in the test and reading its text on every page.
+          | Left: Two columns are a layout choice only; real journal templates differ. No running header, no line numbers, no cover page. Page numbers need a recent Chrome or Edge. Not tried in Firefox or Safari.
     - [done] Fix e2e 04 setup {S-144}
           | What: e2e/04-ai-assistant-and-synthesis.spec.ts failed. Earlier note said the button was missing; that was wrong. The button exists. Two real causes: the setup looked for project cards that the dashboard no longer renders, and the Next.js dev badge sits on top of the round AI button so a mouse click never reached it.
           | Model: Haiku · S · low
@@ -336,6 +342,9 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-21 — S-142 full editor done. Open in the paper group: nothing planned; next ideas are cross-references by number, a rich-text editor, and journal templates.
+- 2026-10-21 — S-143 done (PDF export of the preview).
+- 2026-10-21 — S-139 done (equations, figures, tables in the preview). Added KaTeX as a dependency.
 - 2026-10-21 — S-137, S-138, S-140, S-141 and S-144 done; S-142 small version done (paste box "Save as my own text"). Left in the paper group: S-139 (equations, figures, tables), S-142 full editor, S-143 (PDF export). Not tried with a signed-in account.
 - 2026-10-20 — Added S-128 (Paper writing) with S-129 to S-144. S-129 to S-133 done; S-134 to S-136 done (checklist, long-quote warning, privacy line); S-137 to S-144 not started. From the paper-preview research and the gap check (retracted sources, quote length, privacy, draft history, equations).
 - 2026-10-17 — Added S-68 (How it works guide), done.

@@ -3,6 +3,7 @@
 // The outline stores clip ids only; the clips themselves stay in the project.
 
 import type { SectionDraft, DraftSentence } from './draft.ts';
+import { pruneCites } from './authored.ts';
 
 export type PaperTemplateId = 'imrad' | 'review';
 
@@ -18,6 +19,9 @@ export interface OutlineSection {
   title: string;
   hint: string; // one line: what goes here
   point: string; // the researcher's one-sentence point for this section
+  text?: string; // the researcher's own text for the section, with [@key] citations; see authored.ts
+  cites?: Record<string, string>; // key -> clip id for the citations in text
+  aiAssisted?: boolean; // some of text began as an AI draft: shown in the preview notes, since journals often ask
   done?: boolean; // the researcher marked this section finished; only allowed while the checklist passes (checklist.ts)
   draft?: SectionDraft; // AI-written text for this section, every sentence tied to clips; see draft.ts
   parts: OutlinePart[];
@@ -116,6 +120,24 @@ export function restorePreviousDraft(outline: PaperOutline, sectionId: string): 
   });
 }
 
+/** Sets the researcher's own text. Keys the text no longer uses are dropped from the map. Empty text removes it. */
+export function setSectionAuthored(outline: PaperOutline, sectionId: string, authored: { text: string; cites: Record<string, string>; aiAssisted?: boolean }): PaperOutline {
+  return mapSection(outline, sectionId, (s) => {
+    const next = { ...s };
+    if (authored.text.trim()) {
+      next.text = authored.text;
+      next.cites = pruneCites(authored.text, authored.cites);
+      if (authored.aiAssisted) next.aiAssisted = true;
+      else delete next.aiAssisted;
+    } else {
+      delete next.text;
+      delete next.cites;
+      delete next.aiAssisted;
+    }
+    return next;
+  });
+}
+
 export function setSectionDone(outline: PaperOutline, sectionId: string, done: boolean): PaperOutline {
   return mapSection(outline, sectionId, (s) => {
     const next = { ...s };
@@ -207,8 +229,8 @@ export type SectionStatus = 'empty' | 'framed' | 'has-evidence';
 
 /** empty: nothing yet. framed: a point or parts, but no clips. has-evidence: at least one clip placed. */
 export function sectionStatus(section: OutlineSection): SectionStatus {
-  if (section.parts.some((p) => p.clipIds.length > 0)) return 'has-evidence';
-  if (section.point.trim() || section.parts.length > 0) return 'framed';
+  if (section.parts.some((p) => p.clipIds.length > 0) || Object.keys(section.cites ?? {}).length > 0) return 'has-evidence';
+  if (section.point.trim() || section.parts.length > 0 || section.text?.trim()) return 'framed';
   return 'empty';
 }
 
@@ -259,6 +281,11 @@ export function parseOutline(raw: unknown): PaperOutline | undefined {
       point: String(s.point ?? ''),
       ...(parseDraft(s.draft) ? { draft: parseDraft(s.draft) } : {}),
       ...(s.done === true ? { done: true } : {}),
+      ...(typeof s.text === 'string' && s.text.trim() ? { text: s.text } : {}),
+      ...(s.text && s.cites && typeof s.cites === 'object' && !Array.isArray(s.cites)
+        ? { cites: Object.fromEntries(Object.entries(s.cites).filter(([k, v]) => typeof k === 'string' && typeof v === 'string')) }
+        : {}),
+      ...(s.text && s.aiAssisted === true ? { aiAssisted: true } : {}),
       parts: s.parts
         .filter((p) => p && typeof p.id === 'string')
         .map((p) => ({ id: p.id, title: String(p.title ?? ''), clipIds: Array.isArray(p.clipIds) ? p.clipIds.filter((c) => typeof c === 'string') : [] })),

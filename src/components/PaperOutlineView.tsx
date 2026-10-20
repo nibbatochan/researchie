@@ -4,16 +4,18 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchAtom } from '@/lib/types/research';
 import { getEvidenceKind, EVIDENCE_LABEL } from '@/lib/atoms/evidence';
 import {
-  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, setSectionDone, replaceDraft, restorePreviousDraft, addPart, renamePart, removePart, movePart,
+  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, setSectionAuthored, setSectionDone, replaceDraft, restorePreviousDraft, addPart, renamePart, removePart, movePart,
   assignClip, unassignClip, placedClipIds, pruneMissingClips, sectionStatus, nextSection,
   type PaperOutline, type PaperTemplateId, type OutlineSection,
 } from '@/lib/paper/outline';
 import { PaperPreview } from './PaperPreview';
 import { PastePanel } from './PastePanel';
+import { SectionEditor } from './SectionEditor';
 import { ImportRefsPanel } from './ImportRefsPanel';
 import type { CitationRecord } from '@/lib/citations/types';
 import type { NewClip } from '@/lib/paper/pasteMatch';
 import { checkSection, type SectionChecklist } from '@/lib/paper/checklist';
+import { parseTable } from '@/lib/paper/tableParse';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 import { outlineKey, readOutline, serializeOutline, STYLE_PREF_KEY } from '@/lib/paper/store';
 import { buildPreview, type ClipInfo } from '@/lib/paper/preview';
@@ -22,6 +24,15 @@ import { renderCitations, IN_TEXT_STYLES, type InTextStyle, type CitedSource, ty
 
 const CLIP_MIME = 'application/x-researchie-clip';
 const PART_MIME = 'application/x-researchie-part';
+
+/** An image clip is a figure; a clip that holds an HTML table is a table. Only the table's text is kept. */
+function mediaOf(a: ResearchAtom): ClipInfo['media'] {
+  const caption = (a.content?.description || a.userNotes || a.title || '').trim();
+  if (a.type === 'image' && a.content?.imageUrl) return { kind: 'image', src: a.content.imageUrl, caption };
+  const html = a.content?.sanitizedHtml || a.content?.rawText || '';
+  const table = a.type === 'block' ? parseTable(html) : undefined;
+  return table ? { kind: 'table', table, caption: table.caption || caption } : undefined;
+}
 
 function clipText(atom: ResearchAtom): string {
   const text = atom.content?.text || atom.content?.rawText || atom.metadata?.selectedText || atom.title || '';
@@ -81,7 +92,7 @@ function ClipChip({ atom, onRemove, draggable }: { atom: ResearchAtom; onRemove?
 }
 
 function SectionCard({
-  section, index, isNext, byId, unplaced, apply, markers, missingByPart, onDraft, drafting, draftError, draftClips, checklist, done,
+  section, index, isNext, byId, unplaced, apply, markers, missingByPart, onDraft, drafting, draftError, draftClips, checklist, done, clipInfos,
 }: {
   section: OutlineSection;
   index: number;
@@ -97,9 +108,11 @@ function SectionCard({
   draftClips: Map<string, DraftClip>;
   checklist: SectionChecklist;
   done: boolean;
+  clipInfos: Map<string, ClipInfo>;
 }) {
   const [newPart, setNewPart] = useState('');
   const status = sectionStatus(section);
+  const started = status !== 'empty'; // nothing to draft or check until there is a point or a part
   const draftTotal = section.parts.reduce((n, p) => n + p.clipIds.filter((id) => draftClips.has(id)).length, 0);
   const statusLabel = done ? 'Done' : status === 'has-evidence' ? 'Has evidence' : status === 'framed' ? 'Framed, needs clips' : 'Not started';
 
@@ -198,6 +211,9 @@ function SectionCard({
         ))}
       </ol>
 
+      <SectionEditor section={section} clips={clipInfos} onChange={(a) => apply((o) => setSectionAuthored(o, section.id, a))} />
+
+      {started && (
       <div className="mt-3 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] bg-white/60 dark:bg-[#121214]/60 p-2.5" data-testid="draft-panel">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -210,9 +226,11 @@ function SectionCard({
           <span className="text-[11px] text-slate-500 dark:text-zinc-500">
             {draftTotal === 0 ? 'Place clips under a part first.' : draftTotal > MAX_CLIPS_PER_DRAFT ? `Too many clips (${draftTotal}). Up to ${MAX_CLIPS_PER_DRAFT} per draft.` : 'AI writes from these clips only. You check every sentence.'}
           </span>
-          <p data-testid="draft-privacy" className="basis-full text-[11px] text-slate-500 dark:text-zinc-500">
-            Drafting sends the text of these clips to Groq, the AI service. Groq's docs say it does not keep this data by default, but it may keep it up to 30 days to fix faults or stop abuse. Check Groq's terms before you send unpublished work.
-          </p>
+          {draftTotal > 0 && (
+            <p data-testid="draft-privacy" className="basis-full text-[11px] text-slate-500 dark:text-zinc-500">
+              Drafting sends the text of these clips to Groq, the AI service. Groq's docs say it does not keep this data by default, but it may keep it up to 30 days to fix faults or stop abuse. Check Groq's terms before you send unpublished work.
+            </p>
+          )}
           {section.draft?.previous && (
             <button type="button" data-testid="restore-draft" onClick={() => apply((o) => restorePreviousDraft(o, section.id))} className="ml-auto text-xs text-[#325FEC] hover:underline dark:text-[#518FFF]" title="Swap back to the draft this one replaced. You can swap again.">Restore previous draft</button>
           )}
@@ -229,13 +247,13 @@ function SectionCard({
                 <li key={i} data-testid="draft-sentence" data-status={sentence.status} className={`flex items-start gap-2 rounded-md border px-2 py-1.5 ${flagged ? 'border-red-200 bg-red-50/60 dark:border-red-900/40 dark:bg-red-950/20' : 'border-[#D9E1EC] dark:border-[#27272A]'}`}>
                   <textarea
                     value={sentence.text}
-                    rows={2}
+                    rows={Math.max(2, Math.ceil(sentence.text.length / 70))}
                     aria-label={`Draft sentence ${i + 1}`}
                     onChange={(e) => {
                       const text = e.target.value;
                       apply((o) => setSectionDraft(o, section.id, {
                         ...section.draft!,
-                        sentences: section.draft!.sentences.map((x, j) => (j === i ? { ...x, text, status: classifySentence(text, x.clipIds, draftClips), placeholder: hasPlaceholder(text) } : x)),
+                        sentences: section.draft!.sentences.map((x, j) => (j === i ? { ...x, text, status: classifySentence(text, x.clipIds, draftClips, [section.point]), placeholder: hasPlaceholder(text) } : x)),
                       }));
                     }}
                     className="min-w-0 flex-1 resize-y bg-transparent text-[12.5px] leading-snug text-[#0F172A] dark:text-zinc-100 outline-none"
@@ -251,7 +269,9 @@ function SectionCard({
           </ol>
         )}
       </div>
+      )}
 
+      {started && (
       <div data-testid="checklist" data-done={done} className={`mt-3 rounded-lg border p-2.5 ${done ? 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20' : 'border-[#D9E1EC] dark:border-[#27272A]'}`}>
         {done ? (
           <div className="flex items-center justify-between gap-2">
@@ -281,6 +301,7 @@ function SectionCard({
           </>
         )}
       </div>
+      )}
 
       <form
         className="mt-3 flex gap-2"
@@ -308,6 +329,11 @@ interface Props {
 
 export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreateClip }: Props) {
   const [pasteOpen, setPasteOpen] = useState(false);
+  // On a phone the list of unplaced clips starts closed so the sections get the screen.
+  const [asideOpen, setAsideOpen] = useState(true);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches) setAsideOpen(false);
+  }, []);
   const [importOpen, setImportOpen] = useState(false);
   // Citations attached by an import show at once; the page's own list catches up on the next load.
   const [citationOverrides, setCitationOverrides] = useState<Map<string, CitationRecord>>(new Map());
@@ -435,6 +461,7 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
         record: a.metadata?.citation,
         page: kind === 'quote' ? (a.metadata?.pageNumber ?? a.metadata?.page) : undefined,
         retractionState: a.metadata?.health?.retraction?.state,
+        media: mediaOf(a),
       });
     }
     return clips;
@@ -454,12 +481,12 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
 
   return (
     <div data-testid="paper-outline" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2.5 md:px-6">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2.5 md:px-6">
+        <div className="basis-full min-w-0 sm:basis-auto">
           <h2 className="text-sm font-semibold text-[#0F172A] dark:text-white">Paper outline</h2>
           <p className="text-[11px] text-slate-500 dark:text-zinc-400">Plan where each clip goes. Nothing here is a finished paper.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {outline && (
             <div role="tablist" aria-label="Outline or preview" className="flex rounded-lg border border-[#D9E1EC] dark:border-[#27272A] p-0.5 text-xs">
               {(['outline', 'preview'] as const).map((t) => (
@@ -493,14 +520,14 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
       {!loaded ? null : !outline ? (
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <p className="mb-3 text-sm text-slate-700 dark:text-zinc-300">Pick what you are writing. You can add, rename and reorder parts after.</p>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid items-stretch gap-3 md:grid-cols-2">
             {(Object.keys(PAPER_TEMPLATES) as PaperTemplateId[]).map((id) => (
               <button
                 key={id}
                 type="button"
                 data-testid={`template-${id}`}
                 onClick={() => choose(id)}
-                className="rounded-xl border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#0F0F12] p-4 text-left hover:border-[#325FEC]"
+                className="h-full rounded-xl border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#0F0F12] p-4 text-left hover:border-[#325FEC]"
               >
                 <div className="text-sm font-semibold text-[#0F172A] dark:text-white">{PAPER_TEMPLATES[id].label}</div>
                 <div className="mt-1 text-xs text-slate-600 dark:text-zinc-400">{PAPER_TEMPLATES[id].description}</div>
@@ -535,7 +562,7 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
               {next ? <>Next: <strong>{next.title}</strong>. {next.hint}</> : 'Every section is done. Preview it, then check the journal\'s own format before you submit.'}
             </p>
             {outline.sections.map((s, i) => (
-              <SectionCard key={s.id} section={s} index={i} isNext={next?.id === s.id} byId={byId} unplaced={unplaced} apply={apply} markers={citations.markers} missingByPart={citations.missingByPart} onDraft={() => draftSection(s)} drafting={draftingId === s.id} draftError={draftErrors[s.id] || undefined} draftClips={draftClips} checklist={checklists.get(s.id) ?? { items: [], canComplete: false }} done={isDone(s)} />
+              <SectionCard key={s.id} section={s} index={i} isNext={next?.id === s.id} byId={byId} unplaced={unplaced} apply={apply} markers={citations.markers} missingByPart={citations.missingByPart} onDraft={() => draftSection(s)} drafting={draftingId === s.id} draftError={draftErrors[s.id] || undefined} draftClips={draftClips} checklist={checklists.get(s.id) ?? { items: [], canComplete: false }} done={isDone(s)} clipInfos={clipInfos} />
             ))}
 
             <section data-testid="reference-list" className="rounded-xl border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#0F0F12] p-4">
@@ -578,16 +605,20 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
           <aside className="w-full shrink-0 border-t border-[#D9E1EC] dark:border-[#27272A] md:w-80 md:border-l md:border-t-0">
             <div className="flex h-full flex-col">
               <div className="border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2.5">
-                <h3 className="text-xs font-semibold text-[#0F172A] dark:text-white">Clips not placed yet ({unplaced.length})</h3>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">Drag a clip onto a part.</p>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold text-[#0F172A] dark:text-white">Clips not placed yet ({unplaced.length})</h3>
+                  <button type="button" data-testid="clips-toggle" aria-expanded={asideOpen} onClick={() => setAsideOpen((v) => !v)} className="text-xs text-[#325FEC] dark:text-[#518FFF] md:hidden">{asideOpen ? 'Hide' : 'Show'}</button>
+                </div>
+                <p className={`${asideOpen ? '' : 'hidden md:block'} text-[11px] text-slate-500 dark:text-zinc-400`}>Drag a clip onto a part.</p>
                 {onCreateClip && (
-                  <button type="button" data-testid="paste-toggle" aria-expanded={pasteOpen} onClick={() => setPasteOpen((v) => !v)} className="mt-2 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300">{pasteOpen ? 'Close paste box' : 'Paste text from NotebookLM or Zotero'}</button>
+                  <button type="button" data-testid="paste-toggle" aria-expanded={pasteOpen} onClick={() => setPasteOpen((v) => !v)} className={`${asideOpen ? '' : 'hidden md:inline-block'} mt-2 rounded-lg border border-[#B8C4D6] dark:border-[#3A3A42] bg-white dark:bg-[#18181B] px-2.5 py-1 text-xs font-medium text-slate-800 dark:text-zinc-200 hover:border-[#325FEC]`}>{pasteOpen ? 'Close paste box' : 'Paste text from NotebookLM or Zotero'}</button>
                 )}
               </div>
+              <div className={`${asideOpen ? 'flex' : 'hidden md:flex'} min-h-0 flex-1 flex-col`}>
               {onCreateClip && pasteOpen && <PastePanel projectId={projectId} onCreate={onCreateClip} />}
               {onCreateClip && (
                 <div className="border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2">
-                  <button type="button" data-testid="import-toggle" aria-expanded={importOpen} onClick={() => setImportOpen((v) => !v)} className="rounded-lg border border-[#D9E1EC] dark:border-[#27272A] px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300">{importOpen ? 'Close import' : 'Import references (RIS or BibTeX)'}</button>
+                  <button type="button" data-testid="import-toggle" aria-expanded={importOpen} onClick={() => setImportOpen((v) => !v)} className="rounded-lg border border-[#B8C4D6] dark:border-[#3A3A42] bg-white dark:bg-[#18181B] px-2.5 py-1 text-xs font-medium text-slate-800 dark:text-zinc-200 hover:border-[#325FEC]">{importOpen ? 'Close import' : 'Import references (RIS or BibTeX)'}</button>
                 </div>
               )}
               {onCreateClip && importOpen && (
@@ -596,6 +627,7 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
               <div className="max-h-72 flex-1 space-y-1.5 overflow-y-auto p-3 md:max-h-none">
                 {unplaced.length === 0 && <p className="text-[11px] text-slate-500 dark:text-zinc-500">All clips are placed.</p>}
                 {unplaced.map((a) => <ClipChip key={a.id} atom={a} draggable />)}
+              </div>
               </div>
             </div>
           </aside>

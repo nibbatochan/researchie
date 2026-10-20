@@ -586,3 +586,9 @@ a.bg-\[\#325FEC\]:not([class*="duration-"]) {
 }
 button.bg-\[\#325FEC\]:not([class*="duration-"]):not(:disabled):active,
 a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }
+
+/* Paper preview: optional two columns on a wide screen, and keep figures and tables whole. The print page has its own copy of these rules (src/lib/paper/printDoc.ts). */
+@media (min-width: 768px) {
+  .paper-body.paper-two-col { column-count: 2; column-gap: 2rem; }
+}
+.paper-body figure, .paper-body [data-testid="preview-table"] { break-inside: avoid; }

@@ -118,3 +118,46 @@ test('classifySentence re-checks an edited sentence', () => {
   assert.equal(classifySentence('Fifty adults completed it.', ['uuid-1'], clips), 'sourced'); // words are not facts-checked, only numbers
   assert.equal(classifySentence('Fifty-one adults completed it in 2019.', ['uuid-1'], clips), 'bad-number');
 });
+
+test('a sentence that blends a quote clip with the researcher own note is flagged as mixed', () => {
+  const i = input();
+  const { aliasToId } = buildDraftPrompt(i);
+  const out = parseDraftResponse(answer([
+    { p: 1, text: 'Forty adults completed the survey and I recruited them through campus groups.', clips: ['c1', 'c2'] },
+    { p: 1, text: 'Forty adults completed the survey.', clips: ['c1'] },
+    { p: 1, text: 'I recruited them through campus groups.', clips: ['c2'] },
+  ]), i, aliasToId);
+  assert.deepEqual(out.map((s) => s.status), ['mixed', 'sourced', 'own']);
+});
+
+test('the prompt tells the model to keep own findings and quoted claims in separate sentences', () => {
+  assert.match(buildDraftPrompt(input()).system, /Never put a MINE finding and a QUOTE claim in the same sentence/);
+});
+
+test('the researcher own point, repeated as a sentence with no clip, is their own text, not unsourced', () => {
+  const i = input();
+  const { aliasToId } = buildDraftPrompt(i);
+  const out = parseDraftResponse(answer([
+    { p: 1, text: 'We ran a survey and interviews.', clips: [] },
+    { p: 1, text: 'We ran a survey and interviews and a lab test.', clips: [] },
+  ]), i, aliasToId);
+  assert.deepEqual(out.map((s) => s.status), ['own', 'unsourced']);
+  assert.equal(classifySentence('We ran a survey and interviews.', [], new Map(), ['We ran a survey and interviews.']), 'own');
+  assert.equal(classifySentence('We ran a survey and interviews.', [], new Map()), 'unsourced');
+});
+
+test('maths: an equation copied from a cited clip passes; one that is not in the clips is flagged; maths is not read as numbers or quotes', () => {
+  const i = { ...input(), parts: [{ id: 'pa', title: 'S', clips: [clip('u1', 'mine', 'The fit was $r = 0.4$ over 12 trials, and $$E = mc^2$$ held.')] }] };
+  const { aliasToId } = buildDraftPrompt(i);
+  const out = parseDraftResponse(answer([
+    { p: 1, text: 'The fit was $r = 0.4$ over 12 trials.', clips: ['c1'] },
+    { p: 1, text: 'The fit was $r=0.4$ in the pilot.', clips: ['c1'] },
+    { p: 1, text: 'The fit was $r = 0.9$ in the pilot.', clips: ['c1'] },
+    { p: 1, text: 'Energy follows $$E = mc^2$$ here.', clips: ['c1'] },
+  ]), i, aliasToId);
+  assert.deepEqual(out.map((s) => s.status), ['own', 'own', 'bad-math', 'own']);
+});
+
+test('the prompt tells the model to copy maths exactly and never write its own', () => {
+  assert.match(buildDraftPrompt(input()).system, /Copy any \$\.\.\.\$ or \$\$\.\.\.\$\$ maths exactly/);
+});

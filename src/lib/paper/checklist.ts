@@ -7,6 +7,7 @@
 import type { OutlineSection } from './outline.ts';
 import type { ClipInfo } from './preview.ts';
 import { STATUS_MESSAGE, type SentenceStatus } from './draft.ts';
+import { checkAuthored, splitCites } from './authored.ts';
 
 export type ChecklistSeverity = 'block' | 'warn';
 
@@ -26,7 +27,7 @@ export interface SectionChecklist {
 // those, so it is the default. The target journal's own rules control.
 export const LONG_QUOTE_WORDS = 50;
 
-const BLOCKING_STATUSES: SentenceStatus[] = ['unsourced', 'bad-quote', 'bad-number', 'copied', 'ai-based'];
+const BLOCKING_STATUSES: SentenceStatus[] = ['unsourced', 'bad-quote', 'bad-number', 'bad-math', 'copied', 'mixed', 'ai-based'];
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
@@ -45,7 +46,14 @@ export function checkSection(section: OutlineSection, clips: Map<string, ClipInf
   let shown: ClipInfo[] = [];
   let longQuotes = 0;
 
-  if (section.draft) {
+  // The researcher's own text, when there is some, is what the preview shows: it is what gets checked.
+  if (section.text?.trim()) {
+    const result = checkAuthored(section.text, section.cites ?? {}, clips);
+    items.push(...result.issues);
+    shown = result.citedClipIds.map((id) => clips.get(id)).filter((c): c is ClipInfo => !!c);
+    const plain = splitCites(section.text).map((p) => (p.type === 'text' ? p.value : ' ')).join('');
+    longQuotes = quotedSpans(plain).filter((q) => wordCount(q) > LONG_QUOTE_WORDS).length;
+  } else if (section.draft) {
     const sentences = section.draft.sentences;
     if (sentences.length === 0) block('empty-draft', 'The draft has no sentences. Draft again or clear it.');
     for (const status of BLOCKING_STATUSES) {
@@ -61,12 +69,22 @@ export function checkSection(section: OutlineSection, clips: Map<string, ClipInf
     const placed = section.parts.flatMap((p) => p.clipIds).map((id) => clips.get(id)).filter((c): c is ClipInfo => !!c);
     shown = placed;
     if (placed.length === 0 && !section.point.trim()) block('empty', 'Nothing here yet. Add a point, or place clips under a part.');
-    const uncited = placed.filter((c) => c.kind === 'quote' && !c.record).length;
+    const uncited = placed.filter((c) => c.kind === 'quote' && !c.record && !c.media).length;
     if (uncited > 0) block('uncited', `${plural(uncited, 'quote clip has', 'quote clips have')} no citation. No source, no claim.`);
     const ai = placed.filter((c) => c.kind === 'ai-summary').length;
     if (ai > 0) block('ai-summary', `${plural(ai, 'AI summary is', 'AI summaries are')} still to rewrite. Find the paper and clip the passage, or draft the section.`);
     longQuotes = placed.filter((c) => c.kind === 'quote' && wordCount(c.text) > LONG_QUOTE_WORDS).length;
   }
+
+  // Figures and tables placed in the section, whether or not the section has a draft.
+  const media = section.parts.flatMap((p) => p.clipIds).map((id) => clips.get(id)).filter((c): c is ClipInfo => !!c && !!c.media);
+  const unsourcedMedia = media.filter((c) => c.kind !== 'mine' && !c.record).length;
+  if (unsourcedMedia > 0) block('figure-source', `${plural(unsourcedMedia, 'figure or table has', 'figures and tables have')} no source. No source, no figure: attach a citation to the clip.`);
+  const uncaptioned = media.filter((c) => !c.media?.caption.trim()).length;
+  if (uncaptioned > 0) warn('figure-caption', `${plural(uncaptioned, 'figure or table has', 'figures and tables have')} no caption. A caption says what it shows.`);
+  const borrowed = media.filter((c) => c.kind !== 'mine' && c.record).length;
+  if (borrowed > 0) warn('figure-permission', `${plural(borrowed, 'figure or table comes', 'figures and tables come')} from another source. Most publishers want permission to reuse a figure or table, however small. Check the licence and the journal's rules.`);
+  shown = [...shown, ...media.filter((c) => !shown.includes(c))];
 
   // Retraction: only sources a quote actually cites. The DOI lookup sets record.retracted only when Crossref
   // lists notices, so "no result" can mean "no notice" or "never checked": the wording says so.

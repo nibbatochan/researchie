@@ -5,14 +5,17 @@
 //   - a clip id that does not exist (invented source)
 //   - a quotation that is not word for word in a cited quote clip
 //   - a number that is in none of the cited clips
+//   - an equation that is in none of the cited clips (maths is copied from a clip, never written by the model)
+//   - a sentence that blends the researcher's own notes with a cited source (the citation would credit the source with the researcher's finding)
 //   - a run of words copied from a quote clip without quotation marks (passing a source's words off as the researcher's own)
 //   - a sentence with no clip behind it
 // A sentence that passes is still only "sourced", not "true": the researcher must read each one against its clip.
 
 import type { EvidenceKind } from '../atoms/evidence.ts';
 import { normalizeForMatch } from '../ai/claimSupport.ts';
+import { splitMath, stripMath } from './math.ts';
 
-export type SentenceStatus = 'sourced' | 'own' | 'ai-based' | 'unsourced' | 'bad-quote' | 'bad-number' | 'copied';
+export type SentenceStatus = 'sourced' | 'own' | 'ai-based' | 'unsourced' | 'bad-quote' | 'bad-number' | 'bad-math' | 'copied' | 'mixed';
 
 export interface DraftSentence {
   text: string;
@@ -54,7 +57,9 @@ export const STATUS_MESSAGE: Record<SentenceStatus, string> = {
   unsourced: 'No source. Add a clip or remove the sentence.',
   'bad-quote': 'A quotation here is not word for word in the cited clip.',
   'bad-number': 'A number here is not in the cited clips.',
+  'bad-math': 'An equation here is not in the cited clips. Equations must be copied exactly, never made up.',
   copied: 'Copied word for word without quotation marks. Rewrite it or put it in quotes.',
+  mixed: 'Mixes your own finding with a cited source, so the citation would credit the source with your finding. Split it in two.',
 };
 
 export function countClips(input: DraftInput): number {
@@ -75,6 +80,8 @@ const SYSTEM = [
   'Every sentence must list the clip ids it rests on in "clips". A sentence with no clip behind it must have "clips": [].',
   'Only text marked QUOTE may appear inside quotation marks, and it must be copied word for word.',
   'Text marked AI SUMMARY is a machine summary: do not quote it. Text marked MINE is the researcher\'s own words.',
+  'Copy any $...$ or $$...$$ maths exactly as written in a clip. Never write an equation of your own.',
+  "Never put a MINE finding and a QUOTE claim in the same sentence: a citation would credit the source with the researcher's finding. Use separate sentences.",
   'Return JSON only: {"sentences":[{"p":1,"text":"...","clips":["c1"]}]} where p is the part number.',
 ].join('\n');
 
@@ -112,31 +119,51 @@ function words(text: string): string[] {
 }
 
 /** Checks one sentence against the clips it names. Pure; also used after the researcher edits a sentence. */
-export function classifySentence(text: string, clipIds: string[], clips: Map<string, DraftClip>): SentenceStatus {
+/** Which checks run. A model's draft gets all of them; a person's own writing skips the ones that assume the words came from the clips. */
+export interface ClassifyOptions {
+  numbers?: boolean; // every number must be in a cited clip
+  math?: boolean; // every equation must be in a cited clip
+  mixed?: boolean; // a quote claim and an own finding must not share a sentence
+}
+
+export function classifySentence(text: string, clipIds: string[], clips: Map<string, DraftClip>, ownText: string[] = [], opts: ClassifyOptions = {}): SentenceStatus {
+  const { numbers = true, math = true, mixed = true } = opts;
+  // The researcher's own point for the section, repeated word for word, is their own text and needs no clip.
+  const mine = normalizeForMatch(text);
+  if (clipIds.length === 0 && mine && ownText.some((t) => normalizeForMatch(t) === mine)) return 'own';
   const cited = clipIds.map((id) => clips.get(id)).filter((c): c is DraftClip => !!c);
   if (cited.length === 0) return 'unsourced';
 
+  // Maths is checked on its own: an equation must be in a cited clip exactly. The rest of the checks read the text without it.
+  const squash = (v: string) => v.replace(/\s+/g, '');
+  const clipMath = cited.map((c) => squash(c.text));
+  for (const seg of splitMath(text)) {
+    if (math && seg.type !== 'text' && !clipMath.some((c) => c.includes(squash(seg.value)))) return 'bad-math';
+  }
+  const plain = stripMath(text);
+
   const quoteTexts = cited.filter((c) => c.kind === 'quote').map((c) => ` ${normalizeForMatch(c.text)} `);
-  for (const match of text.matchAll(QUOTED)) {
+  for (const match of plain.matchAll(QUOTED)) {
     const inner = normalizeForMatch(match[1]);
     if (inner.split(' ').length < 4) continue; // a scare-quoted word, not a quotation
     if (!quoteTexts.some((q) => q.includes(` ${inner} `))) return 'bad-quote';
   }
 
   const haystack = ` ${cited.map((c) => normalizeForMatch(c.text)).join(' ')} `;
-  for (const match of text.matchAll(NUMBER)) {
+  for (const match of numbers ? plain.matchAll(NUMBER) : []) {
     const token = normalizeForMatch(match[0]);
     if (!haystack.includes(` ${token} `)) return 'bad-number';
   }
 
   // Words copied from a quote clip, outside quotation marks, in a run of COPY_RUN_WORDS or more.
-  const unquoted = words(text.replace(QUOTED, ' '));
+  const unquoted = words(plain.replace(QUOTED, ' '));
   for (const q of quoteTexts) {
     for (let i = 0; i + COPY_RUN_WORDS <= unquoted.length; i++) {
       if (q.includes(` ${unquoted.slice(i, i + COPY_RUN_WORDS).join(' ')} `)) return 'copied';
     }
   }
 
+  if (mixed && cited.some((c) => c.kind === 'quote') && cited.some((c) => c.kind === 'mine')) return 'mixed';
   if (cited.every((c) => c.kind === 'ai-summary')) return 'ai-based';
   if (cited.some((c) => c.kind === 'quote')) return 'sourced';
   return 'own';
@@ -177,7 +204,7 @@ export function parseDraftResponse(raw: string, input: DraftInput, aliasToId: Ma
     }
     const p = Number((item as { p?: unknown }).p);
     const partId = Number.isInteger(p) && p >= 1 && p <= input.parts.length ? input.parts[p - 1].id : undefined;
-    out.push({ text, clipIds, partId, status: classifySentence(text, clipIds, clips), placeholder: hasPlaceholder(text) });
+    out.push({ text, clipIds, partId, status: classifySentence(text, clipIds, clips, [input.point]), placeholder: hasPlaceholder(text) });
   }
   return out;
 }
