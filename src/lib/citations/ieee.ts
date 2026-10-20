@@ -1,8 +1,11 @@
-// IEEE (numbered) reference formatter: A. B. Smith, C. Lee, and D. Kim, "Title," Journal, vol. 12, no. 3,
+// IEEE (numbered) reference formatter: A. B. Smith, C. Lee, and D. Kim, "Title," J. Abbrev., vol. 12, no. 3,
 // pp. 45–67, 2020, doi: 10.x. The number itself ([1]) is added by the caller, because it depends on the
-// order of first citation in the document. Written from the IEEE Reference Guide pattern as known; the guide
-// did not load when this was researched, so VERIFY against it (ieeeauthorcenter.ieee.org) or the CSL style
-// "ieee": the "more than six authors -> first author et al." rule, preprint and dataset layouts.
+// order of first citation in the document.
+// Checked 2026-10-20 against the CSL style ieee.csl ("IEEE Reference Guide version 11.29.2023", updated
+// 2024-03-27), read through a summarising tool: initials first, seven or more authors -> "first et al.",
+// quoted title, SHORT (abbreviated) journal title, "vol." / "no." / "pp.", "doi:" at the end, web pages as
+// "Accessed: date. [Online]. Available: URL"; preprints and datasets have no layout of their own in that file
+// and take the general one. NOT checked against the IEEE Reference Guide itself (it did not load).
 // Plain text cannot show italics, so none is added. Unknown sources return null.
 
 import type { CitationAuthor, CitationRecord } from './types';
@@ -61,7 +64,7 @@ function who(record: CitationRecord): string {
 function journalArticle(record: CitationRecord): string {
   const parts = [
     `${who(record)}, "${field(record.title, 'title')},"`,
-    `${field(record.journal, 'journal')}`,
+    `${field(record.journalAbbrev ?? record.journal, 'journal')}`,
     record.volume ? `vol. ${record.volume}` : '',
     record.issue ? `no. ${record.issue}` : '',
     record.pages ? pageRange(record.pages) : '',
@@ -71,14 +74,20 @@ function journalArticle(record: CitationRecord): string {
   return record.doi ? `${line}, doi: ${record.doi}.` : `${line}.`;
 }
 
+// The style file has no layout for preprints or datasets; they take the general one:
+// authors, "Title," Server or repository, year, doi: or URL.
+function generic(record: CitationRecord, container: string, containerName: string): string {
+  const line = `${who(record)}, "${field(record.title, 'title')}," ${field(container, containerName)}, ${field(record.year, 'year')}`;
+  if (record.doi) return `${line}, doi: ${record.doi}.`;
+  return record.url ? `${line}. [Online]. Available: ${record.url}` : `${line}.`;
+}
+
 function preprint(record: CitationRecord): string {
-  const url = link(record);
-  return `${who(record)}, "${field(record.title, 'title')}," ${field(record.journal ?? record.publisher, 'server')}, preprint, ${field(record.year, 'year')}.${url ? ` [Online]. Available: ${url}` : ''}`;
+  return generic(record, record.journal ?? record.publisher ?? '', 'server');
 }
 
 function dataset(record: CitationRecord): string {
-  const url = link(record);
-  return `${who(record)}, "${field(record.title, 'title')}," ${field(record.publisher, 'repository')}, ${field(record.year, 'year')}. [Dataset].${url ? ` Available: ${url}` : ''}`;
+  return generic(record, record.publisher ?? '', 'repository');
 }
 
 function bookChapter(record: CitationRecord): string {

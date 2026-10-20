@@ -9,7 +9,7 @@ import {
   createLocalProject,
   deleteLocalProject,
 } from './researchStore';
-import { getProjectDocuments, getDocumentById, addDocument as addLocalDocument, deleteDocument as deleteLocalDocument } from './sampleDocuments';
+import { getProjectDocuments, getDocumentById, addDocument as addLocalDocument, deleteDocument as deleteLocalDocument, setDocumentCitation as setLocalDocumentCitation } from './sampleDocuments';
 import type { DataStore } from './store';
 import type { ResearchAtom } from '../types/research';
 import type { Role } from './roles';
@@ -106,5 +106,9 @@ export const localStore: DataStore = {
 
   async deleteDocument(_userId, id) {
     return deleteLocalDocument(id);
+  },
+
+  async updateDocumentCitation(_userId, id, citation) {
+    return setLocalDocumentCitation(id, citation);
   },
 };

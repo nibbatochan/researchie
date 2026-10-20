@@ -17,7 +17,7 @@ const src = (id, over, page) => ({ sourceId: id, record: rec(over), page });
 test('Harvard reference: author-date layout with initials, quoted title and pages', () => {
   assert.equal(
     formatHarvard(rec()),
-    "Lee, J.A. and Patel, R. (2020) 'Sleep and memory in adults', Journal of Examples, 12(3), pp. 45–67. doi:10.1000/xyz",
+    "Lee, J.A. and Patel, R. (2020) 'Sleep and memory in adults', Journal of Examples, 12(3), pp. 45–67. Available at: https://doi.org/10.1000/xyz",
   );
 });
 
@@ -67,13 +67,12 @@ test('IEEE: numbers follow first citation and the same source keeps its number',
   assert.deepEqual(out.references.map((r) => [r.label, r.sourceId]), [['[1]', 'b'], ['[2]', 'a']]);
 });
 
-test('IEEE: three or more in a row collapse to a range; two stay separate; gaps stay separate', () => {
+test('IEEE: several numbers are listed one by one, with no range, as in the ieee.csl style', () => {
   const ids = ['a', 'b', 'c', 'd', 'e'];
   const first = renderCitations('ieee', [ids.map((id) => src(id))]);
-  assert.equal(markerText(first.markers[0]), '[1]–[5]');
-  const pairs = renderCitations('ieee', [ids.map((id) => src(id)), [src('a'), src('b')], [src('a'), src('c'), src('d'), src('e')]]);
-  assert.equal(markerText(pairs.markers[1]), '[1], [2]');
-  assert.equal(markerText(pairs.markers[2]), '[1], [3]–[5]');
+  assert.equal(markerText(first.markers[0]), '[1], [2], [3], [4], [5]');
+  const gaps = renderCitations('ieee', [ids.map((id) => src(id)), [src('a'), src('c'), src('d')]]);
+  assert.equal(markerText(gaps.markers[1]), '[1], [3], [4]');
 });
 
 test('IEEE: a page number keeps each number separate: [1, p. 14]', () => {
@@ -94,4 +93,32 @@ test('a source with no formatter is flagged incomplete in the list', () => {
 
 test('no groups gives no markers and no references', () => {
   assert.deepEqual(renderCitations('harvard', []), { markers: [], references: [] });
+});
+
+test('Harvard reference list: four or more authors become "first et al."; three are all listed', () => {
+  const many = (n) => Array.from({ length: n }, (_, i) => ({ family: ['Lee', 'Patel', 'Kim', 'Roy', 'Zed'][i], given: 'A' }));
+  assert.match(formatHarvard(rec({ authors: many(4) })), /^Lee, A\. et al\. \(2020\)/);
+  assert.match(formatHarvard(rec({ authors: many(3) })), /^Lee, A\., Patel, A\. and Kim, A\. \(2020\)/);
+});
+
+test('Harvard in-text: years of one author join; a page number or another author keeps them apart', () => {
+  const a = (id, year, page) => src(id, { authors: [{ family: 'Abe' }], year, title: id }, page);
+  const z = src('z', { authors: [{ family: 'Zed' }], year: 2019, title: 'z' });
+  assert.equal(markerText(renderCitations('harvard', [[a('a1', 2018), a('a2', 2019)]]).markers[0]), '(Abe, 2018, 2019)');
+  assert.equal(markerText(renderCitations('harvard', [[a('a1', 2018), a('a2', 2019), z]]).markers[0]), '(Abe, 2018, 2019; Zed, 2019)');
+  assert.equal(markerText(renderCitations('harvard', [[a('a1', 2018, 3), a('a2', 2019)]]).markers[0]), '(Abe, 2018, p. 3; Abe, 2019)');
+  const parts = renderCitations('harvard', [[a('a1', 2018), a('a2', 2019)]]).markers[0].filter((p) => p.sourceId);
+  assert.deepEqual(parts.map((p) => p.sourceId), ['a1', 'a2']);
+});
+
+test('IEEE uses the abbreviated journal title when there is one; preprints and datasets take the general layout', () => {
+  assert.match(formatIeee(rec({ journalAbbrev: 'J. Ex.' })), /"Sleep and memory in adults," J\. Ex\., vol\. 12/);
+  assert.equal(
+    formatIeee(rec({ sourceType: 'preprint', journal: 'arXiv', doi: '10.48550/x', volume: undefined })),
+    'J. A. Lee and R. Patel, "Sleep and memory in adults," arXiv, 2020, doi: 10.48550/x.',
+  );
+  assert.equal(
+    formatIeee(rec({ sourceType: 'dataset', publisher: 'Zenodo', doi: undefined, url: 'https://zenodo.org/r/1' })),
+    'J. A. Lee and R. Patel, "Sleep and memory in adults," Zenodo, 2020. [Online]. Available: https://zenodo.org/r/1',
+  );
 });

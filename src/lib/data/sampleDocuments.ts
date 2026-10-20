@@ -95,6 +95,17 @@ export function addDocument(doc: ResearchDocument): ResearchDocument {
   return doc;
 }
 
+export function setDocumentCitation(id: string, citation: ResearchDocument['citation']): ResearchDocument | null {
+  const docs = globalStore.__RESEARCH_DOCUMENTS_STORE__ || loadPersistedDocs();
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) return null;
+  const updated = { ...doc, citation };
+  const nextDocs = docs.map((d) => (d.id === id ? updated : d));
+  globalStore.__RESEARCH_DOCUMENTS_STORE__ = nextDocs;
+  savePersistedDocs(nextDocs);
+  return updated;
+}
+
 export function deleteDocument(id: string): boolean {
   const docs = globalStore.__RESEARCH_DOCUMENTS_STORE__ || loadPersistedDocs();
   const prevLen = docs.length;

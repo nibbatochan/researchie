@@ -4,24 +4,17 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
-    // If on dashboard landing hub, click into workspace feed that has clips
-    const cardOrItem = page
-      .locator('[data-testid="project-card"], [data-testid="subproject-card"]')
-      .filter({ hasText: /clips/ })
-      .filter({ hasNotText: /\b0 clips/ })
-      .first();
-    await cardOrItem.waitFor({ state: 'visible', timeout: 6000 }).catch(() => {});
-    if (await cardOrItem.isVisible()) {
-      await cardOrItem.click();
-      await page.waitForTimeout(600);
-    }
+    // The dashboard lists projects in the sidebar: open the seeded project that has clips.
+    await page.waitForTimeout(1000);
+    await page.getByText('Artificial Intelligence & RAG', { exact: false }).first().click();
+    await page.waitForTimeout(600);
   });
 
   test('opens docked Researchie AI sidebar when triggered', async ({ page }) => {
     // Click the bottom-right floating AI action button
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
     await expect(fabButton).toBeVisible();
-    await fabButton.click();
+    await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     await page.waitForTimeout(500);
 
     // Verify AI Sidebar panel is open
@@ -31,7 +24,7 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
 
   test('can switch between Ask AI and Summarize tabs in assistant', async ({ page }) => {
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
-    await fabButton.click();
+    await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     
     const asidePanel = page.locator('[data-testid="researchie-ai-sidebar"]');
     await expect(asidePanel).toBeVisible({ timeout: 5000 });
@@ -47,7 +40,7 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
 
   test('can generate Literature Review Matrix and render structured table', async ({ page }) => {
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
-    await fabButton.click();
+    await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     
     const asidePanel = page.locator('[data-testid="researchie-ai-sidebar"]');
     await expect(asidePanel).toBeVisible({ timeout: 5000 });
@@ -79,7 +72,7 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
 
   test('can select Comparison Matrix and generate structured comparison table', async ({ page }) => {
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
-    await fabButton.click();
+    await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     
     const asidePanel = page.locator('[data-testid="researchie-ai-sidebar"]');
     await expect(asidePanel).toBeVisible({ timeout: 5000 });
@@ -116,7 +109,7 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
 
   test('can save synthesized output as note into project timeline', async ({ page }) => {
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
-    await fabButton.click();
+    await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     
     const asidePanel = page.locator('[data-testid="researchie-ai-sidebar"]');
     await expect(asidePanel).toBeVisible({ timeout: 5000 });

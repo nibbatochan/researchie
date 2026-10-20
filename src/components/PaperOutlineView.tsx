@@ -4,12 +4,18 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchAtom } from '@/lib/types/research';
 import { getEvidenceKind, EVIDENCE_LABEL } from '@/lib/atoms/evidence';
 import {
-  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, setSectionDone, addPart, renamePart, removePart, movePart,
-  assignClip, unassignClip, placedClipIds, pruneMissingClips, sectionStatus, nextSection, parseOutline,
+  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, setSectionDone, replaceDraft, restorePreviousDraft, addPart, renamePart, removePart, movePart,
+  assignClip, unassignClip, placedClipIds, pruneMissingClips, sectionStatus, nextSection,
   type PaperOutline, type PaperTemplateId, type OutlineSection,
 } from '@/lib/paper/outline';
 import { PaperPreview } from './PaperPreview';
+import { PastePanel } from './PastePanel';
+import { ImportRefsPanel } from './ImportRefsPanel';
+import type { CitationRecord } from '@/lib/citations/types';
+import type { NewClip } from '@/lib/paper/pasteMatch';
 import { checkSection, type SectionChecklist } from '@/lib/paper/checklist';
+import { usePrefs } from '@/lib/prefs/prefsContext';
+import { outlineKey, readOutline, serializeOutline, STYLE_PREF_KEY } from '@/lib/paper/store';
 import { buildPreview, type ClipInfo } from '@/lib/paper/preview';
 import { classifySentence, hasPlaceholder, countClips, MAX_CLIPS_PER_DRAFT, STATUS_MESSAGE, type DraftClip, type DraftInput } from '@/lib/paper/draft';
 import { renderCitations, IN_TEXT_STYLES, type InTextStyle, type CitedSource, type MarkerPart } from '@/lib/citations/inText';
@@ -17,25 +23,11 @@ import { renderCitations, IN_TEXT_STYLES, type InTextStyle, type CitedSource, ty
 const CLIP_MIME = 'application/x-researchie-clip';
 const PART_MIME = 'application/x-researchie-part';
 
-function storageKey(projectId: string) {
-  return `researchie.paperOutline.${projectId}`;
-}
-
-function loadOutline(projectId: string): PaperOutline | undefined {
-  try {
-    const raw = window.localStorage.getItem(storageKey(projectId));
-    return raw ? parseOutline(JSON.parse(raw)) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function clipText(atom: ResearchAtom): string {
   const text = atom.content?.text || atom.content?.rawText || atom.metadata?.selectedText || atom.title || '';
   return text.length > 140 ? `${text.slice(0, 140)}…` : text;
 }
 
-const STYLE_KEY = 'researchie.inTextStyle';
 
 function jumpTo(elementId: string) {
   const el = document.getElementById(elementId);
@@ -221,8 +213,11 @@ function SectionCard({
           <p data-testid="draft-privacy" className="basis-full text-[11px] text-slate-500 dark:text-zinc-500">
             Drafting sends the text of these clips to Groq, the AI service. Groq's docs say it does not keep this data by default, but it may keep it up to 30 days to fix faults or stop abuse. Check Groq's terms before you send unpublished work.
           </p>
+          {section.draft?.previous && (
+            <button type="button" data-testid="restore-draft" onClick={() => apply((o) => restorePreviousDraft(o, section.id))} className="ml-auto text-xs text-[#325FEC] hover:underline dark:text-[#518FFF]" title="Swap back to the draft this one replaced. You can swap again.">Restore previous draft</button>
+          )}
           {section.draft && (
-            <button type="button" onClick={() => apply((o) => setSectionDraft(o, section.id, undefined))} className="ml-auto text-xs text-slate-500 hover:text-red-500">Clear draft</button>
+            <button type="button" onClick={() => apply((o) => setSectionDraft(o, section.id, undefined))} className={`${section.draft.previous ? '' : 'ml-auto '}text-xs text-slate-500 hover:text-red-500`}>Clear draft</button>
           )}
         </div>
         {draftError && <p role="alert" data-testid="draft-error" className="mt-2 text-xs text-red-700 dark:text-red-400">{draftError}</p>}
@@ -308,27 +303,45 @@ interface Props {
   projectId: string;
   atoms: ResearchAtom[];
   onClose: () => void;
+  onCreateClip?: (clip: NewClip) => void; // absent for a viewer, who can not add clips
 }
 
-export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
+export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreateClip }: Props) {
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  // Citations attached by an import show at once; the page's own list catches up on the next load.
+  const [citationOverrides, setCitationOverrides] = useState<Map<string, CitationRecord>>(new Map());
+  const atoms = useMemo(
+    () => (citationOverrides.size === 0 ? atomsProp : atomsProp.map((a) => (citationOverrides.has(a.id) ? { ...a, metadata: { ...a.metadata, citation: citationOverrides.get(a.id) } } : a))),
+    [atomsProp, citationOverrides],
+  );
   const [outline, setOutline] = useState<PaperOutline | undefined>(undefined);
+  const prefs = usePrefs();
   const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const skipSave = useRef(true);
 
+  // Saved with the account on the tester site, in this browser in local mode. A copy left in this browser
+  // by an earlier version is adopted once.
   useEffect(() => {
     skipSave.current = true;
-    setOutline(loadOutline(projectId));
+    let found = readOutline(prefs.get(outlineKey(projectId)));
+    if (!found && prefs.inAccount) {
+      try { found = readOutline(window.localStorage.getItem(outlineKey(projectId))); } catch { /* none */ }
+    }
+    setOutline(found);
+    setSaveError(null);
     setLoaded(true);
-  }, [projectId]);
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!loaded) return;
     if (skipSave.current) { skipSave.current = false; return; }
-    try {
-      if (outline) window.localStorage.setItem(storageKey(projectId), JSON.stringify(outline));
-      else window.localStorage.removeItem(storageKey(projectId));
-    } catch { /* storage unavailable: the outline lives for this visit only */ }
-  }, [outline, projectId, loaded]);
+    if (!outline) { prefs.remove(outlineKey(projectId)); setSaveError(null); return; }
+    const result = serializeOutline(outline);
+    if (result.ok) { prefs.set(outlineKey(projectId), result.json); setSaveError(null); }
+    else setSaveError(result.reason);
+  }, [outline, projectId, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byId = useMemo(() => new Map(atoms.map((a) => [a.id, a])), [atoms]);
 
@@ -359,7 +372,7 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
   }, [atoms]);
 
   const draftSection = async (section: OutlineSection) => {
-    if (section.draft && !window.confirm('Draft again? The current draft and your edits to it will be replaced.')) return;
+    if (section.draft && !window.confirm('Draft again? The current draft is kept, and you can bring it back with Restore previous draft.')) return;
     const input: DraftInput = {
       sectionTitle: section.title,
       sectionHint: section.hint,
@@ -373,7 +386,7 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
       const res = await fetch('/api/ai/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || 'Could not draft this section.');
-      apply((o) => setSectionDraft(o, section.id, { sentences: json.data.sentences, generatedAt: json.data.generatedAt }));
+      apply((o) => replaceDraft(o, section.id, { sentences: json.data.sentences, generatedAt: json.data.generatedAt }));
     } catch (err) {
       setDraftErrors((e) => ({ ...e, [section.id]: err instanceof Error ? err.message : 'Could not draft this section.' }));
     } finally {
@@ -381,16 +394,13 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
     }
   };
 
-  const [style, setStyleState] = useState<InTextStyle>('harvard');
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STYLE_KEY);
-      if (saved === 'harvard' || saved === 'ieee') setStyleState(saved);
-    } catch { /* default */ }
-  }, []);
+  const [style, setStyleState] = useState<InTextStyle>(() => {
+    const saved = prefs.get(STYLE_PREF_KEY);
+    return saved === 'ieee' ? 'ieee' : 'harvard';
+  });
   const setStyle = (next: InTextStyle) => {
     setStyleState(next);
-    try { window.localStorage.setItem(STYLE_KEY, next); } catch { /* not saved */ }
+    prefs.set(STYLE_PREF_KEY, next);
   };
 
   // One citation group per part, in document order. Switching style only re-renders this.
@@ -475,6 +485,10 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
           <button type="button" onClick={onClose} className="rounded-lg border border-[#D9E1EC] dark:border-[#27272A] px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300">Back to clips</button>
         </div>
       </div>
+
+      {saveError && (
+        <p role="alert" data-testid="save-error" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 md:px-6">Not saved. {saveError}</p>
+      )}
 
       {!loaded ? null : !outline ? (
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -566,7 +580,19 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
               <div className="border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2.5">
                 <h3 className="text-xs font-semibold text-[#0F172A] dark:text-white">Clips not placed yet ({unplaced.length})</h3>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">Drag a clip onto a part.</p>
+                {onCreateClip && (
+                  <button type="button" data-testid="paste-toggle" aria-expanded={pasteOpen} onClick={() => setPasteOpen((v) => !v)} className="mt-2 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300">{pasteOpen ? 'Close paste box' : 'Paste text from NotebookLM or Zotero'}</button>
+                )}
               </div>
+              {onCreateClip && pasteOpen && <PastePanel projectId={projectId} onCreate={onCreateClip} />}
+              {onCreateClip && (
+                <div className="border-b border-[#D9E1EC] dark:border-[#27272A] px-4 py-2">
+                  <button type="button" data-testid="import-toggle" aria-expanded={importOpen} onClick={() => setImportOpen((v) => !v)} className="rounded-lg border border-[#D9E1EC] dark:border-[#27272A] px-2.5 py-1 text-xs text-slate-700 dark:text-zinc-300">{importOpen ? 'Close import' : 'Import references (RIS or BibTeX)'}</button>
+                </div>
+              )}
+              {onCreateClip && importOpen && (
+                <ImportRefsPanel projectId={projectId} atoms={atoms} onApplied={(changes) => setCitationOverrides((prev) => new Map([...prev, ...changes]))} />
+              )}
               <div className="max-h-72 flex-1 space-y-1.5 overflow-y-auto p-3 md:max-h-none">
                 {unplaced.length === 0 && <p className="text-[11px] text-slate-500 dark:text-zinc-500">All clips are placed.</p>}
                 {unplaced.map((a) => <ClipChip key={a.id} atom={a} draggable />)}

@@ -7,6 +7,7 @@ import { AUTH_REQUIRED } from '@/lib/auth/server';
 import { cloud } from './cloudStore';
 import { localStore } from './localStore';
 import type { ResearchAtom, ResearchDocument, ResearchProject } from '../types/research';
+import type { CitationRecord } from '../citations/types';
 import type { Role } from './roles';
 
 export interface DataStore {
@@ -39,6 +40,8 @@ export interface DataStore {
   getDocument(userId: string, id: string): Promise<ResearchDocument | null>;
   addDocument(userId: string, doc: ResearchDocument): Promise<ResearchDocument | null>;
   deleteDocument(userId: string, id: string): Promise<boolean>;
+  /** Sets the citation of a saved PDF (for example from an imported reference). Returns the document, or null when it is not usable. */
+  updateDocumentCitation(userId: string, id: string, citation: CitationRecord): Promise<ResearchDocument | null>;
 }
 
 export const store: DataStore = AUTH_REQUIRED ? cloud : localStore;

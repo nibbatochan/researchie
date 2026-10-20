@@ -12,7 +12,7 @@ export async function OPTIONS() {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   });
@@ -138,6 +138,26 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to create document:', error);
     return NextResponse.json({ success: false, error: 'Failed to upload document' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  try {
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body.id !== 'string' || !body.id) {
+      return NextResponse.json({ success: false, error: 'Document id is required' }, { status: 400 });
+    }
+    if (!isCitationRecord(body.citation)) {
+      return NextResponse.json({ success: false, error: 'citation must be a citation record' }, { status: 400 });
+    }
+    const updated = await store.updateDocumentCitation(auth.user.id, body.id, body.citation);
+    if (!updated) return NextResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
+    return NextResponse.json({ success: true, data: { id: updated.id, citation: updated.citation } });
+  } catch (error) {
+    console.error('Failed to update document:', error);
+    return NextResponse.json({ success: false, error: 'Failed to update document' }, { status: 500 });
   }
 }
 

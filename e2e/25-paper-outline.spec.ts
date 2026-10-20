@@ -357,4 +357,162 @@ test.describe('25. Paper outline', () => {
       await page.evaluate(() => window.localStorage.removeItem('researchie.inTextStyle'));
     }
   });
+
+  test('Draft again keeps the old draft, and Restore previous draft brings it back with the researcher edits', async ({ page, request }) => {
+    const text = `Forty adults completed the survey ${stamp}.`;
+    const res = await request.post('/api/atoms', {
+      data: { projectId: PROJECT_ID, type: 'note', title: text, content: { rawText: text, text }, metadata: { sourceUrl: 'https://example.org/r', pageTitle: 'R' }, tags: [] },
+    });
+    expect(res.ok()).toBeTruthy();
+    const json = await res.json();
+    const noteId = json.data?.id || json.atom?.id || json.id;
+    let calls = 0;
+    await page.route('**/api/ai/draft', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      calls++;
+      const sent = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: { generatedAt: new Date().toISOString(), sentences: [{ text: calls === 1 ? 'First draft sentence.' : 'Second draft sentence.', clipIds: [noteId], partId: sent.parts[0].id, status: 'own', placeholder: false }] } }),
+      });
+    });
+    page.on('dialog', (d) => d.accept());
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.evaluate((id) => window.localStorage.removeItem(`researchie.paperOutline.${id}`), PROJECT_ID);
+      await openOutline(page);
+      await page.getByTestId('template-imrad').click();
+      const methods = page.getByTestId('outline-section').filter({ has: page.getByRole('heading', { name: /Methods/ }) });
+      await methods.getByLabel('Add a part to Methods').fill('Survey');
+      await methods.getByRole('button', { name: 'Add part' }).click();
+      await methods.getByTestId('outline-part').first().getByLabel(/Add a clip to Survey/).selectOption({ label: text });
+
+      await expect(methods.getByTestId('restore-draft')).toHaveCount(0);
+      await methods.getByTestId('draft-button').click();
+      await expect(methods.getByRole('textbox', { name: 'Draft sentence 1', exact: true })).toHaveValue('First draft sentence.');
+      await methods.getByRole('textbox', { name: 'Draft sentence 1', exact: true }).fill('My edited first sentence.');
+
+      await methods.getByTestId('draft-button').click();
+      await expect(methods.getByRole('textbox', { name: 'Draft sentence 1', exact: true })).toHaveValue('Second draft sentence.');
+      await methods.getByTestId('restore-draft').click();
+      await expect(methods.getByRole('textbox', { name: 'Draft sentence 1', exact: true })).toHaveValue('My edited first sentence.');
+
+      // The restored draft is what is saved: it is still there after a reload.
+      await openOutline(page);
+      await expect(methods.getByRole('textbox', { name: 'Draft sentence 1', exact: true })).toHaveValue('My edited first sentence.');
+      await expect(methods.getByTestId('restore-draft')).toBeVisible();
+    } finally {
+      if (noteId) await request.delete(`/api/atoms?id=${noteId}`);
+    }
+  });
+
+  test('Pasted text becomes a Quote only when it is word for word in a PDF; the rest is saved as an AI summary', async ({ page, request }) => {
+    const AI_PROJECT = 'proj-ai-main'; // holds the Just Enough Research PDF
+    const found = 'It was slower than a car and at least ten times the price of a decent commuter bicycle [1].';
+    const invented = `Researchers agreed that mushrooms power the whole library ${stamp}. Nothing in any PDF says this at all.`;
+    const cleanup = async () => {
+      const list = await (await request.get(`/api/atoms?projectId=${AI_PROJECT}`)).json();
+      for (const a of (list.data || list.atoms || [])) {
+        if (a.tags?.includes('pasted')) await request.delete(`/api/atoms?id=${a.id}`);
+      }
+    };
+    await cleanup();
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      await page.getByText('Artificial Intelligence & RAG', { exact: false }).first().click();
+      await page.getByTestId('paper-outline-btn').click();
+      await page.getByTestId('template-imrad').click();
+      await page.getByTestId('paste-toggle').click();
+
+      // 1. A passage that is in the PDF: found, with its page.
+      await page.getByLabel('Pasted text').fill(found);
+      await page.getByTestId('paste-check').click();
+      await expect(page.getByTestId('paste-sentence')).toHaveCount(1);
+      await expect(page.getByTestId('paste-sentence')).toHaveAttribute('data-found', 'true');
+      await expect(page.getByTestId('paste-sentence')).toContainText('p. 9');
+      await expect(page.getByTestId('paste-save-ai')).toHaveCount(0); // a whole-block hit offers only the Quote
+      await page.getByTestId('paste-save-quotes').click();
+      await expect(page.getByTestId('paste-message')).toContainText('Saved 1 Quote');
+
+      // 2. Text that is in no PDF: not found; it can only be saved as an AI summary or as own text.
+      await page.getByLabel('Pasted text').fill(invented);
+      await page.getByTestId('paste-check').click();
+      await expect(page.getByTestId('paste-result')).toContainText('0 of 2 sentences');
+      await expect(page.getByTestId('paste-save-quotes')).toHaveCount(0);
+      await page.getByTestId('paste-save-ai').click();
+
+      // Both are now clips in the list, marked by what they are.
+      const quote = page.getByTestId('outline-clip').filter({ hasText: 'It was slower than a car' });
+      await expect(quote).toContainText('Quote');
+      const ai = page.getByTestId('outline-clip').filter({ hasText: 'mushrooms power the whole library' });
+      await expect(ai).toContainText('AI summary');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test('Importing a RIS file attaches each citation to the PDF or clip it belongs to, and lets the user pick for the rest', async ({ page, request }) => {
+    const pdfTitle = `E2E Import Paper ${stamp}`;
+    const clipTitle = `E2E Import Web Page ${stamp}`;
+    const lonelyTitle = `E2E Import Nobody Has This ${stamp}`;
+    const docRes = await request.post('/api/documents', {
+      data: { projectId: PROJECT_ID, title: pdfTitle, filename: `e2e_import_${stamp}.pdf`, pages: [{ pageNumber: 1, title: 'Page 1', content: 'Some text on a page of the test paper.' }] },
+    });
+    expect(docRes.ok()).toBeTruthy();
+    const docId = (await docRes.json()).data.id as string;
+    const clipRes = await request.post('/api/atoms', {
+      data: { projectId: PROJECT_ID, type: 'text', title: 'A clip', content: { rawText: 'Text', text: 'Text' }, metadata: { sourceUrl: 'https://example.org/i', pageTitle: clipTitle }, tags: [] },
+    });
+    expect(clipRes.ok()).toBeTruthy();
+    const cj = await clipRes.json();
+    const clipId = (cj.data?.id || cj.atom?.id || cj.id) as string;
+    const ris = [
+      `TY  - JOUR`, `AU  - Lee, Jane`, `TI  - ${pdfTitle}`, `JO  - Journal of Examples`, `PY  - 2020`, `DO  - 10.1000/e2e${stamp}`, `ER  - `,
+      `TY  - ELEC`, `AU  - Kim, Dae`, `TI  - ${clipTitle}`, `PY  - 2021`, `ER  - `,
+      `TY  - JOUR`, `AU  - Roy, Sam`, `TI  - ${lonelyTitle}`, `JO  - Journal of Examples`, `PY  - 2019`, `ER  - `,
+    ].join('\n');
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.evaluate((id) => window.localStorage.removeItem(`researchie.paperOutline.${id}`), PROJECT_ID);
+      await openOutline(page);
+      await page.getByTestId('template-imrad').click();
+      await page.getByTestId('import-toggle').click();
+      await page.getByLabel('Pasted references').fill(ris);
+      await page.getByTestId('import-read').click();
+
+      await expect(page.getByTestId('import-entry')).toHaveCount(3);
+      await expect(page.getByTestId('import-entry').nth(0)).toHaveAttribute('data-status', 'matched');
+      await expect(page.getByTestId('import-entry').nth(1)).toHaveAttribute('data-status', 'matched');
+      await expect(page.getByTestId('import-entry').nth(2)).toHaveAttribute('data-status', 'unmatched');
+      // Matched entries are already chosen; the unmatched one is left out until the user picks.
+      await expect(page.getByTestId('import-apply')).toContainText('Attach 2 citations');
+      await expect(page.getByTestId('import-entry').nth(2).getByRole('combobox')).toHaveValue('');
+
+      // The unmatched entry can be given a PDF, and left out again.
+      await page.getByTestId('import-entry').nth(2).getByRole('combobox').selectOption({ label: `PDF: ${pdfTitle}` });
+      await page.getByTestId('import-entry').nth(2).getByRole('combobox').selectOption('');
+      await page.getByTestId('import-apply').click();
+      await expect(page.getByTestId('import-message')).toContainText('Attached 2 citations: 1 to PDFs, 1 to clips.');
+
+      const doc = (await (await request.get(`/api/documents?id=${docId}`)).json()).data;
+      expect(doc.citation.title).toBe(pdfTitle);
+      expect(doc.citation.doi).toBe(`10.1000/e2e${stamp}`);
+      expect(doc.citation.resolvedFrom).toBe('import');
+      const atoms = (await (await request.get(`/api/atoms?projectId=${PROJECT_ID}`)).json());
+      const clip = (atoms.data || atoms.atoms).find((a: any) => a.id === clipId);
+      expect(clip.metadata.citation.title).toBe(clipTitle);
+      expect(clip.metadata.citation.authors[0].family).toBe('Kim');
+    } finally {
+      await request.delete(`/api/documents?id=${docId}`);
+      await request.delete(`/api/atoms?id=${clipId}`);
+    }
+  });
+
+  test('the document citation API refuses a missing id and a citation that is not a record', async ({ request }) => {
+    expect((await request.patch('/api/documents', { data: { citation: {} } })).status()).toBe(400);
+    expect((await request.patch('/api/documents', { data: { id: 'x', citation: { nope: true } } })).status()).toBe(400);
+    expect((await request.patch('/api/documents', { data: { id: 'no-such-doc', citation: { status: 'manual', sourceType: 'unknown', resolvedFrom: 'import', authors: [], missingFields: [] } } })).status()).toBe(404);
+  });
 });

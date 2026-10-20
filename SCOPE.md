@@ -239,30 +239,40 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Say that the clip text goes to Groq and that unpublished work should be checked against Groq's terms. Groq docs say no retention of inference data by default, with up to 30 days for reliability and abuse checks; free tier is not stated separately (inferred).
           | Model: Sonnet · S · low
           | Done: 2026-10-20. Shown in each section's Draft panel.
-    - [not started] Paste box for NotebookLM answers {S-137}
+    - [done] Paste box for NotebookLM answers {S-137}
           | What: Match pasted text word for word against the user's PDFs. Found text becomes a Quote with a page; the rest stays an AI summary. No AI call.
           | Model: Sonnet · M · medium
-    - [not started] Save outline and drafts to the account {S-138}
+          | Done: 2026-10-20. src/lib/paper/pasteMatch.ts, PastePanel.tsx. Paste text, citation markers removed, matched sentence by sentence against the project's PDFs. Only word-for-word text becomes a Quote, with the PDF's own wording, page and the document's citation. Near matches get a hint only. The rest saves as an AI summary or as own text.
+          | Left: Saved clips land in "Clips not placed yet"; the user drags them to a part. Matching is exact only, so a copied NotebookLM answer that paraphrases will rarely find a quote. Not tried on scanned PDFs without text.
+    - [done] Save outline and drafts to the account {S-138}
           | What: Today they live in the browser only. Keep the previous draft when "Draft again" is used.
           | Model: Sonnet · M · medium
+          | Done: 2026-10-20. Saved as account preferences (src/lib/paper/store.ts, usePrefs): follows the account on the tester site, stays in the browser in local mode. Each person has their own outline of a project. 60 KB cap per outline, shown as a "Not saved" banner. Draft again keeps the old draft; Restore previous draft swaps back.
+          | Left: Not tested with a real signed-in account (local mode only). The 256 KB limit on all settings is shared across projects.
     - [not started] Equations, figures and tables in the preview {S-139}
           | What: KaTeX for equations, captions and numbering for figures and tables. See section 5 of docs/research/paper-preview.md.
           | Model: Sonnet · M · medium
-    - [not started] Check Harvard and IEEE layouts against the style guides {S-140}
+    - [done] Check Harvard and IEEE layouts against the style guides {S-140}
           | What: Layouts were written from the pattern as known. Verify against Cite Them Right (or the CSL style harvard-cite-them-right) and the IEEE Reference Guide.
           | Model: Sonnet · S · medium
-    - [not started] Import references from RIS, BibTeX and Zotero {S-141}
+          | Done: 2026-10-20. Compared with harvard-cite-them-right.csl and ieee.csl (read through a summarising tool). Changed: Harvard DOI now "Available at: https://doi.org/..."; four or more authors become "first et al." in the list; years of one author join in the text. IEEE: journal abbreviation used; no range collapse ([1], [2], [3]) because ieee.csl sets none; preprints and datasets take the general layout.
+          | Left: Not checked against the Cite Them Right book or the IEEE Reference Guide themselves. The Guide may prefer ranges like [1]–[3].
+    - [done] Import references from RIS, BibTeX and Zotero {S-141}
           | What: Same job as S-109. Match duplicates by DOI. Zotero Web API later.
           | Model: Sonnet · M · medium
+          | Done: 2026-10-21. RIS and BibTeX files (or pasted text) are read in src/lib/citations/importRefs.ts, matched to the project's PDFs and non-PDF clips by DOI, then title, and attached from the outline's side list (ImportRefsPanel.tsx). Unmatched or ambiguous entries get a picker. A citation that would be replaced is shown, and a known retraction is kept. New PATCH /api/documents sets a PDF's citation. Covers the file part of S-109.
+          | Left: Zotero's own API (S-109 remainder). Imported records are marked "manual" because nothing is checked online. Title matches need a person to confirm they are the same paper.
     - [not started] Write your own section text {S-142}
           | What: An editor for typing a section yourself, with citations inserted from clips. Today own words only enter as notes.
           | Model: Sonnet · L · medium
+          | Done: Small version, 2026-10-20: "Save as my own text" in the paste box makes a Mine note. Full editor not built.
     - [not started] Export the preview to PDF {S-143}
           | What: Pages, two columns, running headers (paged.js is MIT).
           | Model: Sonnet · M · medium
-    - [not started] Fix e2e 04 selector {S-144}
-          | What: e2e/04-ai-assistant-and-synthesis.spec.ts looks for a button labelled "Researchie AI" that the app does not have. Not caused by the paper work; not confirmed against the commit before it.
+    - [done] Fix e2e 04 setup {S-144}
+          | What: e2e/04-ai-assistant-and-synthesis.spec.ts failed. Earlier note said the button was missing; that was wrong. The button exists. Two real causes: the setup looked for project cards that the dashboard no longer renders, and the Next.js dev badge sits on top of the round AI button so a mouse click never reached it.
           | Model: Haiku · S · low
+          | Done: 2026-10-20. Setup now opens the seeded project by name; the button is clicked without a mouse. 5 of 5 pass.
 
 ## Old IDs
 
@@ -326,6 +336,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-21 — S-137, S-138, S-140, S-141 and S-144 done; S-142 small version done (paste box "Save as my own text"). Left in the paper group: S-139 (equations, figures, tables), S-142 full editor, S-143 (PDF export). Not tried with a signed-in account.
 - 2026-10-20 — Added S-128 (Paper writing) with S-129 to S-144. S-129 to S-133 done; S-134 to S-136 done (checklist, long-quote warning, privacy line); S-137 to S-144 not started. From the paper-preview research and the gap check (retracted sources, quote length, privacy, draft history, equations).
 - 2026-10-17 — Added S-68 (How it works guide), done.
 - 2026-10-17 — Added S-66 (spatial canvas) and S-67 (canvas audit), done.

@@ -770,7 +770,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
           </div>
         ) : workspaceMode === 'feed' && isPaperOpen && project && project.id !== 'all' ? (
           <div className="flex-1 min-w-0 h-full overflow-hidden relative flex flex-col">
-            <PaperOutlineView projectId={project.id} atoms={atoms} onClose={() => setIsPaperOpen(false)} />
+            <PaperOutlineView projectId={project.id} atoms={atoms} onClose={() => setIsPaperOpen(false)} onCreateClip={onCreateAtom ? (clip) => onCreateAtom(clip as Parameters<typeof onCreateAtom>[0]) : undefined} />
           </div>
         ) : workspaceMode === 'canvas' ? (
           <div className="flex-1 min-w-0 h-full overflow-hidden relative">

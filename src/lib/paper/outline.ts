@@ -98,6 +98,24 @@ export function setSectionDraft(outline: PaperOutline, sectionId: string, draft:
   });
 }
 
+/** Puts a new draft in, keeping the old one as `previous`. With no old draft, there is nothing to keep. */
+export function replaceDraft(outline: PaperOutline, sectionId: string, next: SectionDraft): PaperOutline {
+  return mapSection(outline, sectionId, (s) => {
+    const old = s.draft ? { sentences: s.draft.sentences, generatedAt: s.draft.generatedAt } : undefined;
+    return { ...s, done: undefined, draft: { sentences: next.sentences, generatedAt: next.generatedAt, ...(old ? { previous: old } : {}) } };
+  });
+}
+
+/** Brings back the previous draft. The draft being replaced becomes the new `previous`, so it can be undone. */
+export function restorePreviousDraft(outline: PaperOutline, sectionId: string): PaperOutline {
+  if (!outline.sections.some((s) => s.id === sectionId && s.draft?.previous)) return outline;
+  return mapSection(outline, sectionId, (s) => {
+    const prev = s.draft?.previous;
+    if (!s.draft || !prev) return s;
+    return { ...s, done: undefined, draft: { sentences: prev.sentences, generatedAt: prev.generatedAt, previous: { sentences: s.draft.sentences, generatedAt: s.draft.generatedAt } } };
+  });
+}
+
 export function setSectionDone(outline: PaperOutline, sectionId: string, done: boolean): PaperOutline {
   return mapSection(outline, sectionId, (s) => {
     const next = { ...s };
@@ -220,7 +238,9 @@ function parseDraft(raw: unknown): SectionDraft | undefined {
       placeholder: !!x.placeholder,
     });
   }
-  return { sentences, generatedAt: String((raw as SectionDraft).generatedAt ?? '') };
+  const prev = (raw as SectionDraft).previous;
+  const previous = prev && Array.isArray(prev.sentences) ? parseDraft({ sentences: prev.sentences, generatedAt: prev.generatedAt }) : undefined;
+  return { sentences, generatedAt: String((raw as SectionDraft).generatedAt ?? ''), ...(previous ? { previous: { sentences: previous.sentences, generatedAt: previous.generatedAt } } : {}) };
 }
 
 /** Reads a stored outline defensively; returns undefined when it is not usable. */

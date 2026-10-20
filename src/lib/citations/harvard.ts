@@ -1,8 +1,10 @@
 // Harvard (author-date) formatter. "Harvard" is a family of styles, not one standard; this follows the
-// Cite Them Right layout: Author, A.B. (Year) 'Title', Journal, vol(issue), pp. pages. Plain text cannot
-// show italics, so none is added. Written from the pattern as known, NOT checked against the Cite Them
-// Right book (it is paid): verify the layout and the "four or more authors" in-text rule there, or against
-// the CSL style "harvard-cite-them-right" (https://github.com/citation-style-language/styles).
+// Cite Them Right layout: Author, A.B. (Year) 'Title', Journal, vol(issue), pp. pages. Available at: link.
+// Plain text cannot show italics, so none is added.
+// Checked 2026-10-20 against the CSL style harvard-cite-them-right.csl (citation-style-language/styles), read
+// through a summarising tool: four or more authors -> "first et al." in the text and in the list, "; " between
+// sources, oldest first, years of one author joined ("Abe, 2018, 2019"), DOI printed as "Available at: https://doi.org/...".
+// NOT checked against the Cite Them Right book itself (it is paid).
 // Unknown sources return null. Missing fields are shown as "[incomplete: field]", never guessed.
 
 import type { CitationAuthor, CitationRecord } from './types';
@@ -24,10 +26,11 @@ function referenceName(a: CitationAuthor): string {
   return init ? `${a.family}, ${init}` : a.family;
 }
 
-/** "Smith, J., Lee, C. and Kim, D." Group authors have no given name and stay whole. */
+/** "Smith, J., Lee, C. and Kim, D."; four or more: "Smith, J. et al." Group authors have no given name and stay whole. */
 export function harvardAuthors(authors: CitationAuthor[]): string {
   const names = authors.map(referenceName);
   if (names.length <= 1) return names[0] ?? '';
+  if (names.length >= 4) return `${names[0]} et al.`;
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
@@ -79,8 +82,8 @@ function journalArticle(record: CitationRecord, options: HarvardOptions): string
   const tail = [field(record.journal, 'journal'), volume, record.pages ? pageRange(record.pages) : '']
     .filter(Boolean)
     .join(', ');
-  const doi = record.doi ? ` doi:${record.doi}` : '';
-  return `${lead(record, options)} '${field(record.title, 'title')}', ${tail}.${doi}`;
+  const link = record.doi ? ` Available at: https://doi.org/${record.doi}` : '';
+  return `${lead(record, options)} '${field(record.title, 'title')}', ${tail}.${link}`;
 }
 
 function preprint(record: CitationRecord, options: HarvardOptions): string {
@@ -98,7 +101,7 @@ function bookChapter(record: CitationRecord, options: HarvardOptions): string {
   const place = record.publisherPlace ? `${record.publisherPlace}: ` : '';
   const publisher = record.publisher ? `${place}${record.publisher}` : '[incomplete: publisher]';
   const pages = record.pages ? `, ${pageRange(record.pages)}` : '';
-  const doi = record.doi ? ` doi:${record.doi}` : '';
+  const doi = record.doi ? ` Available at: https://doi.org/${record.doi}` : '';
   return `${lead(record, options)} '${field(record.title, 'chapter title')}', in ${editors}${field(record.journal, 'book title')}. ${publisher}${pages}.${doi}`;
 }
 
@@ -106,7 +109,7 @@ function report(record: CitationRecord, options: HarvardOptions): string {
   const place = record.publisherPlace ? `${record.publisherPlace}: ` : '';
   const publisher = record.publisher ? ` ${place}${record.publisher}` : '';
   const number = record.reportNumber ? ` (${record.reportNumber})` : '';
-  return `${lead(record, options)} ${field(record.title, 'title')}.${publisher}${number}.${record.doi ? ` doi:${record.doi}` : ''}`;
+  return `${lead(record, options)} ${field(record.title, 'title')}.${publisher}${number}.${record.doi ? ` Available at: https://doi.org/${record.doi}` : ''}`;
 }
 
 function webPage(record: CitationRecord, options: HarvardOptions): string {

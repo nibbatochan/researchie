@@ -25,6 +25,8 @@ export interface DraftSentence {
 export interface SectionDraft {
   sentences: DraftSentence[];
   generatedAt: string; // ISO 8601
+  // The draft this one replaced (one level only), so "Draft again" never destroys the researcher's edits.
+  previous?: { sentences: DraftSentence[]; generatedAt: string };
 }
 
 export interface DraftClip {

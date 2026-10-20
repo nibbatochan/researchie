@@ -7,6 +7,7 @@
 // makeCloud takes the database client as a parameter so the isolation rules can be tested with a fake.
 import { randomUUID } from 'node:crypto';
 import type { ResearchAtom, ResearchDocument, ResearchProject } from '../types/research';
+import type { CitationRecord } from '../citations/types';
 import { canManage, canRead, canWrite, strongest, type Role } from './roles.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,6 +299,13 @@ export function makeCloud(db: Db) {
     return Array.isArray(data) && data.length > 0;
   }
 
+  async function updateDocumentCitation(userId: string, id: string, citation: CitationRecord): Promise<ResearchDocument | null> {
+    const row = await documentRow(id);
+    if (!row || !canWrite(await roleOn(userId, row.project_id))) return null;
+    const { data } = await db.from('documents').update({ data: { ...(row.data ?? {}), citation } }).eq('id', id).select().maybeSingle();
+    return data ? docOf(data) : null;
+  }
+
   return {
     roleOn,
     ownsProject,
@@ -315,6 +323,7 @@ export function makeCloud(db: Db) {
     getDocument,
     addDocument,
     deleteDocument,
+    updateDocumentCitation,
   };
 }
 

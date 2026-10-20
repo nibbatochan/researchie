@@ -1,6 +1,9 @@
 // In-text citations and the reference list, in two families:
 //   harvard: author-date, "(Smith and Lee, 2020)". The list is alphabetical.
 //   ieee:    numbered, "[1]". Numbers follow the order of first citation. The list is in that order.
+//            Several numbers read "[1], [2], [3]": the ieee.csl style (IEEE Reference Guide version 11.29.2023)
+//            sets no range collapse, so none is made here. The Reference Guide itself may prefer "[1]–[3]";
+//            it did not load when this was checked.
 // Pure: one list of citation groups in, markers and a reference list out. Switching style re-renders from
 // the same input; the document itself never changes. A marker is a list of parts so the screen can make
 // each source a link to its entry in the reference list.
@@ -82,11 +85,29 @@ function renderHarvard(groups: CitedSource[][]): RenderedCitations {
       (a, b) => (a.record.year ?? 0) - (b.record.year ?? 0) || authorPart(a.record).localeCompare(authorPart(b.record)),
     );
     const parts: MarkerPart[] = [{ text: '(' }];
-    ordered.forEach((item, i) => {
+    const locatorOf = (item: CitedSource) =>
+      item.page !== undefined && item.page !== '' ? `, ${/[–,-]/.test(String(item.page)) ? 'pp.' : 'p.'} ${item.page}` : '';
+    // Several years of the same author with no page numbers read "Abe, 2018, 2019" (collapse="year" in the style).
+    let i = 0;
+    while (i < ordered.length) {
+      let j = i;
+      while (
+        j + 1 < ordered.length &&
+        locatorOf(ordered[j]) === '' && locatorOf(ordered[j + 1]) === '' &&
+        authorPart(ordered[j + 1].record) === authorPart(ordered[i].record)
+      ) j++;
       if (i > 0) parts.push({ text: '; ' });
-      const locator = item.page !== undefined && item.page !== '' ? `, ${/[–,-]/.test(String(item.page)) ? 'pp.' : 'p.'} ${item.page}` : '';
-      parts.push({ text: `${authorPart(item.record)}, ${year(item)}${locator}`, sourceId: item.sourceId });
-    });
+      if (j === i) {
+        parts.push({ text: `${authorPart(ordered[i].record)}, ${year(ordered[i])}${locatorOf(ordered[i])}`, sourceId: ordered[i].sourceId });
+      } else {
+        parts.push({ text: `${authorPart(ordered[i].record)}, `, });
+        for (let k = i; k <= j; k++) {
+          if (k > i) parts.push({ text: ', ' });
+          parts.push({ text: year(ordered[k]), sourceId: ordered[k].sourceId });
+        }
+      }
+      i = j + 1;
+    }
     parts.push({ text: ')' });
     return parts;
   });
@@ -115,28 +136,7 @@ function renderIeee(groups: CitedSource[][]): RenderedCitations {
   const markers = groups.map((group) => {
     const unique = group.filter((item, i) => group.findIndex((o) => o.sourceId === item.sourceId && o.page === item.page) === i);
     const ordered = [...unique].sort((a, b) => number.get(a.sourceId)! - number.get(b.sourceId)!);
-    const hasLocator = ordered.some((i) => i.page !== undefined && i.page !== '');
     const parts: MarkerPart[] = [];
-
-    if (!hasLocator) {
-      // Runs of three or more numbers become a range: [1]–[3]. Two stay separate: [1], [2].
-      let i = 0;
-      while (i < ordered.length) {
-        let j = i;
-        while (j + 1 < ordered.length && number.get(ordered[j + 1].sourceId)! === number.get(ordered[j].sourceId)! + 1) j++;
-        if (parts.length > 0) parts.push({ text: ', ' });
-        if (j - i >= 2) {
-          parts.push({ text: `[${number.get(ordered[i].sourceId)}]`, sourceId: ordered[i].sourceId });
-          parts.push({ text: '–' });
-          parts.push({ text: `[${number.get(ordered[j].sourceId)}]`, sourceId: ordered[j].sourceId });
-          i = j + 1;
-        } else {
-          parts.push({ text: `[${number.get(ordered[i].sourceId)}]`, sourceId: ordered[i].sourceId });
-          i++;
-        }
-      }
-      return parts;
-    }
 
     ordered.forEach((item, i) => {
       if (i > 0) parts.push({ text: ', ' });
