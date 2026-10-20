@@ -14,6 +14,8 @@ interface PrefsApi {
   ready: boolean;
   /** True when preferences are kept in the account instead of the browser. */
   inAccount: boolean;
+  /** Why the last save to the account was refused (for example, too large), or null. Cleared by the next good save. */
+  saveError: string | null;
   get: (key: string) => string | null;
   set: (key: string, value: string) => void;
   remove: (key: string) => void;
@@ -30,6 +32,7 @@ export const PrefsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const pending = useRef<Record<string, string | null>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ready, setReady] = useState(!authRequired);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Load the account's preferences once a user is known; forget them when the user goes away.
   useEffect(() => {
@@ -71,6 +74,13 @@ export const PrefsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       credentials: 'same-origin',
       body: JSON.stringify({ prefs: batch }),
       keepalive: true,
+    }).then(async (res) => {
+      if (res.ok) { setSaveError(null); return; }
+      // A refusal (too large, bad name) will not get better by trying again, so it is reported, not retried.
+      // A server fault or a lost sign-in may, so those changes wait for the next save.
+      const json = await res.json().catch(() => ({}));
+      setSaveError(typeof json?.error === 'string' ? json.error : 'Your changes could not be saved to your account.');
+      if (res.status >= 500 || res.status === 401) pending.current = { ...batch, ...pending.current };
     }).catch(() => {
       // Keep the changes to try again with the next one.
       pending.current = { ...batch, ...pending.current };
@@ -125,7 +135,7 @@ export const PrefsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   if (!ready) return null;
 
-  return <PrefsContext.Provider value={{ ready, inAccount, get, set, remove }}>{children}</PrefsContext.Provider>;
+  return <PrefsContext.Provider value={{ ready, inAccount, saveError, get, set, remove }}>{children}</PrefsContext.Provider>;
 };
 
 export function usePrefs(): PrefsApi {

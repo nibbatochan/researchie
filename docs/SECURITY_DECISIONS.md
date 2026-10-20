@@ -150,6 +150,32 @@ Each one reads: **Decision**, **Why**, **What we gave up**, **Where**.
 
 **G5. What goes to Vercel is limited** by `.vercelignore` (tests, notes, scripts, SQL, the extension, design files and build output stay out; the local data stores are never uploaded). Each line is anchored to the project root: an earlier unanchored `supabase` entry also dropped `src/lib/supabase` and broke a build, which is why the leading slash matters.
 
+### H. Paper writing (added 2026-10-21)
+
+**H1. The AI sees one section's clips and nothing else, inside hard limits.** `/api/ai/draft` checks who is calling, uses the caller's own AI key on the tester site (no fake answer), checks the shape of what it is sent, cuts each clip at 5,000 characters, refuses more than 12 clips, and refuses an empty section. Why: less data leaves, and the free limit holds. Gave up: long sections need splitting. Where: `src/app/api/ai/draft/route.ts`, `src/lib/paper/draft.ts`.
+
+**H2. The model's output is never trusted.** A clip id it makes up is dropped; every sentence is checked afterwards (no source, a quotation or number or equation not in the clips, copied text, mixing own and cited, AI-summary only); the model never writes a reference, because citations come only from clip records. Why: the owner's rule, never invent references. Gave up: a rewording that changes meaning is not caught. Where: `parseDraftResponse`, `classifySentence`.
+
+**H3. Drafting says plainly that clip text goes to Groq.** Groq's documentation says inference data is not retained by default, with up to 30 days for reliability and abuse checks; the free tier is not stated separately (inferred). Why: researchers hold unpublished work. Where: the note beside Draft.
+
+**H4. LaTeX is drawn with KaTeX trust off.** A link, image or script inside a formula is not carried into the page; a formula that fails is shown as typed. The only raw HTML set from text is KaTeX's own output. Why: pasted or imported text can hold anything. Where: `src/components/MathText.tsx`.
+
+**H5. A clipped table keeps only the text of its cells, and a figure is only an image.** No markup from the page reaches the preview. Why: block clips come from the web (F1). Where: `src/lib/paper/tableParse.ts`.
+
+**H6. The PDF export prints the preview's own markup in a hidden frame.** The title is escaped, nothing from outside the article is added, the frame is removed on the next export or when the preview closes. The page carries the "preview only" note without relying on browser features. Where: `src/lib/paper/printDoc.ts`.
+
+**H7. Imported reference files are untrusted text.** They are read in the browser, nothing is fetched or run, and every record is marked "manual" because it was not verified. `PATCH /api/documents` needs a signed-in person with edit rights, checks the citation's shape, and returns only the id and the citation. Tested with an owner, an editor, a viewer and an outsider on the accounts store. Where: `src/lib/citations/importRefs.ts`, `src/app/api/documents/route.ts`, `tests/cloud-document-citation.test.mjs`.
+
+**H8. Replacing a citation never hides a known retraction.** Why: an import must not make a retracted paper look clean. Where: `ImportRefsPanel.tsx`.
+
+**H9. The outline lives in account preferences.** Names are validated, values are text, the whole set is capped at 256 KB, one outline at 60 KB, and a refused save is now shown instead of lost. No token or key goes into an outline. Where: `src/lib/paper/store.ts`, `src/lib/prefs/prefsContext.tsx`.
+
+**H10. Third-party pages are not scraped.** NotebookLM's terms name scraping and automated access. Why: legal exposure and a brittle tool. Gave up: no automatic capture from NotebookLM.
+
+**H11. One dependency was added: `katex` (MIT).** Why: equations. Where: `package.json`.
+
+**H12. Tests leave no data behind** and the one real model call used dummy text.
+
 ## Known gaps and accepted risks
 
 These are open on purpose, with the reason they are tolerable for 5 to 10 trusted testers.
@@ -167,6 +193,11 @@ These are open on purpose, with the reason they are tolerable for 5 to 10 truste
 | Invitations and access requests send no email | The owner tells people; they appear on next sign-in | A mail provider |
 | A viewer can export (PDF, Notion, Markdown) | They can already read everything (decided with the owner) | Block export for viewers if that changes |
 | Extension permission `<all_urls>` | The extension must work on any page the tester reads | Cannot be narrowed without breaking clipping |
+| No app-level rate limit on `/api/ai/draft` | Calls use the tester's own key, so the provider's free limit is the cap | The shared limiter in `S-103` |
+| The paper text is large and is scanned by patterns on every redraw | One outline is capped at 60 KB when saved; not tested with hostile input | Fuzz the maths and citation patterns; cap the text in the editor |
+| The print frame is built from the preview's markup and shares the app's origin | Its content comes from escaped text and KaTeX output; not reviewed by anyone else | A review of the export path; a Content-Security-Policy |
+| "Drafted by AI" disclosure relies on a tick the researcher can remove | It prompts honesty, it is not a lock | Keep the flag when text came from a draft and ask before removing it |
+| The paper features were checked only in local mode and on an in-memory copy of the accounts store | See "Not verified" | The signed-in checklist in `docs/TESTER_CHECKLIST.md` |
 
 ## Before opening to more people
 
@@ -191,3 +222,5 @@ These are open on purpose, with the reason they are tolerable for 5 to 10 truste
 Everything above is read from the code and the changelog, and the isolation and sharing rules are proved only with a fake
 database. Not yet tried on the live site with two real accounts: sharing (invite, link, request), switching accounts after
 the latest deploy, delete account end to end, the saved Notion token, and Google sign-in. See the checklists in `SCOPE.md`.
+
+**Paper writing (2026-10-21).** Not tried on the live site with an account: saving the outline and drafts, the preferences refusal notice, importing references onto a PDF, and a viewer being unable to attach. The accounts store rules for the PDF citation (owner, editor, viewer, outsider) are proved with a fake database. The wording of the Harvard and IEEE styles was read through a summarising tool, not from the books. No outside security review of the print frame or the maths and table handling.

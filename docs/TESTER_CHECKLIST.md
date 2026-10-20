@@ -52,5 +52,18 @@ Run this on the deployed site with two real browser profiles (A and B) and two t
 | 32 | Revoke the token in Settings, then clip | Same "Not connected" message; the clip waits in the queue and the popup Sync can retry it after reconnecting. |
 | 33 | Summarize a page from the side panel with no key saved | The "Add your AI key" message, not a fake summary. |
 
+## Paper writing (signed in; not yet tried live)
+| # | Do | Pass when |
+|---|---|---|
+| 34 | Open a project, press Paper, pick a template, add a part, place two clips, reload | The outline is still there |
+| 35 | Sign in as the same person on a second browser, open the same project's Paper view | The same outline appears (it follows the account) |
+| 36 | As B, open Paper on a project A shared with B | B sees B's own empty outline, not A's |
+| 37 | Change the citation style and One / Two columns in the preview, sign out and in | Both choices are remembered |
+| 38 | Fill a section with many long draft sentences until the outline is very large | A red "Not saved" notice appears; the text is not silently lost |
+| 39 | Upload a PDF, import a RIS file with its title, press Attach | The PDF's clips show the citation after a reload (also for an editor; a viewer is not offered the buttons) |
+| 40 | Paste a sentence copied from that PDF into the paste box | It becomes a Quote with the right page |
+| 41 | Press Draft this section with no AI key saved | "Add your AI key" message, no fake draft |
+| 42 | Download preview as PDF, choose Save as PDF | Every page says "Preview only. Not journal formatting." |
+
 ## Not built (expect these to be missing)
 Sharing and invites between accounts, delete account, account list for switching, Google sign-in, knowledge graph.

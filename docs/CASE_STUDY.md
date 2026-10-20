@@ -110,3 +110,34 @@ The pattern in every row was the same: the check that passed (text found, a test
 - A researcher can export a project to a PDF with working links, the right citations and flagged sources, and see before downloading what cannot be drawn.
 - 159 unit tests, 13 browser specs, a production build that passes, and the heavy PDF code loads only on export.
 - Still to do: AMA forms for four more types, APA author-date citations, page numbers on the contents page, and the next features from the plan: shared projects, an offline queue and two-way Notion sync.
+
+---
+
+## 5. Case Study: From Collected Papers to a Checked Draft (October 2026)
+
+### The problem
+Researchers collect papers and their own notes, then write elsewhere. They can not see what their paper will look like once an editing team formats it (usually paid), and they lose motivation. The ask: a live paper preview, understanding and motivation only, never a claim to replace journal formatting.
+
+### The constraint that shaped everything
+The free AI limit can not match NotebookLM at finding answers across many papers. So the platform does not try. It takes what NotebookLM or Zotero already produced (by paste or file), and adds what they do not: structure, citations in the style the researcher picks, and checks.
+
+### What was built
+- A paper outline (template, parts, drag clips in) and a preview that looks like a published page, with a banner and a printed-page footer saying it is only a preview.
+- Harvard and numbered citations that switch live from the same data.
+- Three kinds of clip (Quote, AI summary, Mine); only a Quote can be quoted or cited.
+- A paste box and an RIS/BibTeX import that turn text into Quotes only when it is word for word in the researcher's PDF.
+- An AI draft that uses only one section's clips, then fixed checks on every sentence; a checklist that gates "done".
+- Equations (KaTeX), numbered figures and tables, a PDF export, and an editor for the researcher's own text with citations inserted from a list.
+
+### What the real model taught
+The first real draft blended the researcher's own pilot result with a cited paper's finding in one sentence, so the citation credited the paper with the pilot result. Tests with a pretend model had not shown it. A new check and a prompt rule came from one real call. The lesson: the checks are only as good as the failures seen, so each real failure becomes a check.
+
+### Decisions the owner made
+Save the outline in account preferences (no migration), one outline per person; attach imported references to the matching PDF or clip. Everything else was proposed and accepted. Full list with reasons, limits and what was rejected: `docs/PAPER_WRITING_DECISIONS.md`.
+
+### Outcome
+- A researcher can go from clips to a cited, checked, previewable section in one place, and is told exactly what is unsourced, misquoted, copied, retracted or borrowed.
+- Four commits, 56 files, about 7,100 lines added; about 480 unit tests in the repository and 13 browser tests for this feature.
+
+### What is not proven
+Nothing was tried signed in on the live site; no outside researcher has used it; the style wording was checked against machine-readable style files, not the books. A reworded sentence that changes a clip's meaning passes every check. The feature should be described as "built and tested locally", not "shipped".

@@ -134,6 +134,86 @@
 - **Rationale**: For a small trusted group, the useful question is "what did we decide to tolerate, and when does that stop being true". A single list answers it and is checked against the code.
 - **Limits**: It describes the code as of 2026-10-16 and is only as current as the last person who updated it.
 
+### Decision 25: The Platform Is the Writing Step, Not the Search Step
+- **Context**: Researchers load papers into NotebookLM or Zotero and extract exact sentences there. NotebookLM does that well; the free Groq limit can not match it.
+- **Decision**: Researchie does not search across papers. It takes text the researcher already has and gives it structure, citations and checks (paper outline, drafts, preview). SCOPE `S-128`.
+- **Rationale**: Competing with Google on search loses; turning collected evidence into a checked, cited draft is a gap both research notes found empty.
+- **Limits**: Depends on researchers bringing text over by paste or file (Decision 26). Full record: `docs/PAPER_WRITING_DECISIONS.md`.
+
+### Decision 26: Build on NotebookLM and Zotero; Never Scrape Them
+- **Context**: NotebookLM (now Gemini Notebook) has no free API and its terms name scraping. Zotero's API needs key handling and has limits.
+- **Decision**: The researcher brings text by paste (paste box) or by file (RIS or BibTeX import). The extension reads only what the user selects.
+- **Rationale**: Works with any tool the researcher already uses and can not be broken by a change in someone else's page.
+- **Limits**: Zotero's own API is not connected yet (`S-109` remainder).
+
+### Decision 27: The Preview Says "Preview Only" on Every Screen and Every Printed Page
+- **Context**: Owner's rule: the preview must never imply it replaces journal formatting or editing. A downloaded PDF travels without its screen.
+- **Decision**: A banner stays on the preview. The print page carries the same sentence as a fixed footer drawn by the page, not by a browser feature.
+- **Rationale**: The warning has to be inside the file. Tested by printing a real PDF and reading each page.
+- **Limits**: Page numbers need a recent Chrome or Edge; the note does not.
+
+### Decision 28: Every Clip Is a Quote, an AI Summary, or Mine
+- **Context**: The biggest integrity risk is an AI paraphrase cited as a paper's own words.
+- **Decision**: `metadata.evidenceKind` (no schema change). Only a Quote can be in quotation marks, cited or listed as a reference. Captured clips default to Quote, notes to Mine. The quote check returns no page for a failed match, so a near miss can not become a citation.
+- **Rationale**: Every later check reads this one field.
+- **Limits**: A clip's kind is the user's word; a wrong tick is not detected.
+
+### Decision 29: Structured Citations in Two Styles, With Our Own Formatters
+- **Context**: Both Harvard and numbered were required. The standard engine (citeproc-js) is CPAL-1.0 or AGPL-3.0, which can force publishing a hosted app's source.
+- **Decision**: One citation record per clip, rendered as Harvard or numbered from the same data, so a style switch never changes the document. Formatters aligned with the CSL files `harvard-cite-them-right.csl` and `ieee.csl`.
+- **Rationale**: Licence safety and no new dependency.
+- **Limits**: CSL files were read through a summarising tool; the Cite Them Right book and IEEE guide were not. "Harvard" is a family of about 115 styles.
+
+### Decision 30: The AI Drafts One Section From That Section's Clips; Every Sentence Is Then Checked Without a Model
+- **Context**: Free-tier compute and trust. A real call showed a model blending the researcher's own result with a cited paper's.
+- **Decision**: One call per section, at most 12 clips and about 6,000 characters. The model names the clips each sentence rests on. Then fixed checks: no source, quote not in the clip, number or equation not in the clips, copied without quotation marks, mixed own and cited, AI-summary only, open placeholder.
+- **Rationale**: Cheap, repeatable and visible.
+- **Limits**: A passing sentence is sourced, not true; a reworded sentence is not tested for meaning.
+
+### Decision 31: A Section Is Done Only When Its Checklist Passes
+- **Decision**: Blocks: flagged sentences, uncited quotes, AI summaries, placeholders, retracted sources, figures with no source. Warns: quote over 50 words, borrowed figures, no caption, unchecked retraction, sentences citing nothing.
+- **Rationale**: 50 words is the strictest publisher figure found (NIHR); Cambridge allows under 100, APA block-quotes at 40. Warnings that fire on everything get ignored, so uncertain checks only warn.
+- **Limits**: Retraction data: the DOI lookup sets `retracted` only when Crossref lists a notice, so "no result" is not "clean". A stronger check waits for `S-79`.
+
+### Decision 32: The Outline Is Saved in Account Preferences, One Per Person
+- **Context**: Owner chose, in chat, account preferences and a separate outline per person on a shared project.
+- **Decision**: Stored as one preference per project (`researchie.paperOutline.<project>`), 60 KB cap, visible "Not saved" notice. "Draft again" keeps the previous draft.
+- **Rationale**: No migration; a collaborator never changes someone's plan.
+- **Limits**: All preferences share a 256 KB limit. Real-time shared editing stays provisional. Not yet tried signed in.
+
+### Decision 33: The Paste Box Makes a Quote Only From a Word-for-Word PDF Match
+- **Decision**: Pasted text is matched sentence by sentence against the project's PDFs, with no AI. Exact matches become Quotes with the PDF's own wording, page and citation; near matches get a hint only; sentences under 5 words never match; the rest saves as an AI summary or own text.
+- **Rationale**: What NotebookLM's copy button puts on the clipboard is not documented, so the source is re-derived locally.
+- **Limits**: A paraphrasing answer will rarely find a quote; scanned PDFs without text are not matched.
+
+### Decision 34: Reference Import Attaches Citations to PDFs and Clips
+- **Context**: Owner chose, in chat: attach each RIS or BibTeX entry to the matching PDF or clip (DOI, then title) and show the rest for picking.
+- **Decision**: Files are parsed in the browser. A known retraction is kept when a citation is replaced; imported records are marked "manual". New `PATCH /api/documents` and `updateDocumentCitation` in both stores.
+- **Limits**: Title matches need a person to confirm. Zotero's API later.
+
+### Decision 35: Maths With KaTeX; Figures and Tables Keep Only Text and a Source
+- **Decision**: KaTeX (MIT, trust off) draws LaTeX typed in the researcher's own text; display equations are numbered; a price like "$5 and $10" is not maths. An image clip is a numbered figure, a clip with an HTML table is a numbered table keeping only its cell text. A figure with no source blocks; a borrowed one warns about permission. A draft may only copy an equation exactly from a clip.
+- **Limits**: Equations are not recovered from PDF text; no TikZ or custom packages.
+
+### Decision 36: PDF Export Uses the Browser's Print Window
+- **Decision**: A separate white A4 page in a hidden frame, one or two columns; the user chooses Save as PDF.
+- **Rationale**: Free, no dependency, and equations and fonts print as shown. A PDF library could not draw KaTeX.
+- **Limits**: One extra click; Chromium only was tried.
+
+### Decision 37: The Researcher's Own Text Is a Plain Editor With [@key] Citations
+- **Decision**: A text box; citations inserted from a list as readable keys; a legend explains each; the preview draws them in the chosen style. Moving an AI draft into the text ticks "drafted by AI", which adds a preview note.
+- **Rationale**: A rich-text editor costs far more than a first version needs, and plain text keeps the document easy to store and check.
+- **Limits**: No bold, italic, headings, lists or automatic "see Figure 1".
+
+### Decision 38: A Refused Preferences Save Is Reported, Not Lost
+- **Context**: Reading the saver showed that a refused save (a 413 "too large") looked like success.
+- **Decision**: The preferences provider exposes `saveError`; the outline view shows it. A server fault or lost sign-in is retried with the next save; a refusal is not.
+- **Limits**: Not seen live with an account; no automated test of the provider.
+
+### Decision 39: Commits Contain Only This Feature's Work
+- **Decision**: Files shared with other people's unfinished work (`SCOPE.md`, `docs/CHANGELOG.md`, `src/lib/data/cloud.ts`) were staged with only this feature's lines.
+- **Rationale**: Nobody's half-finished change is published under this feature's message.
+
 ---
 
 ## Molecule Build System Log

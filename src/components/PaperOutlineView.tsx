@@ -513,8 +513,8 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
         </div>
       </div>
 
-      {saveError && (
-        <p role="alert" data-testid="save-error" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 md:px-6">Not saved. {saveError}</p>
+      {(saveError || prefs.saveError) && (
+        <p role="alert" data-testid="save-error" className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 md:px-6">Not saved. {saveError || prefs.saveError}</p>
       )}
 
       {!loaded ? null : !outline ? (

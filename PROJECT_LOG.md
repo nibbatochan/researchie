@@ -153,3 +153,26 @@
 ### 3. Readiness for Next Phase
 - **Not built:** a "Finish setup" banner on the dashboard for unfinished setup; mobile layout not checked; copy has not been tried on real testers.
 
+## Session Record: Paper writing, sources to a checked section (2026-10-20 to 2026-10-21)
+
+### 1. Architectural Decisions
+- **The platform is the writing step.** Finding and storing stay in NotebookLM and Zotero; text comes over by paste or file (Decisions 25, 26).
+- **One field decides what a clip may be used for** (`metadata.evidenceKind`: Quote, AI summary, Mine) and every check reads it (Decision 28).
+- **Pure libraries under `src/lib/paper/`** (outline, draft, checklist, preview, authored text, maths, tables, print page, paste match, save) with screens on top, so the rules are testable without a browser.
+- **The model drafts, fixed code checks.** One call per section; every sentence is checked without a second call (Decision 30).
+- **The outline is saved in account preferences**, per person, 60 KB cap (Decision 32).
+- **Citations are structured data shown in a chosen style**; own formatters, not citeproc-js (Decision 29).
+- **PDF export uses the print window**; the preview-only note is part of the page (Decisions 27, 36).
+- **Own text is plain text with `[@key]` citations** and a key map (Decision 37).
+
+### 2. State of Key Files
+- `src/lib/paper/` (`outline.ts`, `draft.ts`, `checklist.ts`, `preview.ts`, `authored.ts`, `math.ts`, `tableParse.ts`, `printDoc.ts`, `pasteMatch.ts`, `store.ts`), `src/lib/citations/` (`harvard.ts`, `ieee.ts`, `inText.ts`, `importRefs.ts`), `src/lib/atoms/evidence.ts`.
+- Screens: `PaperOutlineView.tsx`, `PaperPreview.tsx`, `SectionEditor.tsx`, `PastePanel.tsx`, `ImportRefsPanel.tsx`, `MathText.tsx`.
+- Routes: `/api/ai/draft`, `PATCH /api/documents`. Stores: `updateDocumentCitation` (local and cloud).
+- Tests: about 480 unit tests in the repository; `e2e/25-paper-outline.spec.ts` (13). `tests/cloud-document-citation.test.mjs` proves the PDF citation rules on the accounts store.
+- Docs: `docs/PAPER_WRITING_DECISIONS.md` (full record), `docs/research/paper-preview.md`, `docs/research/notebooklm-zotero-workflow.md`.
+
+### 3. Readiness for Next Phase
+- **Not tried:** anything signed in on the live site; Firefox and Safari; real researchers; long drafts.
+- **Not built:** automatic "see Figure 1"; bold, italic and headings in own text; Zotero's own API; a conference template; a stronger retraction check (`S-79`).
+- **Known weak spot:** a rewording that changes a clip's meaning passes every check.

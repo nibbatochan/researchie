@@ -279,6 +279,13 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: e2e/04-ai-assistant-and-synthesis.spec.ts failed. Earlier note said the button was missing; that was wrong. The button exists. Two real causes: the setup looked for project cards that the dashboard no longer renders, and the Next.js dev badge sits on top of the round AI button so a mouse click never reached it.
           | Model: Haiku · S · low
           | Done: 2026-10-20. Setup now opens the seeded project by name; the button is clicked without a mouse. 5 of 5 pass.
+    - [in progress] Check the paper features signed in on the accounts site {S-145}
+          | What: Everything so far ran in local mode. Proved without a live account: the PDF citation rules on the accounts store (owner, editor, viewer, outsider) with a fake database, and a refused preferences save is now reported. Not tried live: outline following the account, per-person outlines on a shared project, preferences, PDF citation save, viewer limits, the red "Not saved" notice. Steps: docs/TESTER_CHECKLIST.md rows 34 to 42.
+          | Model: Owner runs the steps (needs two test accounts) · S
+          | Left: Needs the owner's accounts site and two test accounts; Claude does not sign in or use real credentials.
+    - [done] Keep a decision record for the paper work {S-146}
+          | What: docs/PAPER_WRITING_DECISIONS.md (what, why, rejected, limits, who decided, evidence, impact, what is not proven), Decisions 25 to 39 in docs/DECISIONS.md, section H in docs/SECURITY_DECISIONS.md, a session record in PROJECT_LOG.md, a case-study section in docs/CASE_STUDY.md, and rows 34 to 42 in docs/TESTER_CHECKLIST.md.
+          | Done: 2026-10-21. Kept up to date as work goes on.
 
 ## Old IDs
 
@@ -342,6 +349,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-21 — Added S-145 (check the paper features signed in; needs the owner) and S-146 (decision record, done). Account saves that are refused are now reported.
 - 2026-10-21 — S-142 full editor done. Open in the paper group: nothing planned; next ideas are cross-references by number, a rich-text editor, and journal templates.
 - 2026-10-21 — S-143 done (PDF export of the preview).
 - 2026-10-21 — S-139 done (equations, figures, tables in the preview). Added KaTeX as a dependency.
