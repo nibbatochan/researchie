@@ -18,6 +18,7 @@ export interface OutlineSection {
   title: string;
   hint: string; // one line: what goes here
   point: string; // the researcher's one-sentence point for this section
+  done?: boolean; // the researcher marked this section finished; only allowed while the checklist passes (checklist.ts)
   draft?: SectionDraft; // AI-written text for this section, every sentence tied to clips; see draft.ts
   parts: OutlinePart[];
 }
@@ -93,6 +94,15 @@ export function setSectionDraft(outline: PaperOutline, sectionId: string, draft:
     const next = { ...s };
     if (draft) next.draft = draft;
     else delete next.draft;
+    return next;
+  });
+}
+
+export function setSectionDone(outline: PaperOutline, sectionId: string, done: boolean): PaperOutline {
+  return mapSection(outline, sectionId, (s) => {
+    const next = { ...s };
+    if (done) next.done = true;
+    else delete next.done;
     return next;
   });
 }
@@ -184,9 +194,17 @@ export function sectionStatus(section: OutlineSection): SectionStatus {
   return 'empty';
 }
 
-/** The first section that is not yet framed, so the user always knows what comes next. */
+/** Sections the researcher has marked done. */
+export function doneCount(outline: PaperOutline): number {
+  return outline.sections.filter((s) => s.done).length;
+}
+
+/**
+ * What to work on next, so the user always knows: the first section not yet started, or when every
+ * section is started, the first one not yet marked done.
+ */
 export function nextSection(outline: PaperOutline): OutlineSection | undefined {
-  return outline.sections.find((s) => sectionStatus(s) === 'empty');
+  return outline.sections.find((s) => !s.done && sectionStatus(s) === 'empty') ?? outline.sections.find((s) => !s.done);
 }
 
 function parseDraft(raw: unknown): SectionDraft | undefined {
@@ -220,6 +238,7 @@ export function parseOutline(raw: unknown): PaperOutline | undefined {
       hint: String(s.hint ?? ''),
       point: String(s.point ?? ''),
       ...(parseDraft(s.draft) ? { draft: parseDraft(s.draft) } : {}),
+      ...(s.done === true ? { done: true } : {}),
       parts: s.parts
         .filter((p) => p && typeof p.id === 'string')
         .map((p) => ({ id: p.id, title: String(p.title ?? ''), clipIds: Array.isArray(p.clipIds) ? p.clipIds.filter((c) => typeof c === 'string') : [] })),

@@ -18,6 +18,7 @@ export interface ClipInfo {
   kind: EvidenceKind;
   record?: CitationRecord;
   page?: string | number;
+  retractionState?: string; // metadata.health.retraction.state when a source-health check has run
 }
 
 export type PreviewBlock =

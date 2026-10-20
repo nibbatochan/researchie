@@ -207,6 +207,63 @@ Statuses: not started, in progress, blocked, done, dropped.
     - [dropped] Enforce free-plan limits {S-56}
           | What: Free-tier caps (3 projects, 25 block clips a month) were never enforced. Dropped by you on 2026-10-14.
 
+  - [in progress] Paper writing {S-128}
+        | What: Turn clips into a structured, cited paper section by section, with a preview of how it will look. The preview is for understanding and motivation only. It is not journal formatting and must never say it replaces a journal editor. Research: docs/research/paper-preview.md and docs/research/notebooklm-zotero-workflow.md.
+    - [done] Clip evidence kinds {S-129}
+          | What: Every clip is Quote, AI summary or Mine. Only a Quote can be put in quotation marks or cited. Quote check returns no page for a failed match.
+          | Done: 2026-10-20. src/lib/atoms/evidence.ts, claimSupport.ts.
+    - [done] Paper outline {S-130}
+          | What: Research article and literature review templates, parts inside each section, drag to reorder, drag clips onto parts, "next section" guide.
+          | Done: 2026-10-20. src/lib/paper/outline.ts, PaperOutlineView.tsx. Saved in the browser only (see S-138).
+    - [done] Harvard and numbered (IEEE) in-text citations {S-131}
+          | What: Markers jump to the reference list and back; style switch re-renders from the same data. Covers part of S-107 and S-108.
+          | Done: 2026-10-20. harvard.ts, ieee.ts, inText.ts.
+          | Left: Layouts are not yet checked against the style guides (S-140).
+    - [done] Paper preview {S-132}
+          | What: Published-looking page built from the outline with a permanent "Preview only, not journal formatting" banner. Single column.
+          | Done: 2026-10-20. PaperPreview.tsx, src/lib/paper/preview.ts.
+    - [done] AI draft of a section with sentence checks {S-133}
+          | What: One model call per section from that section's clips only. Each sentence is checked: no source, fake quote, invented number, text copied without quotation marks, AI-summary only.
+          | Done: 2026-10-20. src/lib/paper/draft.ts, /api/ai/draft.
+          | Left: Checks do not test that a rewording keeps the clip's meaning. The researcher reads each sentence against its clip.
+    - [done] Section checklist and "Mark as done" {S-134}
+          | What: A section can be marked done only when: every sentence has a source, no fake quote or invented number, every [ ? ] placeholder is filled, no retracted source. Then the guide moves to the next section. Retraction flag depends on S-127 being fixed so a notice is not shown as a retracted paper.
+          | Model: Sonnet · S · medium
+          | Done: 2026-10-20. src/lib/paper/checklist.ts, PaperOutlineView.tsx. A done section loses its Done mark if a later change makes a check fail.
+          | Left: The DOI lookup sets the retracted flag only when Crossref lists notices, so many sources have no result; the checklist warns about those. A real check needs the source-health work (S-78 design, S-79) and S-127.
+    - [done] Long-quote warning (over 50 words) {S-135}
+          | What: Warn on a quote over about 50 words: shorten, paraphrase, or check the journal's rules. Not blocking. 50 is the strictest figure found (NIHR Journals Library); Cambridge thesis guidance allows under 100, APA block-quotes at 40. Figures and tables need permission whatever their length.
+          | Model: Sonnet · S · low
+          | Done: 2026-10-20. LONG_QUOTE_WORDS in checklist.ts; warns, does not block.
+    - [done] Privacy line next to the Draft button {S-136}
+          | What: Say that the clip text goes to Groq and that unpublished work should be checked against Groq's terms. Groq docs say no retention of inference data by default, with up to 30 days for reliability and abuse checks; free tier is not stated separately (inferred).
+          | Model: Sonnet · S · low
+          | Done: 2026-10-20. Shown in each section's Draft panel.
+    - [not started] Paste box for NotebookLM answers {S-137}
+          | What: Match pasted text word for word against the user's PDFs. Found text becomes a Quote with a page; the rest stays an AI summary. No AI call.
+          | Model: Sonnet · M · medium
+    - [not started] Save outline and drafts to the account {S-138}
+          | What: Today they live in the browser only. Keep the previous draft when "Draft again" is used.
+          | Model: Sonnet · M · medium
+    - [not started] Equations, figures and tables in the preview {S-139}
+          | What: KaTeX for equations, captions and numbering for figures and tables. See section 5 of docs/research/paper-preview.md.
+          | Model: Sonnet · M · medium
+    - [not started] Check Harvard and IEEE layouts against the style guides {S-140}
+          | What: Layouts were written from the pattern as known. Verify against Cite Them Right (or the CSL style harvard-cite-them-right) and the IEEE Reference Guide.
+          | Model: Sonnet · S · medium
+    - [not started] Import references from RIS, BibTeX and Zotero {S-141}
+          | What: Same job as S-109. Match duplicates by DOI. Zotero Web API later.
+          | Model: Sonnet · M · medium
+    - [not started] Write your own section text {S-142}
+          | What: An editor for typing a section yourself, with citations inserted from clips. Today own words only enter as notes.
+          | Model: Sonnet · L · medium
+    - [not started] Export the preview to PDF {S-143}
+          | What: Pages, two columns, running headers (paged.js is MIT).
+          | Model: Sonnet · M · medium
+    - [not started] Fix e2e 04 selector {S-144}
+          | What: e2e/04-ai-assistant-and-synthesis.spec.ts looks for a button labelled "Researchie AI" that the app does not have. Not caused by the paper work; not confirmed against the commit before it.
+          | Model: Haiku · S · low
+
 ## Old IDs
 
 Items used to be called c1, p14 and so on. These still work in /scopetrack commands.
@@ -269,6 +326,7 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-20 — Added S-128 (Paper writing) with S-129 to S-144. S-129 to S-133 done; S-134 to S-136 done (checklist, long-quote warning, privacy line); S-137 to S-144 not started. From the paper-preview research and the gap check (retracted sources, quote length, privacy, draft history, equations).
 - 2026-10-17 — Added S-68 (How it works guide), done.
 - 2026-10-17 — Added S-66 (spatial canvas) and S-67 (canvas audit), done.
 - 2026-10-16 — Added S-61 (get the extension to testers, top priority) with S-62 to S-65. Found while checking the tester flow: testers had no way to install the extension.

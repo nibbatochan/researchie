@@ -293,4 +293,68 @@ test.describe('25. Paper outline', () => {
     const bad = await request.post('/api/ai/draft', { data: { nope: true } });
     expect(bad.status()).toBe(400);
   });
+
+  test('Mark as done is blocked by a missing citation or a retracted source, and works when the checks pass', async ({ page, request }) => {
+    const made: string[] = [];
+    const record = (over: Record<string, unknown>) => ({
+      status: 'verified_doi', sourceType: 'journal_article', resolvedFrom: 'crossref', missingFields: [],
+      journal: 'J Ex', volume: '1', pages: '1-2', year: 2021, title: 'A study', authors: [{ family: 'Kim', given: 'Dae' }], ...over,
+    });
+    const post = async (text: string, metadata: Record<string, unknown>) => {
+      const res = await request.post('/api/atoms', {
+        data: { projectId: PROJECT_ID, type: 'text', title: text, content: { rawText: text, text }, metadata: { sourceUrl: 'https://example.org/c', pageTitle: 'C', ...metadata }, tags: [] },
+      });
+      expect(res.ok()).toBeTruthy();
+      const json = await res.json();
+      made.push(json.data?.id || json.atom?.id || json.id);
+    };
+    const bare = `E2E check bare ${stamp}`;
+    const retracted = `E2E check retracted ${stamp}`;
+    const good = `E2E check good ${stamp}`;
+    await post(bare, {});
+    await post(retracted, { citation: record({ retracted: true, title: 'A retracted study' }) });
+    await post(good, { citation: record({ retracted: false }) });
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.evaluate((id) => window.localStorage.removeItem(`researchie.paperOutline.${id}`), PROJECT_ID);
+      await openOutline(page);
+      await page.getByTestId('template-imrad').click();
+
+      const intro = page.getByTestId('outline-section').filter({ has: page.getByRole('heading', { name: /Introduction/ }) });
+      await expect(intro.getByTestId('mark-done')).toBeDisabled();
+      await expect(intro.getByTestId('checklist-item').first()).toContainText('Nothing here yet');
+      await expect(intro.getByTestId('draft-privacy')).toContainText('Groq');
+
+      await intro.getByLabel('Add a part to Introduction').fill('Background');
+      await intro.getByRole('button', { name: 'Add part' }).click();
+      const part = intro.getByTestId('outline-part').first();
+      const pick = (label: string) => part.getByLabel(/Add a clip to Background/).selectOption({ label });
+
+      await pick(bare);
+      await expect(intro.getByTestId('checklist-item').filter({ hasText: 'no citation' })).toHaveCount(1);
+      await expect(intro.getByTestId('mark-done')).toBeDisabled();
+
+      await pick(retracted);
+      await expect(intro.getByTestId('checklist-item').filter({ hasText: 'has been retracted' })).toHaveCount(1);
+      await expect(intro.getByTestId('mark-done')).toBeDisabled();
+
+      // Remove the two bad clips: only the good one is left, and the section can be finished.
+      for (const t of [bare, retracted]) {
+        await part.getByTestId('outline-clip').filter({ hasText: t }).getByRole('button', { name: 'Remove clip from this part' }).click();
+      }
+      await pick(good);
+      await expect(intro.getByTestId('mark-done')).toBeEnabled();
+      await intro.getByTestId('mark-done').click();
+      await expect(intro.getByTestId('checklist')).toHaveAttribute('data-done', 'true');
+      await expect(page.getByTestId('outline-next')).toContainText('1 of 6 sections done');
+
+      // Adding a clip that fails the checks takes the Done mark away again; reopening is also possible.
+      await pick(bare);
+      await expect(intro.getByTestId('checklist')).toHaveAttribute('data-done', 'false');
+      await expect(page.getByTestId('outline-next')).toContainText('0 of 6 sections done');
+    } finally {
+      for (const id of made) if (id) await request.delete(`/api/atoms?id=${id}`);
+      await page.evaluate(() => window.localStorage.removeItem('researchie.inTextStyle'));
+    }
+  });
 });

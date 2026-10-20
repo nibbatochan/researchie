@@ -4,11 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ResearchAtom } from '@/lib/types/research';
 import { getEvidenceKind, EVIDENCE_LABEL } from '@/lib/atoms/evidence';
 import {
-  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, addPart, renamePart, removePart, movePart,
+  PAPER_TEMPLATES, createOutline, setPaperMeta, setSectionPoint, setSectionDraft, setSectionDone, addPart, renamePart, removePart, movePart,
   assignClip, unassignClip, placedClipIds, pruneMissingClips, sectionStatus, nextSection, parseOutline,
   type PaperOutline, type PaperTemplateId, type OutlineSection,
 } from '@/lib/paper/outline';
 import { PaperPreview } from './PaperPreview';
+import { checkSection, type SectionChecklist } from '@/lib/paper/checklist';
 import { buildPreview, type ClipInfo } from '@/lib/paper/preview';
 import { classifySentence, hasPlaceholder, countClips, MAX_CLIPS_PER_DRAFT, STATUS_MESSAGE, type DraftClip, type DraftInput } from '@/lib/paper/draft';
 import { renderCitations, IN_TEXT_STYLES, type InTextStyle, type CitedSource, type MarkerPart } from '@/lib/citations/inText';
@@ -88,7 +89,7 @@ function ClipChip({ atom, onRemove, draggable }: { atom: ResearchAtom; onRemove?
 }
 
 function SectionCard({
-  section, index, isNext, byId, unplaced, apply, markers, missingByPart, onDraft, drafting, draftError, draftClips,
+  section, index, isNext, byId, unplaced, apply, markers, missingByPart, onDraft, drafting, draftError, draftClips, checklist, done,
 }: {
   section: OutlineSection;
   index: number;
@@ -102,11 +103,13 @@ function SectionCard({
   drafting: boolean;
   draftError?: string;
   draftClips: Map<string, DraftClip>;
+  checklist: SectionChecklist;
+  done: boolean;
 }) {
   const [newPart, setNewPart] = useState('');
   const status = sectionStatus(section);
   const draftTotal = section.parts.reduce((n, p) => n + p.clipIds.filter((id) => draftClips.has(id)).length, 0);
-  const statusLabel = status === 'has-evidence' ? 'Has evidence' : status === 'framed' ? 'Framed, needs clips' : 'Not started';
+  const statusLabel = done ? 'Done' : status === 'has-evidence' ? 'Has evidence' : status === 'framed' ? 'Framed, needs clips' : 'Not started';
 
   return (
     <section
@@ -215,6 +218,9 @@ function SectionCard({
           <span className="text-[11px] text-slate-500 dark:text-zinc-500">
             {draftTotal === 0 ? 'Place clips under a part first.' : draftTotal > MAX_CLIPS_PER_DRAFT ? `Too many clips (${draftTotal}). Up to ${MAX_CLIPS_PER_DRAFT} per draft.` : 'AI writes from these clips only. You check every sentence.'}
           </span>
+          <p data-testid="draft-privacy" className="basis-full text-[11px] text-slate-500 dark:text-zinc-500">
+            Drafting sends the text of these clips to Groq, the AI service. Groq's docs say it does not keep this data by default, but it may keep it up to 30 days to fix faults or stop abuse. Check Groq's terms before you send unpublished work.
+          </p>
           {section.draft && (
             <button type="button" onClick={() => apply((o) => setSectionDraft(o, section.id, undefined))} className="ml-auto text-xs text-slate-500 hover:text-red-500">Clear draft</button>
           )}
@@ -248,6 +254,36 @@ function SectionCard({
               );
             })}
           </ol>
+        )}
+      </div>
+
+      <div data-testid="checklist" data-done={done} className={`mt-3 rounded-lg border p-2.5 ${done ? 'border-emerald-300 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20' : 'border-[#D9E1EC] dark:border-[#27272A]'}`}>
+        {done ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">Done. Every check passes.</span>
+            <button type="button" data-testid="reopen-section" onClick={() => apply((o) => setSectionDone(o, section.id, false))} className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200">Reopen</button>
+          </div>
+        ) : (
+          <>
+            {checklist.items.length > 0 ? (
+              <ul className="space-y-1">
+                {checklist.items.map((item) => (
+                  <li key={item.id} data-testid="checklist-item" data-severity={item.severity} className={`text-[11.5px] leading-snug ${item.severity === 'block' ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                    <span className="mr-1 font-mono text-[10px] font-semibold uppercase">{item.severity === 'block' ? 'Fix' : 'Check'}</span>{item.message}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[11.5px] text-emerald-800 dark:text-emerald-300">Every check passes. Read each sentence against its clip once more, then mark it done.</p>
+            )}
+            <button
+              type="button"
+              data-testid="mark-done"
+              disabled={!checklist.canComplete}
+              onClick={() => apply((o) => setSectionDone(o, section.id, true))}
+              className="mt-2 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+            >Mark as done</button>
+          </>
         )}
       </div>
 
@@ -378,8 +414,7 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
     return { markers, missingByPart, references: rendered.references, firstPart };
   }, [outline, byId, style]);
 
-  const previewDoc = useMemo(() => {
-    if (!outline) return undefined;
+  const clipInfos = useMemo(() => {
     const clips = new Map<string, ClipInfo>();
     for (const a of atoms) {
       const kind = getEvidenceKind(a);
@@ -389,10 +424,23 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
         kind,
         record: a.metadata?.citation,
         page: kind === 'quote' ? (a.metadata?.pageNumber ?? a.metadata?.page) : undefined,
+        retractionState: a.metadata?.health?.retraction?.state,
       });
     }
-    return buildPreview(outline, clips, style);
-  }, [outline, atoms, style]);
+    return clips;
+  }, [atoms]);
+
+  const previewDoc = useMemo(() => (outline ? buildPreview(outline, clipInfos, style) : undefined), [outline, clipInfos, style]);
+
+  // The checklist of every section, recomputed whenever clips, drafts or citations change.
+  const checklists = useMemo(() => {
+    const m = new Map<string, SectionChecklist>();
+    for (const s of outline?.sections ?? []) m.set(s.id, checkSection(s, clipInfos));
+    return m;
+  }, [outline, clipInfos]);
+
+  // A section stays done only while its checklist still passes.
+  const isDone = (s: OutlineSection) => !!s.done && (checklists.get(s.id)?.canComplete ?? false);
 
   return (
     <div data-testid="paper-outline" className="flex min-h-0 flex-1 flex-col">
@@ -469,10 +517,11 @@ export function PaperOutlineView({ projectId, atoms, onClose }: Props) {
               />
             </div>
             <p className="text-xs text-slate-600 dark:text-zinc-400" data-testid="outline-next">
-              {next ? <>Next: <strong>{next.title}</strong>. {next.hint}</> : 'Every section is started. Add clips to the thin ones.'}
+              {outline.sections.filter(isDone).length} of {outline.sections.length} sections done.{' '}
+              {next ? <>Next: <strong>{next.title}</strong>. {next.hint}</> : 'Every section is done. Preview it, then check the journal\'s own format before you submit.'}
             </p>
             {outline.sections.map((s, i) => (
-              <SectionCard key={s.id} section={s} index={i} isNext={next?.id === s.id} byId={byId} unplaced={unplaced} apply={apply} markers={citations.markers} missingByPart={citations.missingByPart} onDraft={() => draftSection(s)} drafting={draftingId === s.id} draftError={draftErrors[s.id] || undefined} draftClips={draftClips} />
+              <SectionCard key={s.id} section={s} index={i} isNext={next?.id === s.id} byId={byId} unplaced={unplaced} apply={apply} markers={citations.markers} missingByPart={citations.missingByPart} onDraft={() => draftSection(s)} drafting={draftingId === s.id} draftError={draftErrors[s.id] || undefined} draftClips={draftClips} checklist={checklists.get(s.id) ?? { items: [], canComplete: false }} done={isDone(s)} />
             ))}
 
             <section data-testid="reference-list" className="rounded-xl border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#0F0F12] p-4">
