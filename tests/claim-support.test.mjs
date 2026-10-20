@@ -21,7 +21,7 @@ test('normalizeForMatch lowercases and drops punctuation but keeps letters in an
 
 test('a verbatim quote is supported and reports its page', () => {
   const r = checkQuoteAgainstPages('integrations via OAuth 2.1 protocols', pages);
-  assert.deepEqual(r, { supported: true, pageNumber: 2 });
+  assert.deepEqual(r, { supported: true, exact: true, pageNumber: 2 });
 });
 
 test('matching ignores case, punctuation and line breaks', () => {
@@ -71,4 +71,16 @@ test('a quote whose word is split across a PDF line break is still supported', (
   const out = checkQuoteAgainstPages('Fifteen healthy young participants (21 ± 4 yrs) participated in the experiment.', pages);
   assert.equal(out.supported, true);
   assert.equal(out.pageNumber, 3);
+});
+
+test('a failed match reports no page, so a near miss can not be cited', () => {
+  const r = checkQuoteAgainstPages('The stock trades at 300 dollars per share on NASDAQ', pages);
+  assert.deepEqual(r, { supported: false });
+});
+
+test('only a word-for-word match is exact; loose overlap is supported but not exact', () => {
+  assert.equal(checkQuoteAgainstPages('integrations via OAuth 2.1 protocols', pages).exact, true);
+  const loose = checkQuoteAgainstPages('native integrations through OAuth 2.1 protocols, including Google Workspace', pages);
+  assert.equal(loose.supported, true);
+  assert.equal(loose.exact, false);
 });

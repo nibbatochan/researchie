@@ -9,6 +9,7 @@ export interface ProvenanceMetadata {
   pageIdentifiers?: { doi?: string; pmid?: string }; // read from the page's citation meta tags at clip time
   pageInfo?: { url: string; title?: string; siteName?: string; author?: string; published?: string; updated?: string }; // web-source fallback
   pinnedAt?: string; // set when the atom is pinned to the top of the feed; see src/lib/atoms/pin.ts
+  evidenceKind?: 'quote' | 'ai-summary' | 'mine'; // how the clip may be used in a paper; see src/lib/atoms/evidence.ts
   sourceUrl: string;
   pageTitle: string;
   domainFavicon?: string;

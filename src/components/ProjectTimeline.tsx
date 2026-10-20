@@ -1,5 +1,6 @@
 'use client';
 
+import { PaperOutlineView } from './PaperOutlineView';
 import { EmptyFeedIllustration } from './illustrations';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
@@ -127,6 +128,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'clean' | 'detailed'>('clean');
+  const [isPaperOpen, setIsPaperOpen] = useState(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
@@ -589,6 +591,19 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             </button>
           )}
 
+          {/* Paper outline: plan where clips go in a paper (feed mode, real projects only) */}
+          {workspaceMode === 'feed' && project?.id !== 'all' && (
+            <button
+              onClick={() => setIsPaperOpen((v) => !v)}
+              data-testid="paper-outline-btn"
+              aria-pressed={isPaperOpen}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-sans font-medium border transition-all shadow-xs flex-shrink-0 ${isPaperOpen ? 'bg-[#EEF3F8] dark:bg-[#1C1C20] text-[#325FEC] dark:text-[#518FFF] border-[#325FEC]' : 'bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-300 border-[#D9E1EC] dark:border-[#27272A]'}`}
+              title="Plan your paper: sections, parts, and where each clip goes"
+            >
+              <span>Paper</span>
+            </button>
+          )}
+
           {/* Export Project Button (Only in Feed Mode, hidden in Canvas Mode) */}
           {workspaceMode !== 'canvas' && (
             <button
@@ -752,6 +767,10 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               onClose={() => onWorkspaceModeChange?.('feed')}
               onCreateAtom={onCreateAtom}
             />
+          </div>
+        ) : workspaceMode === 'feed' && isPaperOpen && project && project.id !== 'all' ? (
+          <div className="flex-1 min-w-0 h-full overflow-hidden relative flex flex-col">
+            <PaperOutlineView projectId={project.id} atoms={atoms} onClose={() => setIsPaperOpen(false)} />
           </div>
         ) : workspaceMode === 'canvas' ? (
           <div className="flex-1 min-w-0 h-full overflow-hidden relative">

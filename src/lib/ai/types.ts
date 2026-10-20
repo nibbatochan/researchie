@@ -77,6 +77,8 @@ export interface AISynthesisResult {
 }
 
 export interface AIServiceAdapter {
+  /** One JSON-only completion from a system and a user message; returns the raw text. Absent on adapters with no model. */
+  completeJson?(system: string, user: string, maxTokens: number): Promise<string>;
   summarizePage(pageText: string, pageTitle: string, mode?: SummaryMode): Promise<AISummaryResult>;
   askPageQuestion(pageText: string, question: string): Promise<AIQnAResult>;
   synthesizeAtoms?(

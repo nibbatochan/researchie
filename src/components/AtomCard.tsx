@@ -23,6 +23,7 @@ import {
 } from '@phosphor-icons/react';
 import { ResearchAtom } from '@/lib/types/research';
 import { isPinned } from '@/lib/atoms/pin';
+import { getEvidenceKind, EVIDENCE_LABEL } from '@/lib/atoms/evidence';
 import { buildDeepLink } from '@/lib/utils/textFragments';
 import { BlockAtomCard } from './BlockAtomCard';
 import { ImageAtomCard } from './ImageAtomCard';
@@ -773,6 +774,22 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               <span>Verified Snapshot</span>
             </span>
           )}
+          {(() => {
+            const kind = getEvidenceKind(atom);
+            const tone =
+              kind === 'quote' ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/40' :
+              kind === 'ai-summary' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900/40' :
+              'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900/40';
+            const hint =
+              kind === 'quote' ? 'Words copied from the source. Can be quoted and cited.' :
+              kind === 'ai-summary' ? "Written by an AI. Never cite it as the paper's own words." :
+              'Your own words. Needs no citation.';
+            return (
+              <span data-testid="evidence-badge" data-kind={kind} title={hint} className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${tone}`}>
+                {EVIDENCE_LABEL[kind]}
+              </span>
+            );
+          })()}
           {typeof atom.similarity === 'number' && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#EEF3F8] dark:bg-[#18181B] text-[#325FEC] dark:text-[#518FFF] border border-[#D9E1EC] dark:border-[#27272A]">
               {Math.round(atom.similarity * 100)}% match

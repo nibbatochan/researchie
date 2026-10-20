@@ -136,6 +136,21 @@ export class GroqAIAdapter implements AIServiceAdapter {
     }
   }
 
+  async completeJson(system: string, user: string, maxTokens: number): Promise<string> {
+    const data = await this.callChatCompletion({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_tokens: maxTokens,
+      // The 7B model follows grounding rules poorly: "busy" is better than a bad draft.
+      skipModels: ['allam-2-7b'],
+    });
+    return data.choices?.[0]?.message?.content || '';
+  }
+
   private async askOnce(context: string, question: string): Promise<AIQnAResult> {
     const prompt = `You are an expert grounded research assistant. Answer the question using ONLY the document passages below.
 

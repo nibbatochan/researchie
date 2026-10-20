@@ -10,8 +10,12 @@ export interface SourcePage {
 
 export interface QuoteCheck {
   supported: boolean;
-  // Page where the quote was found (or the closest page when it was not found).
+  // Page where the quote was found. Never set when the quote was not found, so a near miss
+  // can not be shown as a citation.
   pageNumber?: number;
+  // True only for a word-for-word match. A loose-overlap match is supported but not exact,
+  // so it can not be presented as a verbatim quote.
+  exact?: boolean;
 }
 
 // Share of quote words that must appear in one page when the quote is not verbatim.
@@ -41,7 +45,7 @@ export function checkQuoteAgainstPages(quote: string, pages: SourcePage[]): Quot
   for (const page of pages) {
     const padded = ` ${normalizeForMatch(page.content)} `;
     if (padded.includes(` ${q} `)) {
-      return { supported: true, pageNumber: page.pageNumber };
+      return { supported: true, exact: true, pageNumber: page.pageNumber };
     }
     const pageTokens = new Set(padded.trim().split(' '));
     const hits = quoteTokens.filter((t) => pageTokens.has(t)).length;
@@ -53,7 +57,7 @@ export function checkQuoteAgainstPages(quote: string, pages: SourcePage[]): Quot
   }
 
   if (quoteTokens.length >= MIN_TOKENS_FOR_OVERLAP && bestScore >= MIN_TOKEN_OVERLAP) {
-    return { supported: true, pageNumber: bestPage };
+    return { supported: true, exact: false, pageNumber: bestPage };
   }
-  return { supported: false, pageNumber: bestPage };
+  return { supported: false };
 }
