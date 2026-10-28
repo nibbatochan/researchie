@@ -15,7 +15,7 @@ export async function openFixtureReader(page: Page) {
   await expect(project).toBeVisible({ timeout: 20000 });
   await project.click();
 
-  const docsButton = page.locator('button[title="Docs"], button:has-text("Docs")').first();
+  const docsButton = page.locator('button[title="Docs"], button:has-text("Docs"), button:has-text("Document"):not(:has-text("Library"))').first();
   await expect(docsButton).toBeVisible({ timeout: 15000 });
   await docsButton.click();
 

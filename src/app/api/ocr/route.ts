@@ -3,6 +3,9 @@ import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { isPublicHttpUrl } from '@/lib/security/publicUrl';
 import { extractTextFromImage } from '@/lib/ocr/ocrService';
 
+// OCR can take longer than the default function time on a cold start (it fetches language data once).
+export const maxDuration = 60;
+
 // We can limit concurrency or process immediately
 export async function POST(request: Request) {
   const auth = await authorize(request);
@@ -24,9 +27,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const { text, confidence } = await extractTextFromImage(source);
+    const { text, confidence, error } = await extractTextFromImage(source);
     
-    return NextResponse.json({ text, confidence });
+    return NextResponse.json({ text, confidence, ...(error ? { error } : {}) });
   } catch (error) {
     console.error('API OCR Error:', error);
     return NextResponse.json({ error: 'Failed to process image' }, { status: 500 });

@@ -15,30 +15,16 @@ import { ImportRefsPanel } from './ImportRefsPanel';
 import type { CitationRecord } from '@/lib/citations/types';
 import type { NewClip } from '@/lib/paper/pasteMatch';
 import { checkSection, type SectionChecklist } from '@/lib/paper/checklist';
-import { parseTable } from '@/lib/paper/tableParse';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 import { outlineKey, readOutline, serializeOutline, STYLE_PREF_KEY } from '@/lib/paper/store';
 import { buildPreview, type ClipInfo } from '@/lib/paper/preview';
 import { classifySentence, hasPlaceholder, countClips, MAX_CLIPS_PER_DRAFT, STATUS_MESSAGE, type DraftClip, type DraftInput } from '@/lib/paper/draft';
 import { renderCitations, IN_TEXT_STYLES, type InTextStyle, type CitedSource, type MarkerPart } from '@/lib/citations/inText';
 
-const CLIP_MIME = 'application/x-researchie-clip';
-const PART_MIME = 'application/x-researchie-part';
+import { CLIP_MIME, PART_MIME } from '@/lib/paper/dnd';
+import { clipPreview, buildClipInfos } from '@/lib/paper/clipInfo';
 
-/** An image clip is a figure; a clip that holds an HTML table is a table. Only the table's text is kept. */
-function mediaOf(a: ResearchAtom): ClipInfo['media'] {
-  const caption = (a.content?.description || a.userNotes || a.title || '').trim();
-  if (a.type === 'image' && a.content?.imageUrl) return { kind: 'image', src: a.content.imageUrl, caption };
-  const html = a.content?.sanitizedHtml || a.content?.rawText || '';
-  const table = a.type === 'block' ? parseTable(html) : undefined;
-  return table ? { kind: 'table', table, caption: table.caption || caption } : undefined;
-}
-
-function clipText(atom: ResearchAtom): string {
-  const text = atom.content?.text || atom.content?.rawText || atom.metadata?.selectedText || atom.title || '';
-  return text.length > 140 ? `${text.slice(0, 140)}…` : text;
-}
-
+const clipText = (atom: ResearchAtom) => clipPreview(atom);
 
 function jumpTo(elementId: string) {
   const el = document.getElementById(elementId);
@@ -450,22 +436,7 @@ export function PaperOutlineView({ projectId, atoms: atomsProp, onClose, onCreat
     return { markers, missingByPart, references: rendered.references, firstPart };
   }, [outline, byId, style]);
 
-  const clipInfos = useMemo(() => {
-    const clips = new Map<string, ClipInfo>();
-    for (const a of atoms) {
-      const kind = getEvidenceKind(a);
-      clips.set(a.id, {
-        id: a.id,
-        text: a.content?.text || a.content?.rawText || a.metadata?.selectedText || a.title || '',
-        kind,
-        record: a.metadata?.citation,
-        page: kind === 'quote' ? (a.metadata?.pageNumber ?? a.metadata?.page) : undefined,
-        retractionState: a.metadata?.health?.retraction?.state,
-        media: mediaOf(a),
-      });
-    }
-    return clips;
-  }, [atoms]);
+  const clipInfos = useMemo(() => buildClipInfos(atoms), [atoms]);
 
   const previewDoc = useMemo(() => (outline ? buildPreview(outline, clipInfos, style) : undefined), [outline, clipInfos, style]);
 

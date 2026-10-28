@@ -1,12 +1,13 @@
 # Current Project Context
 
-> **Active Version:** `v1.8.1` (PDF research report export, citation styles, Document Assistant UI fixes, on top of v1.7.0)  
-> **Last Synced:** 2026-10-14  
-> **Status:** All core modules active. The Citation Engine, Document Assistant Q&A, Chrome clipping and the PDF export are built and verified live (section 4). Open work is listed in section 4.
+> **Active Version:** `v1.9.18` (onboarding flow, small motion and spot illustrations, light-mode greys, on top of the tester deployment, sharing, source health and the canvas audit)  
+> **Last Synced:** 2026-10-18  
+> **Status:** All core modules active. A tester site is live (accounts, per-user data, your own AI key, sharing). The roadmap and open work are in `SCOPE.md` (S-69 onward); known limits are in section 4.
 
 ---
 
 ## 1. Running Services & URLs
+- **Tester site**: `https://researchie-testers.vercel.app` (Vercel Hobby, uploaded with the CLI; Supabase testers project; `AUTH_REQUIRED=true`). Local mode (`AUTH_REQUIRED` unset) has no accounts and uses JSON files.
 - **Web Platform**: [`http://localhost:3001`](http://localhost:3001) (Next.js 15 dev server)
 - **Local Test Lab & Gorilla Research Sandbox**: [`http://localhost:3001/sandbox/gorilla-research`](http://localhost:3001/sandbox/gorilla-research) & [`http://localhost:3001/test-lab`](http://localhost:3001/test-lab)
 - **Chrome Extension Directory**: `extension/` (Manifest V3 with `sidePanel`, Content Scripts, and popup)
@@ -25,6 +26,10 @@
 | **OCR & Search Engine** | ✅ Active | Automatic background Tesseract OCR on imported images/clips, fully searchable OCR text across platform, search match highlighting with auto-expand in detailed view. |
 | **AI Synthesis Suite** | ✅ Active | Grounded Doc Assistant with page citations, Timeline AI Assistant (~380px sidebar), PRD / Synthesis generator, and Semantic Vector Search (`/api/atoms/search`). |
 | **Workspaces & Views** | ✅ Active | 3 core workspace modes: **Stream / Feed**, **Spatial Canvas**, and **Document Reader**. Mode selection is preserved across sub-project switches. |
+| **Accounts & tester site** | ✅ Active | Email and password sign-up, authenticator-app MFA, per-user data in Supabase (migrations 001 to 004), extension tokens, your own AI key (Groq, Cerebras, OpenRouter or Google, stored encrypted), Notion token saved in the account, delete-your-own-account, Google sign-in built and switched on by setup. |
+| **Sharing** | ✅ Built, live check pending | Invite by email with editor or viewer, view and edit links, access requests with approve or deny, "Shared with me" in the sidebar. Enforced in the data layer (`src/lib/data/sharing.ts`, `roles.ts`). Migration 004 is run; the two-account check is S-73. |
+| **Source health** | 🟡 Part built | Retraction, concern and correction states with plain wording; OpenAlex as a second source. Scheduled re-checks and page-changed detection are planned (S-77 onward). |
+| **Onboarding & setup guide** | ✅ Active | Full-screen first-run flow (welcome, set up the extension and AI key, what it is, how to use); reopen from How it works on the dashboard or from Settings. `src/components/WelcomeModal.tsx`. |
 | **Export Engine** | ✅ Active | Export to Obsidian Vault (.zip / .md), Notion (API Push / .md), Markdown (`.md`), Citations (APA / BibTeX `.bib`), Raw JSON, and a **PDF research report** (v1.8.0: cover, contents, clip cards, numbered bibliography in Vancouver, APA or AMA, colour key; code in `src/lib/export/pdf/`, panel `src/components/PdfExportPanel.tsx`). |
 
 ---
@@ -48,7 +53,7 @@
 
 ---
 
-## 4. Known Limits & Open Work (as of 2026-10-14)
+## 4. Known Limits & Open Work (as of 2026-10-18)
 
 - **Groq free tier:** about 8,000 tokens per minute and 200,000 tokens per day per model. One question costs about 4,000 to 6,000 tokens. When the allowance is used up the Q&A answers "The AI service is busy or the request was too large. Try again in a minute.", which is expected. **Verified live on 2026-10-13: 18 of 18 test questions passed** with every citation verified and no warning flag (12 in one batch, then the other 6 one at a time, 3 minutes apart, after the daily allowance recovered). The reliable way to use the free tier is one question at a time, a few minutes apart.
 - **Local models (optional):** `AI_PROVIDER=ollama` (with `OLLAMA_MODEL`) sends Q&A to a local Ollama server. `qwen2.5:7b` passed 11 of 18 test questions and `deepseek-r1` 1 of 18, so local models are a no-quota test fallback, not a replacement for Groq.
@@ -57,5 +62,6 @@
 - **PDF export limits:** the contents page has no page numbers (links only). Characters no bundled font has (for example Chinese) print as a visible replacement mark and are listed in the dialog first. An image from another website is skipped if the browser cannot load it without cross-site permission. A 77-clip project with images makes a 69-page PDF of about 4 MB in about 18 seconds. A PDF cannot force a link into a new tab, so the report tells the reader to Ctrl-click (Cmd-click on a Mac). A clip from an uploaded PDF whose document has no saved citation prints "Uploaded PDF - p. N".
 - **Verified live:** the Chrome extension in real Chrome clipped a PLoS ONE sentence, captured its DOI and title, resolved "verified doi" with no typing, and its Undo removed a clip (2026-10-13); the retraction check on the retracted 1998 Lancet paper through PubMed and Crossref (2026-10-12); Groq 18 of 18 (2026-10-13); a PDF export of the real 77-clip project, read page by page and re-read as text (2026-10-14); the production build compiles, type-checks and generates all 24 pages, with the PDF library in lazy chunks (2026-10-14, built with placeholder environment values).
 - **Security (2026-10-13):** the real Supabase keys were written inside `docs/superpowers/plans/2026-09-25-researchie-phase1.md`. They were replaced by placeholders in every commit before the first push, none of the `.env.local` values remains in any pushed commit, and the service key was rotated (the old key now answers 401). The local branches `main` and `cleanup/2026-10-09` were not rewritten and may still hold the old values: do not push them without the same scrub. Before every push, search all unpushed commits for each value in `.env.local`.
-- **Tests:** unit (159): `node --test --no-warnings tests/citations.test.mjs tests/citations-resolvers.test.mjs tests/citations-verify.test.mjs tests/citations-manual.test.mjs tests/citations-formats.test.mjs tests/citations-apa.test.mjs tests/citations-ama.test.mjs tests/claim-support.test.mjs tests/passages.test.mjs tests/answer-links.test.mjs tests/pdf-report.test.mjs tests/pdf-render.test.mjs tests/pdf-glyphs.test.mjs tests/citations-status.test.mjs`. Browser: `BASE_URL=http://localhost:3001 npx playwright test e2e/<spec>` (the default base URL is port 3000 but the dev server runs on 3001). `e2e/07` and `e2e/08` pass 28 of 28 over two repeats; `e2e/09` to `e2e/13` cover the link icons, assistant UI, citation copy, PDF mismatch and PDF export. `e2e/06` calls live Groq and asserts the model's exact wording, so it is not part of routine runs.
-- **Git:** remote `origin` is https://github.com/nibbatochan/researchie. Branch `feat/canvas-pdf-ui-and-citation-core` is pushed up to `c561721`. The PDF export commits `915275a` and `59d77fc` and any later log commits are not pushed yet. `.documents-store.json` and `.cognee-graph-*.json` are untracked and in `.gitignore`. Another session has uncommitted project-icon work (`ProjectIcon.tsx`, `ProjectList.tsx`, `CreateProjectModal.tsx`, `page.tsx`); it is not part of these logs.
+- **Tests:** unit (326): `node --test --no-warnings tests/*.test.mjs`. Browser: `BASE_URL=http://localhost:3001 npx playwright test e2e/<spec>` (the default base URL is port 3000 but the dev server runs on 3001). `playwright.config.ts` starts every spec as someone who already closed the onboarding; `e2e/23` clears that to test it. `e2e/06` calls live Groq and asserts the model's exact wording, so it is not part of routine runs. The full browser suite has not been run end to end since the canvas and onboarding work.
+- **Git:** remote `origin` is https://github.com/nibbatochan/researchie. Branch `feat/canvas-pdf-ui-and-citation-core` is pushed up to `d0b1e41`. `.documents-store.json` and `.cognee-graph-*.json` are untracked and in `.gitignore`. `.agents/`, `.claude/skills/` and `skills-lock.json` are untracked tooling folders and are not part of the app.
+- **Data layer limits:** clip and document lists are read in pages of 1,000 rows (S-74). `/api/atoms/search` still loads every clip and scores in memory (S-84). `supabase/schema.sql` no longer creates open policies (S-72).

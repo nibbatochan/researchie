@@ -13,6 +13,8 @@ const rec = (over = {}) => ({
   doi: '10.1000/xyz', authors: [{ family: 'Lee', given: 'Jane Alice' }, { family: 'Patel', given: 'Raj' }], ...over,
 });
 const src = (id, over, page) => ({ sourceId: id, record: rec(over), page });
+// a source of its own: clips of one paper are merged, so sources that must stay apart need their own title
+const distinct = (id, page) => src(id, { title: `Paper ${id}` }, page);
 
 test('Harvard reference: author-date layout with initials, quoted title and pages', () => {
   assert.equal(
@@ -62,21 +64,21 @@ test('Harvard: same author and year get a, b in marker and reference; list is al
 });
 
 test('IEEE: numbers follow first citation and the same source keeps its number', () => {
-  const out = renderCitations('ieee', [[src('b')], [src('a')], [src('b')]]);
+  const out = renderCitations('ieee', [[distinct('b')], [distinct('a')], [distinct('b')]]);
   assert.deepEqual(out.markers.map(markerText), ['[1]', '[2]', '[1]']);
   assert.deepEqual(out.references.map((r) => [r.label, r.sourceId]), [['[1]', 'b'], ['[2]', 'a']]);
 });
 
 test('IEEE: several numbers are listed one by one, with no range, as in the ieee.csl style', () => {
   const ids = ['a', 'b', 'c', 'd', 'e'];
-  const first = renderCitations('ieee', [ids.map((id) => src(id))]);
+  const first = renderCitations('ieee', [ids.map((id) => distinct(id))]);
   assert.equal(markerText(first.markers[0]), '[1], [2], [3], [4], [5]');
-  const gaps = renderCitations('ieee', [ids.map((id) => src(id)), [src('a'), src('c'), src('d')]]);
+  const gaps = renderCitations('ieee', [ids.map((id) => distinct(id)), [distinct('a'), distinct('c'), distinct('d')]]);
   assert.equal(markerText(gaps.markers[1]), '[1], [3], [4]');
 });
 
 test('IEEE: a page number keeps each number separate: [1, p. 14]', () => {
-  const out = renderCitations('ieee', [[src('a', {}, 14), src('b')]]);
+  const out = renderCitations('ieee', [[distinct('a', 14), distinct('b')]]);
   assert.equal(markerText(out.markers[0]), '[1, p. 14], [2]');
 });
 
@@ -121,4 +123,135 @@ test('IEEE uses the abbreviated journal title when there is one; preprints and d
     formatIeee(rec({ sourceType: 'dataset', publisher: 'Zenodo', doi: undefined, url: 'https://zenodo.org/r/1' })),
     'J. A. Lee and R. Patel, "Sleep and memory in adults," Zenodo, 2020. [Online]. Available: https://zenodo.org/r/1',
   );
+});
+
+test('two clips of one paper are listed once, in both styles', () => {
+  const twin = (id) => src(id); // same DOI, title, year and first author
+  for (const style of ['ieee', 'harvard']) {
+    const out = renderCitations(style, [[twin('a')], [twin('b')]]);
+    assert.equal(out.references.length, 1, style);
+    assert.equal(markerText(out.markers[0]), markerText(out.markers[1]), style);
+  }
+});
+
+// ---- APA, Vancouver, AMA
+const three = (id, family, year, extra = {}) => src(id, { title: `Paper ${id}`, year, authors: [{ family, given: 'A' }], doi: `10.1/${id}`, ...extra });
+const markers = (style, groups) => renderCitations(style, groups).markers.map(markerText);
+
+test('APA in text: & between two authors, et al. from three, alphabetical inside one bracket, page as p.', () => {
+  const two = src('a'); // Lee and Patel
+  assert.equal(markers('apa', [[two]])[0], '(Lee & Patel, 2020)');
+  const many = src('m', { title: 'Many', authors: [{ family: 'Kim' }, { family: 'Lee' }, { family: 'Ng' }], doi: '10.1/m' });
+  assert.equal(markers('apa', [[many]])[0], '(Kim et al., 2020)');
+  const abe = three('x', 'Abe', 2018);
+  const zed = three('y', 'Zed', 2010);
+  assert.equal(markers('apa', [[zed, abe]])[0], '(Abe, 2018; Zed, 2010)'); // alphabetical, not oldest first
+  assert.equal(markers('apa', [[{ ...abe, page: 14 }]])[0], '(Abe, 2018, p. 14)');
+});
+
+test('APA: two papers by one author in one year get a and b in the text and in the list', () => {
+  const x = three('x', 'Abe', 2018);
+  const y = three('y', 'Abe', 2018);
+  const out = renderCitations('apa', [[x], [y]]);
+  assert.deepEqual(out.markers.map(markerText), ['(Abe, 2018a)', '(Abe, 2018b)']);
+  assert.ok(out.references[0].text.includes('(2018a)'));
+  assert.ok(out.references[1].text.includes('(2018b)'));
+  assert.equal(out.references.length, 2);
+});
+
+test('Vancouver: numbers in round brackets, in order of first citation, ranges of three or more collapse', () => {
+  const s = ['a', 'b', 'c', 'd', 'e'].map((id) => three(id, `F${id}`, 2020));
+  assert.equal(markers('vancouver', [[s[0]]])[0], '(1)');
+  assert.equal(markers('vancouver', [s])[0], '(1-5)');
+  assert.equal(markers('vancouver', [[s[0], s[1]]])[0], '(1,2)'); // two in a row stay apart
+  assert.equal(markers('vancouver', [s, [s[0], s[2], s[3], s[4]]])[1], '(1,3-5)');
+  assert.equal(markers('vancouver', [[{ ...s[0], page: 14 }]])[0], '(1 p. 14)');
+  const refs = renderCitations('vancouver', [s]).references;
+  assert.deepEqual(refs.map((r) => r.label), ['1.', '2.', '3.', '4.', '5.']);
+  assert.ok(!/^\[/.test(refs[0].text));
+});
+
+test('AMA: superscript numbers, ranges, no page in the text', () => {
+  const s = ['a', 'b', 'c', 'd'].map((id) => three(id, `F${id}`, 2020));
+  assert.equal(markers('ama', [[s[0]]])[0], '¹');
+  assert.equal(markers('ama', [s])[0], '¹⁻⁴');
+  assert.equal(markers('ama', [s, [s[0], s[2]]])[1], '¹,³');
+  assert.equal(markers('ama', [[{ ...s[0], page: 14 }]])[0], '¹');
+  const refs = renderCitations('ama', [s]).references;
+  assert.equal(refs[0].label, '1.');
+});
+
+test('every marker part that names a source points at a listed reference, in every style', () => {
+  const s = ['a', 'b', 'c'].map((id) => three(id, `F${id}`, 2020));
+  for (const style of ['harvard', 'apa', 'ieee', 'vancouver', 'ama']) {
+    const out = renderCitations(style, [s, [s[1]]]);
+    const ids = new Set(out.references.map((r) => r.sourceId));
+    for (const m of out.markers) for (const part of m) if (part.sourceId) assert.ok(ids.has(part.sourceId), `${style}: ${part.text}`);
+  }
+});
+
+// ---- MLA 9 and Chicago author-date
+import { formatMla } from '../src/lib/citations/mla.ts';
+import { formatChicago } from '../src/lib/citations/chicago.ts';
+
+test('MLA works-cited entry for a journal article', () => {
+  assert.equal(
+    formatMla(rec()),
+    'Lee, Jane Alice, and Raj Patel. "Sleep and memory in adults." Journal of Examples, vol. 12, no. 3, 2020, pp. 45-67, https://doi.org/10.1000/xyz.',
+  );
+});
+
+test('MLA: three or more authors give the first and et al.; no author starts with the title', () => {
+  const many = rec({ authors: [{ family: 'Kim', given: 'D' }, { family: 'Lee', given: 'C' }, { family: 'Ng', given: 'E' }] });
+  assert.ok(formatMla(many).startsWith('Kim, D, et al. "Sleep'));
+  assert.ok(formatMla(rec({ authors: [] })).startsWith('"Sleep and memory in adults."'));
+});
+
+test('Chicago author-date entry for a journal article', () => {
+  assert.equal(
+    formatChicago(rec()),
+    'Lee, Jane Alice, and Raj Patel. 2020. "Sleep and memory in adults." Journal of Examples 12 (3): 45–67. https://doi.org/10.1000/xyz.',
+  );
+});
+
+test('Chicago: more than ten authors give the first seven and et al.', () => {
+  const eleven = Array.from({ length: 11 }, (_, i) => ({ family: `F${i + 1}`, given: `G${i + 1}` }));
+  const text = formatChicago(rec({ authors: eleven }));
+  assert.ok(text.startsWith('F1, G1, G2 F2, G3 F3, G4 F4, G5 F5, G6 F6, G7 F7, et al. 2020.'), text);
+});
+
+test('MLA in text: author and page, no year; et al. from three; alphabetical', () => {
+  const two = src('a');
+  assert.equal(markers('mla', [[two]])[0], '(Lee and Patel)');
+  assert.equal(markers('mla', [[{ ...two, page: 14 }]])[0], '(Lee and Patel 14)');
+  const many = src('m', { title: 'Many', authors: [{ family: 'Kim' }, { family: 'Lee' }, { family: 'Ng' }], doi: '10.1/m' });
+  assert.equal(markers('mla', [[many]])[0], '(Kim et al.)');
+  const abe = three('x', 'Abe', 2018);
+  const zed = three('y', 'Zed', 2010);
+  assert.equal(markers('mla', [[zed, abe]])[0], '(Abe; Zed)');
+});
+
+test('Chicago in text: author year, page after a comma, et al. from four', () => {
+  assert.equal(markers('chicago', [[src('a')]])[0], '(Lee and Patel 2020)');
+  assert.equal(markers('chicago', [[{ ...src('a'), page: 14 }]])[0], '(Lee and Patel 2020, 14)');
+  const three3 = src('t', { title: 'T', authors: [{ family: 'Kim' }, { family: 'Lee' }, { family: 'Ng' }], doi: '10.1/t' });
+  assert.equal(markers('chicago', [[three3]])[0], '(Kim, Lee, and Ng 2020)');
+  const four = src('f', { title: 'F', authors: [{ family: 'A' }, { family: 'B' }, { family: 'C' }, { family: 'D' }], doi: '10.1/f' });
+  assert.equal(markers('chicago', [[four]])[0], '(A et al. 2020)');
+});
+
+test('Chicago: two papers by one author in one year take a and b', () => {
+  const out = renderCitations('chicago', [[three('x', 'Abe', 2018)], [three('y', 'Abe', 2018)]]);
+  assert.deepEqual(out.markers.map(markerText), ['(Abe 2018a)', '(Abe 2018b)']);
+  assert.ok(out.references[0].text.includes('2018a.'));
+});
+
+test('MLA and Chicago lists are alphabetical and every marker points at a listed source', () => {
+  const s = [three('c', 'Zed', 2001), three('a', 'Abe', 2002), three('b', 'Mia', 2003)];
+  for (const style of ['mla', 'chicago']) {
+    const out = renderCitations(style, [s]);
+    assert.deepEqual(out.references.map((r) => r.text.slice(0, 3)), ['Abe', 'Mia', 'Zed'], style);
+    const ids = new Set(out.references.map((r) => r.sourceId));
+    for (const m of out.markers) for (const part of m) if (part.sourceId) assert.ok(ids.has(part.sourceId));
+  }
 });

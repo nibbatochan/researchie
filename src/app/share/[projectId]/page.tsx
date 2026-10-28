@@ -200,7 +200,7 @@ export default function PublicSharePage() {
           <LockedFolderIllustration />
           <h1 className="font-display font-bold text-lg">You need access</h1>
           {pending ? (
-            <p className="text-xs text-slate-500 dark:text-zinc-400">Your request was sent. When the owner approves it, the project appears under “Shared with me” in your workspace. No email is sent, so check back later.</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">Request sent to the owner of this project. No email goes out. When they approve or decline it, you get a notification in the bell next to Settings, and an approved project appears under Shared with me.</p>
           ) : (
             <>
               <p className="text-xs text-slate-500 dark:text-zinc-400">

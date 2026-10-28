@@ -15,6 +15,26 @@ type Db = any;
 
 export const STARTER_PROJECT_TITLE = 'My first project';
 
+// Supabase returns at most 1000 rows per query and says nothing when it cuts a list short. Anything that lists
+// a user's clips or documents reads in pages of this size until a page comes back short.
+export const PAGE_SIZE = 1000;
+
+/**
+ * Reads every row a query matches, one page at a time. `build` makes a fresh query for the table; it must
+ * order by a unique key last (id), or rows that share a timestamp can repeat or go missing across pages.
+ * A failed page throws, so a partial list is never returned as if it were the whole one.
+ */
+export async function readAllRows(build: () => any, pageSize = PAGE_SIZE): Promise<any[]> {
+  const rows: any[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) throw new Error(`Could not read page starting at row ${from}: ${error.message ?? error.code ?? 'unknown error'}`);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
 const newId = (prefix: string) => `${prefix}-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 
 export function mapProject(p: any, role: Role = 'owner'): ResearchProject {
@@ -205,8 +225,10 @@ export function makeCloud(db: Db) {
   async function listAtoms(userId: string, scope?: string): Promise<ResearchAtom[]> {
     const ids = await scopeIds(userId, scope);
     if (ids.length === 0) return [];
-    const { data } = await db.from('atoms').select('*').in('project_id', ids).order('captured_at', { ascending: false });
-    return (data ?? []).map(mapAtom);
+    const rows = await readAllRows(() =>
+      db.from('atoms').select('*').in('project_id', ids).order('captured_at', { ascending: false }).order('id', { ascending: false })
+    );
+    return rows.map(mapAtom);
   }
 
   async function atomRow(id: string) {
@@ -266,8 +288,10 @@ export function makeCloud(db: Db) {
   async function listDocuments(userId: string, scope?: string): Promise<ResearchDocument[]> {
     const ids = await scopeIds(userId, scope);
     if (ids.length === 0) return [];
-    const { data } = await db.from('documents').select('*').in('project_id', ids).order('uploaded_at', { ascending: false });
-    return (data ?? []).map(docOf);
+    const rows = await readAllRows(() =>
+      db.from('documents').select('*').in('project_id', ids).order('uploaded_at', { ascending: false }).order('id', { ascending: false })
+    );
+    return rows.map(docOf);
   }
 
   async function documentRow(id: string) {

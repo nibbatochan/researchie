@@ -28,6 +28,7 @@ import { useSettings } from '@/lib/settings/settingsContext';
 import { useAuth } from '@/lib/auth/authContext';
 import { AiProviderSettings } from './AiProviderSettings';
 import { WebSearchKeySettings } from './WebSearchKeySettings';
+import { OpenAlexKeySettings } from './OpenAlexKeySettings';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { DeleteAccountSettings } from './DeleteAccountSettings';
 import { NotionTokenField } from './NotionTokenField';
@@ -344,6 +345,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                   <AiProviderSettings />
                   {/* Bring your own Perplexity key, for web search only */}
                   <WebSearchKeySettings />
+                  {/* Optional OpenAlex key for paper search */}
+                  <OpenAlexKeySettings />
                 </div>
               </div>
             )}

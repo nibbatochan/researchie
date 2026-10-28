@@ -16,8 +16,7 @@ import {
   Trash,
   ShareNetwork,
   PuzzlePiece,
-  BookOpenText
-} from '@phosphor-icons/react';
+  BookOpenText, Article } from '@phosphor-icons/react';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 import { GetExtensionModal } from './GetExtensionModal';
 import { WelcomeModal, WELCOME_SEEN_KEY, WELCOME_VERSION } from './WelcomeModal';
@@ -31,6 +30,7 @@ interface DashboardHomeProps {
   onOpenCreateModal: (parentId?: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onOpenDocuments?: () => void;
+  onOpenPapers?: () => void;
   onOpenShareModal?: (project: ResearchProject) => void;
 }
 
@@ -148,6 +148,7 @@ export const FolderIllustration: React.FC<{ color?: string; className?: string }
 );
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({
+  onOpenPapers,
   projects,
   atoms,
   onSelectProject,
@@ -392,6 +393,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header with Download Extension */}
         <div className="flex items-center justify-end gap-2 h-8 -mx-4 -mt-4 px-4 mb-4">
+          {onOpenPapers && (
+            <button
+              type="button"
+              onClick={onOpenPapers}
+              data-testid="paper-mode-button"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#0F172A] dark:text-[#FAFAFA] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
+            >
+              <Article size={15} weight="bold" />
+              <span>Paper mode</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

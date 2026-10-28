@@ -147,13 +147,15 @@ export const ShareAccessModal: React.FC<{
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!email.trim()) return;
+                  const addr = email.trim().toLowerCase();
+                  const asRole = role === 'editor' ? 'an editor' : 'a viewer';
                   void act({ action: 'invite', email, role }, (j) => {
                     setEmail('');
                     return j.kind === 'invited'
-                      ? 'Invitation saved. No email is sent: they will see this project when they sign in with that address.'
+                      ? `${addr} has no account yet. The invitation is saved, but no email is sent, so tell them to sign up or sign in with this address. "${project.title}" then appears under Shared with me for them.`
                       : j.kind === 'updated'
-                        ? 'Their access was updated.'
-                        : 'Added. The project is under "Shared with me" for them.';
+                        ? `${addr} is now ${asRole} on "${project.title}". They were notified.`
+                        : `Added ${addr} as ${asRole}. "${project.title}" now appears under Shared with me for them, and they got a notification.`;
                   });
                 }}
                 className="space-y-1.5"
@@ -211,7 +213,7 @@ export const ShareAccessModal: React.FC<{
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void act({ action: 'request-approve', requestId: r.id, role: askRole[r.id] ?? 'viewer' }, () => 'Approved. The project is under "Shared with me" for them.')}
+                        onClick={() => void act({ action: 'request-approve', requestId: r.id, role: askRole[r.id] ?? 'viewer' }, () => `Approved ${r.name} as ${(askRole[r.id] ?? 'viewer') === 'editor' ? 'an editor' : 'a viewer'}. "${project.title}" now appears under Shared with me for them, and they were notified.`)}
                         className="px-2.5 py-1 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-50 text-white rounded-lg text-[11px] font-medium cursor-pointer"
                       >
                         Approve
@@ -219,7 +221,7 @@ export const ShareAccessModal: React.FC<{
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => void act({ action: 'request-deny', requestId: r.id }, () => 'Request denied.')}
+                        onClick={() => void act({ action: 'request-deny', requestId: r.id }, () => `Declined the request from ${r.name}. They were notified.`)}
                         className="px-2.5 py-1 border border-[#CBD5E1] dark:border-[#3F3F46] rounded-lg text-[11px] text-slate-700 dark:text-zinc-300 cursor-pointer"
                       >
                         Deny

@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import path from 'path';
+import os from 'os';
 
 let workerPromise: Promise<any> | null = null;
 
@@ -20,6 +21,8 @@ async function getWorker() {
 
         const worker = await createWorker('eng', 1, {
           workerPath,
+          // The hosted site's folders are read-only except the temp folder; the language data is saved there.
+          cachePath: os.tmpdir(),
           errorHandler: (err: any) => console.warn('Tesseract worker error:', err),
         });
         return worker;
@@ -44,7 +47,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMsg: string
 // Ensure one OCR request at a time with isolation
 let ocrQueue: Promise<any> = Promise.resolve();
 
-export async function extractTextFromImage(imageSource: string): Promise<{ text: string; confidence: number }> {
+export async function extractTextFromImage(imageSource: string): Promise<{ text: string; confidence: number; error?: string }> {
   return new Promise((resolve) => {
     ocrQueue = ocrQueue.catch(() => {}).then(async () => {
       try {
@@ -93,14 +96,15 @@ export async function extractTextFromImage(imageSource: string): Promise<{ text:
             
             return { text: (text || '').trim(), confidence: confidence || 0 };
           })(),
-          15000,
-          'OCR operation timed out after 15 seconds'
+          // The first request on a cold server also downloads the English language data, so allow longer.
+          50000,
+          'OCR operation timed out after 50 seconds'
         );
 
         resolve(result);
       } catch (error: any) {
         console.error('OCR Error:', error?.message || error);
-        resolve({ text: '', confidence: 0 });
+        resolve({ text: '', confidence: 0, error: String(error?.message || error) });
       }
     });
   });

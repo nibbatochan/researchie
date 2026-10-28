@@ -153,8 +153,9 @@ Statuses: not started, in progress, blocked, done, dropped.
           | What: Today the set-up shows a key to copy into the phone app by hand. Show a QR code instead, so the app scans it and adds the account in one step.
           | Done: The set-up now draws a QR code in the browser from the otpauth address (qrcode package) and keeps the key as a fallback.
           | Left: Deploy, then scan it with your phone app on the live site. Type-checked only.
-    - [in progress] Sign in with Google {S-45}
+    - [dropped] Sign in with Google {S-45}
           | What: "Continue with Google" on the sign-in page, linked to the same account when the email already exists.
+          | Dropped 2026-10-18: not needed until you say so. The code is built and stays switched off. Nothing to do.
           | Done: Built. The button starts on the server (/api/auth/google) and returns to /auth/callback; the session stays an httpOnly cookie. A brand-new Google account must pass the invite code when one is set, so Google is not a way around it. The old callback let a crafted `next` address send people to another site; that is fixed (only addresses on this site). 3 unit tests. The button stays a disabled placeholder until you switch it on.
           | Left: Do the three steps in docs/GOOGLE_SIGNIN_SETUP.md (Google Cloud OAuth client, Supabase Google provider and redirect URL, Vercel NEXT_PUBLIC_GOOGLE_SIGNIN=true plus a redeploy), then try it by hand. Not tried with a real Google account.
     - [in progress] Keep each user's Notion token safely on the server {S-46}
@@ -194,8 +195,40 @@ Statuses: not started, in progress, blocked, done, dropped.
     - [in progress] Use AI model names that exist for each provider {S-52}
           | What: Default models were checked against each provider's list: OpenRouter now uses openrouter/free, Google uses gemini-3.8-flash, and Groq falls back only to listed production models.
           | Left: Try each provider with a real key.
+          | Tester note 2026-10-18: Cerebras asked for card details at sign-up, which testers will not accept. Decided 2026-10-18: Groq is the only provider offered for now. The Provider list shows Groq alone (the dropdown is hidden), the onboarding AI step explains how to get a Groq key, and Settings uses the same form. The other adapters stay in the code and an old saved key for one still works.
+    - [in progress] Extension feels slow: 2 to 3 seconds before a clip shows up {S-119}
+          | What: Reported by a tester on 2026-10-18. Find where the time goes (the extension's save call, the server, Supabase, the side panel refresh) before changing anything.
+          | Done: Measuring first. A save makes about four database calls in a row (token check, project lookup twice, insert), so a distance between the Vercel region and the Supabase region adds up fast. POST /api/atoms now returns a Server-Timing header (auth, save, total) and logs it.
+          | Left: Read those numbers on the live site, and compare the Vercel function region with the Supabase region. Then fix the biggest part.
+          | Model: Sonnet · M · medium · about 100k tokens
+    - [in progress] Sign-out must stop the extension token from working {S-120}
+          | What: Reported 2026-10-18. Signing out of the website does not revoke the extension tokens (src/app/api/auth/logout/route.ts only ends the browser session), so the extension keeps saving clips into a signed-out account. Revoke that account's extension tokens on sign-out, and have the extension show "reconnect" instead of failing quietly.
+          | Done: Signing out now revokes all of that account's extension tokens (src/lib/auth/revoke.ts, called from the logout route). The extension's next save gets 401 and asks to connect again. 3 tests.
+          | Left: Check on the live site (see the test list).
+          | Model: Sonnet · S · low · about 40k tokens
+    - [in progress] OCR does not work on the Vercel site {S-121}
+          | What: Reported 2026-10-18. OCR works locally (tesseract.js). Likely causes: the worker or language data cannot be loaded in the hosted build, or the request exceeds the function time or size limit. Find the cause from the Vercel logs, then fix.
+          | Done: A best-guess fix for the hosted build: tesseract.js and sharp are kept as real packages, the worker files are copied into the /api/ocr function (139 files in the build trace), language data is cached in the temp folder, the time limit is 50 seconds because a cold start also downloads the language data, and a failure now comes back as an error message instead of silent empty text. OCR still works locally.
+          | Left: Test on the live site. If it still fails, send the Vercel log line for /api/ocr.
+          | Model: Sonnet · M · medium · about 100k tokens
+    - [in progress] Upload progress bar does not match the real upload {S-122}
+          | What: Reported 2026-10-18. The progress indicator on PDF and document upload (src/components/PDFReaderView.tsx, uploadProgress) is not tied to bytes sent. Tie it to the real upload, or show a plain "Uploading" state if the browser cannot report it.
+          | Done: The bar follows the bytes actually sent (XMLHttpRequest progress), then the server reading, then the citation lookup; the save step reaches 100% only when the server says yes, and a failed save now says so instead of showing "opened successfully".
+          | Left: Check on the live site with a slow connection.
+          | Model: Sonnet · S · low · about 40k tokens
+    - [not started] Settle the invite-code and Google sign-in reports {S-123}
+          | What: Reported 2026-10-18: invite codes "not working". The invite code (S-51) is a code you set on Vercel and give to testers by hand; nothing emails it, so "no email set up" is expected, but "not working" needs the exact message the tester saw. (Google sign-in was dropped, see S-45.)
+          | Model: You · then Sonnet if there is a bug
+    - [dropped] Learn what the Chrome Web Store needs, then decide {S-124}
+          | What: Reported 2026-10-18: not yet listed in the Chrome Web Store, and you want to learn how. Covered by S-63 and S-64 (zip chosen for now). Needs a one-time developer account fee, a privacy policy page and a review of a few days.
+          | Dropped 2026-10-18: not needed until you say so (the zip stays). S-63 and S-64 stay parked.
+          | Model: You, with Sonnet to prepare the listing
   - [in progress] Product plan {S-53}
         | What: Features not built yet and the plan documents.
+    - [in progress] Notification box, better share messages, leave a shared project, faster Share dialog {S-125}
+          | What: Reported 2026-10-18 while testing sharing. (1) The "Added. The project is under Shared with me for them." line was too generic. (2) The other person had no way to see that something was shared with them or that they were asked for access. (3) A person could not take a project shared with them off their own list. (4) The Share dialog was slow to open.
+          | Done: (1) Messages now name the person, the role and the project, and say when no email is sent. (2) A bell next to Settings, with a count, a list that keeps each notification until the person removes it (X on each, Clear all), and a small card that pops up when a new one arrives while the app is open. It covers: shared with you, role changed, removed, someone left, an access request, approved, declined, and someone joined through your edit link. Needs migration 005_notifications.sql. (3) A "Remove from my list" button on hover for projects shared with you; the owner is told. (4) The Share dialog now asks the database for everything at once instead of about nine calls in a row. 9 new tests, and 3 browser tests for the bell.
+          | Left: Run migration 005, deploy, and check with two accounts (see the test list).
     - [in progress] Share a project with other accounts {S-54}
           | What: Figma-style sharing: a link with can view or can edit, invite by email with a role, a member list (owner, editor, viewer), the owner changes or removes access, and Request access with approve or deny, all enforced on the server.
           | Done: Design approved (docs/SHARING_DESIGN.md, Decision 23). Steps 1 and 2 built: migration 004 (four tables), roles checked in the data layer, members and invitations, the real Share dialog (invite by email, roles, remove, leave, cancel), "Shared with me" in the sidebar, controls hidden for viewers, the extension skips read-only projects, and the old mock Share window is deleted. 15 new unit tests (276 total); local mode unchanged and has no Share button.
@@ -206,6 +239,200 @@ Statuses: not started, in progress, blocked, done, dropped.
           | Done: Rewritten as version 2.0.0 on 2026-10-16: features marked built or planned, phases with their status, pricing marked undecided, the real stack, and the privacy rules now in force.
     - [dropped] Enforce free-plan limits {S-56}
           | What: Free-tier caps (3 projects, 25 block clips a month) were never enforced. Dropped by you on 2026-10-14.
+  - [not started] Roadmap 2026-10 {S-69}
+        | What: Agreed 2026-10-18 from the gap report and docs/COMPETITOR_ANALYSIS.md. Two branches: NECESSARY (a thesis student in sciences or medicine can capture, trust, cite and export, and nobody sees another tester's data) and EXTRA.
+        | Rules: Opus 5.5 designs only (short design note, then hands to Sonnet). Sonnet writes all code, tests and fixes. Haiku does subagents and simple tasks (doc sync, changelog, grep sweeps). Sizes: S about 30k tokens at low or medium effort, M about 150k at medium effort, L is split before it starts. AI features propose and the researcher confirms.
+    - [not started] NECESSARY {S-70}
+          | What: Position: clip from anywhere, keep the exact passage, and know which of your claims still stand. Existing tester items stay where they are: S-61 to S-65 (extension to testers), S-41, S-42, S-45, S-46, S-51 (live checks), S-54 (sharing).
+      - [in progress] Phase 1: Safe to hand out {S-71}
+        - [done] Fix schema.sql so a fresh setup is not open {S-72}
+              | What: supabase/schema.sql still creates the three open "Public ... Access" policies; migration 001 drops them but a fresh setup from schema.sql alone is open to anyone with the anon key.
+              | Model: Sonnet · S · low · about 20k tokens
+              | Done: 2026-10-18. schema.sql now enables row-level security and creates no policies, so the anon key can read and write nothing until migration 001 adds the per-user ones (the server uses the service-role key). Running schema.sql then 001 gives the same result as before.
+        - [in progress] Run migration 004 and test sharing with two accounts {S-73}
+              | What: The S-54 "Left" step: run migration 004 on the testers project, deploy, then check invite, editor, viewer, remove, view link, edit link, request and approval.
+              | Model: Sonnet · S · low · about 30k tokens
+              | Done: Migration 004 run on the testers project and the build deployed (you, 2026-10-18). 23 sharing unit tests pass.
+              | Left: The two-account check on the live site (invite, editor, viewer, remove, view link signed out, edit link, request and approval). Yours: it needs two real accounts.
+        - [done] Paginate clips and documents {S-74}
+              | What: listAtoms and listDocuments (src/lib/data/cloud.ts) read every row; Supabase caps a query at 1000 rows, so a big project truncates silently. Only one 77-clip project has been tried.
+              | Model: Sonnet · M · medium · about 100k tokens
+              | Done: 2026-10-18. `readAllRows` in src/lib/data/cloud.ts reads 1,000 rows at a time, ordered by time then id so equal timestamps do not repeat or skip, and throws if a page fails instead of returning a partial list. Used by listAtoms, listDocuments and the share-link read. 4 new tests against a fake database that caps queries at 1,000 rows (326 unit tests in all).
+              | Left: /api/atoms/search still loads every clip (S-84).
+        - [done] Re-sync docs/CONTEXT.md to v1.9.18 {S-75}
+              | What: CONTEXT.md says v1.8.1, last synced 2026-10-14; the changelog is at v1.9.18.
+              | Model: Haiku · S · low · about 15k tokens
+              | Done: 2026-10-18. docs/CONTEXT.md is at v1.9.18 with rows for accounts, sharing, source health and onboarding, and a refreshed limits section.
+        - [not started] Check the untested extension paths by hand {S-76}
+              | What: Yours to do in real Chrome: side panel summary chips, + Save to Project, update-date capture, video on live YouTube and Vimeo, offline-queue alarm with a real network drop (the list left open under S-25).
+              | Model: You · no tokens
+      - [not started] Phase 2: Source health (the unique claim) {S-77}
+            | What: Pillar A of the competitor analysis. No rival tells you when a source goes bad.
+        - [done] Design note: source health states and schedule {S-78}
+              | What: States verified, changed, moved, gone, retracted; how often to re-check; where each state is stored; wording in plain language.
+              | Model: Opus · M · high · about 60k tokens
+              | Done: 2026-10-18. docs/SOURCE_HEALTH_DESIGN.md (written by an Opus agent). Health moves out of metadata.health into two new tables (source_status per DOI or PMID, clip_health per clip or PDF, migration 006); retraction states stay, page states are unchecked, verified, moved, changed, gone, could_not_check, not_applicable; one badge by severity; two daily Vercel crons (03:00 retraction, 04:00 pages) plus on-open and a Re-check now button; "changed" or "gone" needs two misses 20 hours apart, and a network failure only ever means "could not check".
+              | Left: Your answers to the five open questions in section 7 of the note.
+        - [not started] Fix the server fetch that follows redirects into private addresses {S-126}
+              | What: Found by the design note. src/app/api/atoms/rebuild-context/route.ts checks only the first URL and then lets fetch follow redirects, so a public page that redirects to a private address gets through. Build a safeFetch (check every redirect, pin the address) and use it here and in the OCR route.
+              | Model: Sonnet · S · medium · about 50k tokens
+        - [not started] Stop a retraction notice from showing as a retracted paper {S-127}
+              | What: Found by the design note. src/lib/citations/crossref.ts lines 89 to 90 mark a notice record itself as retracted.
+              | Model: Sonnet · S · low · about 20k tokens
+        - [not started] Scheduled retraction re-check {S-79}
+              | What: Today the retraction check runs once, at citation time, and no source lists every retraction. Re-check on a schedule and flag affected clips, notes and synthesis outputs.
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] Page-changed detection {S-80}
+              | What: Re-fetch the page, compare the clipped passage, flag changed, moved or gone, and offer the cached snapshot (the snapshot already exists).
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] Source health dashboard per project {S-81}
+              | What: One screen: verified, unverified, changed, retracted, dead.
+              | Model: Sonnet · S · medium · about 50k tokens
+      - [in progress] Paper Mode workspace {S-147}
+            | What: Paper Mode becomes a file-explorer home for every paper (template picker, wizard, a Word-style editor with a content sidebar, drag and drop, robust paste, citations page). Plan: C:\Users\suman\.claude\plans\eager-cooking-shore.md. Research: docs/research/paper-mode-workspace.md.
+        - [done] Papers table, API and workspace home {S-148}
+              | What: supabase/migrations/006_papers.sql, src/lib/data/papers.ts (and a local file store), /api/papers, the Paper mode button on the dashboard, a list or grid with search, rename, copy, delete with undo, and a trash.
+              | Model: Sonnet · M · medium · about 150k tokens
+              | Done: 2026-10-22. 7 unit tests, 2 e2e tests (e2e/25-paper-workspace.spec.ts). Left: you run migration 006; not tried signed in.
+        - [done] Template picker and new-paper wizard {S-149}
+              | What: Blank plus five templates as data (src/lib/paper/templates.ts), a quick structure preview, a five-question wizard.
+              | Model: Sonnet · S · medium · about 50k tokens
+              | Done: 2026-10-22. 6 unit tests. Opening a created paper only shows a note until S-150. Feedback round the same day: the preview is now page wireframes (12 unit tests in tests/paper-wireframe.test.mjs and tests/paper-templates.test.mjs), the window is large and constant, papers open in grid view with a first-page thumbnail, and the trash's way back has no trash icon.
+        - [in progress] Word-style editor with sidebar, drag and drop and front matter {S-150}
+              | What: TipTap editor over the template (sections, quote, citation, figure, table nodes), reorder sections, a content sidebar of the project's clips, images and citations, front-matter panel, header and footer zones, CSS page sheet. Design note: docs/PAPER_EDITOR_DESIGN.md (Opus, 2026-10-22). Built in two parts. Owner asked that a created paper loads the editor and transitions in about 2 seconds; measured at about 0.4 s on the dev server.
+        - [done] Editor core (C1) {S-154}
+              | What: papers.doc and papers.meta models (src/lib/paper/docModel.ts), the TipTap schema with locked template headings, the page sheet, front-matter panel, header and footer tokens, citations as nodes with markers drawn from a cite map, a computed reference list, autosave with a conflict check (409), open from the workspace with ?paper=<id>.
+              | Model: Sonnet · L · high
+              | Done: 2026-10-22. 34 new unit tests (paper-doc, paper-schema, papers), 4 e2e tests (e2e/26-paper-editor.spec.ts). Left: you try it; not tried signed in; clips are not loaded in the editor yet, so a citation to an unknown clip shows [?] (that arrives with C2).
+        - [done] Clip sidebar, drag and drop, Insert, citations from a cite map (C2a) {S-155}
+              | What: a left sidebar with Text, Images and Citations tabs over the data-source project's clips (and its sub-projects), search, change of data source, "In the text" marks; Insert and native drag place a quote, an AI-summary note, the researcher's own paragraphs, a figure or an editable table; a Citations row places an in-text marker that follows the chosen style; the reference list is built from what is cited.
+              | Model: Sonnet · M · high
+              | Done: 2026-10-22. 8 unit tests (tests/paper-insert.test.mjs), 3 e2e tests (e2e/27-paper-sidebar.spec.ts). Found and fixed a crash: the Placeholder extension read a stale document position; replaced by our own hints. Left: the drag is tested with synthetic events only; try a real drag in Chrome; sub-project clips not checked by hand.
+        - [done] Editor toolbar revamp from a real journal article {S-161}
+              | What: studied the owner's PLOS ONE sample (docs/research/plos-article-structure.md). New toolbar: paragraph styles carrying the article's type scale, font size, alignment, line spacing, first-line indent, link, clear formatting, and Add section, Remove heading, Remove section. Nothing is locked any more. Page layout: body columns, margins, typeface, and a switch for every front and end block. Quotes are plain paragraphs in quotation marks (no side rule). Numbered citation styles (IEEE, Vancouver, AMA) removed from the menus. Insert table and insert formula taken off the toolbar (paste for now).
+              | Model: Sonnet · L · high
+              | Done: 2026-10-22. 19 new unit tests (tests/paper-format.test.mjs and others), 4 e2e tests (e2e/28-paper-toolbar.spec.ts). Left: side column of pages 1 and 2, self-numbering headings, figure and table cross-references, a DOI footer token. The sample uses a numbered bibliography, which conflicts with removing the numbered styles; the owner decides.
+        - [not started] Section outline panel: rename, reorder, add, remove, Not in the paper bin (C2b) {S-156}
+              | What: design note section 5. Up and down buttons, Rename for template sections, add a custom section, remove with content moved to the bin.
+              | Model: Sonnet · M · high · about 100k tokens
+        - [not started] Import old outlines as papers (C2c) {S-157}
+              | What: design note section 7. One click per old outline; never deletes the old data.
+              | Model: Sonnet · M · medium · about 80k tokens
+        - [done] Two-column editing and layout variants {S-158}
+              | What: owner asked for two-column variants. Today two columns appear only in the picker preview; the editing sheet is one column. Add a layout choice per paper (one column, two columns, abstract spanning both) shown while editing and in print.
+              | Model: Sonnet · M · medium · about 120k tokens
+        - [done] Word-like editor functions {S-159}
+              | What: owner asked for the usual functions of a text editor: font family and size, text colour and highlight, alignment, line spacing, indent, find and replace, word count of a selection, footnotes, page break, spell check on, clear formatting. Pick the set with the owner first; paste and clip assembly come before long-form typing tools.
+              | Model: Sonnet · L, split in two · medium
+        - [done] A real page-by-page view {S-160}
+              | What: long-term goal from the owner: the paper looks like an actual paper (separate pages, not one long sheet). TipTap's page layout is a paid add-on; paged.js is the free route (see the research note section 4.6).
+              | Model: Opus design note, then Sonnet · L
+        - [not started] Robust paste, first in line {S-151}
+              | What: Sanitise and clean pasted Word, Google Docs, web and PDF text; fixture corpus. The owner says users type very little and mostly paste from NotebookLM or Zotero, so this is the next build. It should also offer to match pasted text to the project's clips (src/lib/paper/pasteMatch.ts) so a paste can become a cited quote.
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [done] Citations page: APA, MLA 9, Chicago in text, book and conference types {S-152}
+              | What: In-text and reference list for more styles, cited-versus-listed check, retraction flags.
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [done] Export a paper to PDF and Markdown {S-153}
+              | What: Reuse the print window and add Markdown with [@key] citations. DOCX is later.
+              | Model: Sonnet · S · medium · about 50k tokens
+      - [not started] Phase 3: Search at scale {S-82}
+        - [not started] Design note: pgvector search {S-83}
+              | What: Index type, embedding backfill for old clips, query shape. The embedding vector(768) column exists; nothing queries it.
+              | Model: Opus · M · high · about 50k tokens
+        - [not started] Build pgvector search {S-84}
+              | What: /api/atoms/search loads every clip and scores in memory (route.ts lines 34 to 36); replace it with a database query.
+              | Model: Sonnet · M · medium · about 120k tokens
+      - [not started] Phase 4: Question-first workspace and the literature matrix {S-85}
+            | What: Pillar B. The matrix is the literature review table a thesis needs.
+        - [not started] Design note: chapters, questions and capture-time tags {S-86}
+              | What: A project holds chapters, a chapter holds questions, each clip is tagged for, against or context. Optional PICO template, off by default. AI proposes, the researcher confirms.
+              | Model: Opus · M · high · about 70k tokens
+        - [not started] Build questions and tags in the web app {S-87}
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] Capture-time tags in the extension {S-88}
+              | Model: Sonnet · M · medium · about 120k tokens
+        - [not started] Evidence level label {S-89}
+              | What: Systematic review, RCT, cohort, case-control, case report, guideline, preprint, other. PubMed publication types give most of it from the lookup already built.
+              | Model: Sonnet · S · medium · about 40k tokens
+        - [not started] Design note: the matrix {S-90}
+              | What: Rows are sources, columns are claims or PICO parts, cells show supports, contradicts or silent.
+              | Model: Opus · S · high · about 40k tokens
+        - [not started] Build the matrix table {S-91}
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] AI-suggested matrix cells {S-92}
+              | What: The AI proposes a cell; the researcher confirms with a click.
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] Remaining AMA forms {S-93}
+              | What: Preprints, datasets, book chapters and reports (open gap in CONTEXT.md section 4).
+              | Model: Sonnet · S · medium · about 50k tokens
+      - [not started] Phase 5: Proof you can carry out {S-94}
+            | What: Pillar C. Today claim-level provenance exists only in Document Assistant Q&A.
+        - [not started] Design note: provenance that survives export {S-95}
+              | What: Each sentence links to clip, page and passage, and the link survives export to Notion and Obsidian.
+              | Model: Opus · S · high · about 40k tokens
+        - [not started] Provenance in synthesis, PDF report, Notion and Obsidian {S-96}
+              | Model: Sonnet · M · medium · about 150k tokens
+        - [not started] Audit view and read-only supervisor link {S-97}
+              | What: One click lists every claim with its quote, source, verification state and warnings.
+              | Model: Sonnet · M · medium · about 150k tokens
+    - [not started] EXTRA {S-98}
+          | What: Not needed for the testers or for the source-health verdict. Start only after NECESSARY phases 1 to 3.
+      - [not started] Common users: before public launch {S-99}
+            | What: Testers do not need these; a public launch does.
+        - [not started] Password reset by email {S-100}
+              | What: No reset exists; a tester who forgets a password asks you. Needs a mail provider first (Supabase's built-in sender is limited).
+              | Model: Sonnet · M · medium
+        - [not started] Delete-account flow {S-101}
+              | What: Not built.
+              | Model: Sonnet · S · medium
+        - [not started] Backup plan {S-102}
+              | What: Vercel Hobby and Supabase free have no automatic backups; Supabase free also pauses an idle project.
+              | Model: Haiku writes the steps, you act · S · low
+        - [not started] Shared rate limiter {S-103}
+              | What: The sign-in limiter lives in memory per Vercel instance and resets on cold start.
+              | Model: Sonnet · S · medium
+        - [not started] Firefox and Edge extension {S-104}
+              | What: Chrome only today.
+              | Model: Sonnet · M · medium
+        - [not started] Mobile capture {S-105}
+              | Model: Sonnet · M · medium
+      - [not started] Power users {S-106}
+        - [not started] APA author-date with an alphabetical list {S-107}
+              | What: Every style is numbered today.
+              | Model: Sonnet · M · medium
+        - [not started] Harvard, IEEE, MLA, Chicago {S-108}
+              | Model: Sonnet · M · medium
+        - [not started] Zotero and Mendeley import {S-109}
+              | What: No import exists; BibTeX and RIS export only.
+              | Model: Sonnet · M · medium
+        - [not started] Word (.docx) export {S-110}
+              | What: Only PDF, Markdown, Notion and Obsidian exist.
+              | Model: Sonnet · M · medium
+        - [not started] Contradiction finder {S-111}
+              | What: Show two clips that disagree, side by side with sources. Needs S-86 to S-92.
+              | Model: Sonnet · M · medium
+        - [not started] Gaps list {S-112}
+              | What: Questions with no or weak evidence; claims with one source. Needs S-86.
+              | Model: Sonnet · S · medium
+        - [not started] Trial registry links {S-113}
+              | What: Detect an NCT id in a clip and link it. After Phase 2.
+              | Model: Sonnet · S · medium
+        - [not started] Local-first and bring-your-own-key hardening {S-114}
+              | What: Ollama path exists but is weak (qwen2.5:7b passed 11 of 18, deepseek-r1 1 of 18). Decided extra on 2026-10-18.
+              | Model: Opus designs, Sonnet builds · M
+        - [not started] Two-way Notion sync {S-115}
+              | What: Provisional. Notion export is a one-way push.
+              | Model: Opus designs, Sonnet builds · L, split first
+        - [not started] Public API {S-116}
+              | What: Not built.
+              | Model: Opus designs, Sonnet builds · L, split first
+        - [not started] Real-time collaboration {S-117}
+              | What: Provisional. Sharing is roles only, no presence or comments.
+              | Model: Opus designs, Sonnet builds · L, split first
+        - [not started] Systematic-review screening {S-118}
+              | What: Include or exclude with reasons and PRISMA counts. Stay out unless testers ask.
+              | Model: Opus designs, Sonnet builds · L, split first
 
   - [in progress] Paper writing {S-128}
         | What: Turn clips into a structured, cited paper section by section, with a preview of how it will look. The preview is for understanding and motivation only. It is not journal formatting and must never say it replaces a journal editor. Research: docs/research/paper-preview.md and docs/research/notebooklm-zotero-workflow.md.
@@ -349,12 +576,23 @@ Items used to be called c1, p14 and so on. These still work in /scopetrack comma
 
 ## Scope changes
 
+- 2026-10-29 — S-152, S-153 and S-159 done: MLA 9 and Chicago; Print / PDF and Markdown download; find and replace, font family, highlight, space before and after, odd and even headers. Still open: split tall columns, lists and tables across pages; DOCX; Firefox and Safari checks. Decision 45, D37 to D39.
+- 2026-10-28 — S-158 and S-160 done (columns block with resizable widths; A4 pages, flowing front matter and references, line-split long paragraphs, ruler). S-159 in progress (menus, line spacing, colour, page and header panels done; find and replace, highlight and font family not built). S-152 in progress: APA 7, Vancouver and AMA in-text and lists are real; MLA 9 and Chicago are not. Open: split tall columns, lists and tables across pages. Decision 44, D32 to D36.
+- 2026-10-22 — S-161 done (toolbar revamp from the PLOS ONE sample). Tools needed to match that paper are in docs/research/plos-article-structure.md; the ones not yet possible are listed there.
+- 2026-10-22 — Owner feedback on the editor: design for assembling (paste, clip, copy from NotebookLM or Zotero), not for long typing. S-155 (sidebar) done; S-151 (paste) moved first; added S-156 to S-160 (outline panel, import, two-column editing, Word-like functions, real pages). The feedback message was cut off after "The paper should look like an actual"; read as a printed paper, to confirm.
+- 2026-10-22 — S-150 split into S-154 (editor core, done) and S-155 (sidebar, drag and drop, reorder, import). Design note done (docs/PAPER_EDITOR_DESIGN.md).
+- 2026-10-22 — Added S-147 to S-153 (Paper Mode workspace). S-148 and S-149 done. The papers table takes migration 006, so the source-health tables (S-79) now take 007.
 - 2026-10-21 — Added S-145 (check the paper features signed in; needs the owner) and S-146 (decision record, done). Account saves that are refused are now reported.
 - 2026-10-21 — S-142 full editor done. Open in the paper group: nothing planned; next ideas are cross-references by number, a rich-text editor, and journal templates.
 - 2026-10-21 — S-143 done (PDF export of the preview).
 - 2026-10-21 — S-139 done (equations, figures, tables in the preview). Added KaTeX as a dependency.
 - 2026-10-21 — S-137, S-138, S-140, S-141 and S-144 done; S-142 small version done (paste box "Save as my own text"). Left in the paper group: S-139 (equations, figures, tables), S-142 full editor, S-143 (PDF export). Not tried with a signed-in account.
 - 2026-10-20 — Added S-128 (Paper writing) with S-129 to S-144. S-129 to S-133 done; S-134 to S-136 done (checklist, long-quote warning, privacy line); S-137 to S-144 not started. From the paper-preview research and the gap check (retracted sources, quote length, privacy, draft history, equations).
+- 2026-10-18 — S-78 done (docs/SOURCE_HEALTH_DESIGN.md). Added S-126 and S-127, two defects it found.
+- 2026-10-18 — Dropped S-45 (Google sign-in) and S-124 (Web Store) until you say so. Added S-125 (notification box, share messages, leave, faster Share dialog).
+- 2026-10-18 — Tester round: added S-119 to S-124 (slow extension, token on sign-out, OCR on Vercel, upload progress, invite and Google reports, Web Store). Cerebras removed from the recommended AI providers.
+- 2026-10-18 — S-72, S-74 and S-75 done; S-73 in progress (migration run, live two-account check left); S-76 is yours.
+- 2026-10-18 — Added S-69 (Roadmap 2026-10) with S-70 to S-118: NECESSARY (phases 1 to 5) and EXTRA, each item tagged with Opus, Sonnet or Haiku and a size. Cross-references S-41 to S-65 without copying them.
 - 2026-10-17 — Added S-68 (How it works guide), done.
 - 2026-10-17 — Added S-66 (spatial canvas) and S-67 (canvas audit), done.
 - 2026-10-16 — Added S-61 (get the extension to testers, top priority) with S-62 to S-65. Found while checking the tester flow: testers had no way to install the extension.

@@ -139,6 +139,136 @@ How each rule shows up in the product: see the decisions below, and section 6 fo
 
 ---
 
+### D20. Paper Mode becomes a workspace of many papers, not one outline per project
+- **Decision.** Paper Mode opens a file-explorer home that lists every paper the person wrote. A paper is its own record with a name, template, citation style, data-source project, and the document. The owner asked for this on 2026-10-22.
+- **Why.** The old outline lived in the account preferences, one per project, capped at 60 KB inside a 256 KB settings object for everything. Several full papers do not fit there.
+- **Rejected.** Raising the preferences cap (it is shared with every other setting). Keeping one outline per project (a project can feed several papers: a thesis chapter and a journal version).
+- **Cost.** A new table (`supabase/migrations/006_papers.sql`, which the owner runs) and a migration of old outlines, not yet built.
+- **Evidence.** `docs/research/paper-mode-workspace.md` section 8; `src/lib/paper/store.ts`.
+
+### D21. A paper is private, kept apart from its project, and deleted in two steps
+- **Decision.** A paper belongs to one person; every query filters by that person. It points at its data-source project by id only, with no foreign key, and creating or re-pointing a paper checks that the person can read that project. Delete moves it to a trash; removing for good is a second step and only works on a paper already in the trash. A saved paper over 2 MB is refused, never cut.
+- **Why.** Deleting or un-sharing a project must never destroy a paper someone spent weeks on. Two-step delete matches the clip trash and the 8-second undo already in the app. Silent truncation would lose text.
+- **Rejected.** Sharing papers with collaborators in v1 (no research on the permission model yet); a foreign key with cascade.
+- **Limit.** If the person later loses access to the data-source project, the paper stays and shows "A project you no longer see".
+- **Security.** Table has row-level security on and no policies, so only the server reads it. See `docs/SECURITY_DECISIONS.md`.
+- **Evidence.** `tests/papers.test.mjs` (privacy, trash, purge, size, project check).
+
+### D22. Templates are data, five plus Blank, each tied to a published structure
+- **Decision.** Research article (IMRaD, ICMJE), Systematic review (PRISMA 2020), Conference paper (ACM and IEEE), Case report (CARE), Short communication. Thesis chapter is left out. The old "literature review" template stays as a hidden one so old outlines still open.
+- **Why.** Each is backed by a primary source in the research note; the thesis has none that applies across universities.
+- **Limit.** The conference body headings are convention, not mandated. The picker only lists the items of a guideline; the app never says a paper complies with it.
+- **Evidence.** `src/lib/paper/templates.ts`, `tests/paper-templates.test.mjs`, research note section 1.
+
+### D23. The new-paper wizard asks five things; the rest is filled in the editor
+- **Decision.** Template, name, data-source project, citation style, and optionally journal and word limit. Blank skips the wizard. Authors, ORCID, funding and ethics go in a front-matter panel next to the text.
+- **Why.** The owner was unsure what to ask first. The research (section 6) found that questions with no effect on the first screen are better asked later.
+- **Status.** Wizard built; front-matter panel and the editor are not built yet.
+
+### D24. The editor is TipTap, which reverses D16 for the workspace
+- **Decision.** The paper is edited in TipTap (ProseMirror). The researcher's own text, citations, quotes, figures, tables and formulas are nodes in one document. D16's plain editor stays only in the old outline view.
+- **Why.** The owner asked for Word-style editing, section reordering, drag and drop and paste from Word. D16 was a first-version choice and said so.
+- **Kept from D16.** Citations are keys over a cite map, so switching style never changes the text, and the old checks (bad key, deleted clip, AI summary cited, quotation not word for word, copied without quotation marks, retraction) run on the new text through an adapter that writes a section back as `[@key]` text.
+- **Cost.** About 400 KB of editor code in its own chunk, loaded when a paper opens (and preloaded when the picker opens).
+- **Evidence.** `tests/paper-doc.test.mjs`, `tests/paper-schema.test.mjs`, `e2e/26-paper-editor.spec.ts`.
+
+### D25. Template headings are locked (reversed on 2026-10-22, see D29)
+- **Decision.** A template section can not be renamed or removed by typing.
+- **Status.** Replaced by D29.
+
+### D26. Saving never overwrites silently
+- **Decision.** Autosave sends the `updatedAt` it last saw. A save made after another tab changed the paper is refused (409), and the person chooses: load that version or keep theirs.
+- **Why.** The old preferences save was last-write-wins and could lose a whole paper's text.
+- **Limit.** Millisecond precision; two saves in the same millisecond would not be told apart. Not tested signed in.
+
+### D27. The editor is built for assembling a paper, not typing one
+- **Decision.** Owner feedback, 2026-10-22: users type very little. They add a few lines of their own and bring everything else from clips, or paste it from NotebookLM or Zotero. So the clip sidebar, Insert, drag and drop and paste come before typing tools, and a pasted passage should be offered a match to a clip so it can become a cited quote.
+- **Why.** The product's promise is that every passage keeps its source. A paper made mostly of clips keeps it for free; a paper typed from memory does not.
+- **Effect on the plan.** S-155 (sidebar) is done; S-151 (paste) is next; Word-like functions (S-159) come after, and are picked with the owner.
+- **Source.** The owner's message of 2026-10-22 (cut off at "The paper should look like an actual").
+
+### D28. Hints in empty sections are our own decoration
+- **Decision.** The grey "what goes here" hint is a decoration computed from the current document, not TipTap's Placeholder extension.
+- **Why.** Placeholder asks our code to look up a position in the editor's previous state while it scans the new document, which crashed ("Position 294 out of range") when a block was inserted. Found by the sidebar browser test.
+
+### D29. Nothing is locked; structure can be removed
+- **Decision.** Owner feedback, 2026-10-22: the editor is a freehand tool, and a real paper does not match the template, so every structural element must be removable. Template headings can be edited or deleted, a section's heading is optional, and every block of the first page and the end of the paper can be switched off. Select-all and Delete empties the paper but leaves one empty section.
+- **Why.** A lock protects the checklist's section keys; the person asked for freedom instead, and the keys survive for sections that are kept.
+- **Cost.** A deleted template section can no longer be checked against its reporting-guideline item. The checks run on what is on the page.
+- **Reverses.** D25.
+
+### D30. The type scale comes from a real article; the toolbar from what that article needs
+- **Decision.** The owner sent a published PLOS ONE paper. It was measured (sizes, positions, layout, footer, bibliography) and the toolbar and page styles were built from it. Findings are in `docs/research/plos-article-structure.md`.
+- **Result.** Body 10 pt justified; section headings 11 pt bold; captions, tables, notes, references and footers 8 pt; title 16 pt; paragraph styles, font size, alignment, spacing, first-line indent, link, add and remove section or heading.
+- **Honesty.** The page images could not be rendered; figures were read from captions. The font face is unverified.
+
+### D31. Citation styles shown are author-date only; quotes carry no rule
+- **Decision.** IEEE, Vancouver and AMA were removed from the editor's menus and from the new-paper form; templates that defaulted to them now default to APA. A quote is a paragraph in quotation marks followed by its marker.
+- **Why.** The owner asked for both. The numbered styles were never formatted separately anyway (they were drawn with the IEEE formatter).
+- **Open.** The sample paper has a numbered bibliography. If the owner wants papers like it, one numbered style returns.
+- **Reversed, 2026-10-27 (D36).** The owner answered yes to numbered styles while writing, so IEEE and Vancouver came back, and AMA after them.
+
+### D32. The page is measured and padded, never cut
+- **Decision.** The sheet is fixed A4 or Letter pages. After each change the editor measures every block and moves any that would cross a page edge down with padding (a view decoration). Front matter, statements and references are moved the same way, a heading stays with the start of what follows, and a paragraph taller than a page is split by line with spacer gaps.
+- **Why.** The owner wants it to look like a real paper and to work like Word. The text in the saved document is never changed by layout, so undo and save stay exact.
+- **Rejected.** TipTap's paid page layout; splitting the document into one editor per page (breaks selection and undo).
+- **Limit.** A columns block, list or table taller than a page cannot be split: it is outlined and the status line says which page. About 120 ms per key at 61 pages (Chromium, dev server).
+
+### D33. One button per job, grouped into menus
+- **Decision.** Alignment, line spacing, lists, more text formats and columns are one menu each; Page settings and Header & footer are one button each. Delete page asks which page from a list and can be undone.
+- **Why.** The owner found the toolbar too wide and wanted Word's steps. It now fits two rows at 1280 px.
+- **Limit.** No space before or after a paragraph. Word was studied from memory, not run side by side.
+
+### D34. Columns are a block, with a ruler for margins
+- **Decision.** A Columns block holds 2 to 6 columns the writer fills; dividers resize (drag or arrow keys); a trash icon deletes the set. A ruler above the page sets the margins in eighths of an inch.
+- **Why.** The owner asked for columns anywhere in the paper and for ruler guides.
+- **Limit.** No nested columns; images are inserted into the column the cursor is in and the set grows with them.
+
+### D35. Clips of one paper are listed once
+- **Decision.** Two clips whose DOI, title, year and first author agree are one source: one number, one reference. Sources can be added to References before they are cited ("Add all verified" adds those with a DOI).
+- **Why.** The same paper clipped twice listed twice and took two numbers.
+- **Limit.** A paper with no title is never merged. Different spellings of a title are merged only if they differ in punctuation and case.
+
+### D36. Five citation styles, each real
+- **Decision.** APA 7 (& between two authors, et al. from three, a and b on the year), Harvard, IEEE, Vancouver (numbers in round brackets, ranges collapse) and AMA (superscript numbers) each draw their own marker and list.
+- **Why.** Before, three styles were drawn with the nearest of two, and switching looked like nothing happened.
+- **Limit.** Checked against the project's own formatters and unit tests, not against each style's printed manual. MLA and Chicago are not built.
+
+### D37. Print by copying the sheet; Markdown from the document
+- **Decision.** Print / PDF re-lays the pages touching, copies the sheet into a print-only container and calls the browser's print. Markdown is made from the document with `[@key]` citations and a list of keys.
+- **Why.** The owner wanted export; printing what is on screen cannot differ from it. Markdown keeps the citation keys so a reader can map them back to clips.
+- **Limit.** DOCX is not built. Print was checked in Chromium (its own PDF: page count, size, text).
+
+### D38. Fonts and highlights are ours, not pasted
+- **Decision.** Five typefaces and five highlight colours are stored; a font or background that arrives with pasted text is dropped. Find and replace, space before and after, and odd and even headers were added to match Word.
+- **Why.** Pasting from Word or Google Docs should bring the words, not a different typeface per paragraph.
+- **Limit.** Pasted text colour is still kept (the Color mark was already in the editor).
+
+### D39. MLA 9 and Chicago author-date
+- **Decision.** Both are built (in-text and list); notes-bibliography Chicago is not.
+- **Why.** The owner asked for the two styles still missing from the list of seven.
+- **Limit.** Written from the style rules as known, not checked against the paid manuals or a CSL file.
+
+### D40. One Export menu: Word, PDF, Markdown
+- **Decision.** Export is one menu with Word (.docx), PDF (print) and Markdown (.md).
+- **Why.** The owner asked for three export options in one place.
+- **Limit.** PDF is the browser's print dialog ("Save as PDF"), so the output depends on the browser.
+
+### D41. Word export written from the editor document
+- **Decision.** The Word file is written directly from the editor's document. Figures are embedded as pictures. Tables are real Word tables with merged cells kept. Each section can be one or two columns.
+- **Why.** The earlier route through Markdown lost tables and images and could not express columns per section. An export that opens in Word is the first requirement.
+- **Limit.** Not opened in Microsoft Word; checked by XML and python-docx only. Equations are monospace LaTeX text.
+
+### D42. Columns per section, not for the whole paper
+- **Decision.** Methods, Statistical analysis, Results and Discussion are two columns. Introduction, Limitations, Conclusion, References and Article information are one column. Figures and tables run across the full width. The Columns panel sets each section; the whole-paper choice resets them.
+- **Why.** The owner asked for columns only where they fit the paper, not on the back matter.
+- **Limit.** The editor's page logic cannot split a two-column section across pages as Word does; long sections are split into page-sized parts in the replica.
+
+### D43. Table test source and what is still unproven
+- **Decision.** Table tests use the PubMed Central copy of the same article (PMC13652548), which has real HTML tables. The publisher's page shows its tables as images and is not used.
+- **Why.** Pasting a real table is the owner's way to build tables inside the paper.
+- **Limit.** Copy-and-paste from a browser was not tested here (the test pane does not pass the clipboard through). Pasting was tested through the same paste path with the same table HTML. Math symbols from the source come in as plain text.
+
 ## 4. Limits we designed around
 
 | Limit | Where it came from | What we did |

@@ -115,6 +115,7 @@ const elements = {
   btnAiSummarizeTab: document.getElementById('sp-btn-ai-summarize-tab'),
   chatMessages: document.getElementById('sp-chat-messages'),
   chatInput: document.getElementById('sp-chat-input'),
+  papersToggle: document.getElementById('sp-papers-toggle'),
   chatSendBtn: document.getElementById('sp-chat-send-btn'),
   
   // Capture
@@ -624,6 +625,43 @@ async function handleSummarizePage() {
   appendChatMessage('assistant', 'Could not reach the AI service, so there is no summary. Check that the Researchie app is running, then try again.');
 }
 
+// Answers from research abstracts (OpenAlex) through the app. The server says why there is no answer, so the
+// message shows that reason rather than a guess.
+async function answerFromPapers(query) {
+  const apiBase = await getWorkingApiBase();
+  const res = await fetch(`${apiBase}/papers/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: query }),
+  });
+  let json = null;
+  try {
+    json = await res.json();
+  } catch {
+    json = null;
+  }
+
+  removeLoadingBubble();
+  isAiLoading = false;
+
+  if (!res.ok || !json?.success || !json.data) {
+    appendChatMessage('assistant', json?.error || 'Paper search is not available right now. Try again in a minute.');
+    return;
+  }
+
+  const d = json.data;
+  let answer = d.answer || 'No answer was found in the paper abstracts.';
+  if (Array.isArray(d.papers) && d.papers.length > 0) {
+    const lines = d.papers.map((p) => {
+      const year = p.year ? ` (${p.year})` : '';
+      const doi = p.doi ? ` ${p.doi}` : '';
+      return `- [${p.label}] ${p.title}${year}${doi}`;
+    });
+    answer += `\n\nPapers used (abstracts only, not full text):\n${lines.join('\n')}`;
+  }
+  appendChatMessage('assistant', answer);
+}
+
 async function sendUserChatMessage() {
   if (!elements.chatInput) return;
   const query = elements.chatInput.value.trim();
@@ -633,6 +671,18 @@ async function sendUserChatMessage() {
   appendChatMessage('user', query);
   appendLoadingBubble();
   isAiLoading = true;
+
+  if (elements.papersToggle && elements.papersToggle.checked) {
+    try {
+      await answerFromPapers(query);
+    } catch (err) {
+      console.warn('Paper search error:', err);
+      removeLoadingBubble();
+      isAiLoading = false;
+      appendChatMessage('assistant', 'Could not reach paper search. Check that the Researchie app is running, then try again.');
+    }
+    return;
+  }
 
   try {
     const pageContext = activeTabInfo.mainContent || activeTabInfo.title;

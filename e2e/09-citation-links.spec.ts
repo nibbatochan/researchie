@@ -42,7 +42,7 @@ async function openAssistant(page: Page) {
   // The fixture lives in the "Artificial Intelligence & RAG" project.
   await page.getByText('Artificial Intelligence & RAG', { exact: false }).first().click();
   await page.waitForTimeout(600);
-  await page.locator('button[title="Docs"], button:has-text("Docs")').first().click();
+  await page.locator('button[title="Docs"], button:has-text("Docs"), button:has-text("Document"):not(:has-text("Library"))').first().click();
   await page.waitForTimeout(800);
   // In this project the most recently viewed document is Just Enough Research.
   await expect(page.getByRole('heading', { name: /Just Enough Research/ })).toBeVisible({ timeout: 10000 });

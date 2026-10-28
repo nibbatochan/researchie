@@ -1,6 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import { PaperWorkspace } from '@/components/PaperWorkspace';
+import type { Paper } from '@/lib/data/papers';
+
+// The paper editor (ProseMirror, KaTeX) is its own chunk, loaded when the person opens a paper.
+const PaperEditor = dynamic(() => import('@/components/PaperEditor'), {
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center text-xs text-slate-500" aria-busy="true">Opening paper…</div>,
+});
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ProjectList } from '@/components/ProjectList';
 import { ProjectTimeline } from '@/components/ProjectTimeline';
 import { DashboardHome } from '@/components/DashboardHome';
@@ -25,11 +34,43 @@ export default function DashboardPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingAtoms, setLoadingAtoms] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [workspaceMode, setWorkspaceMode] = useState<'dashboard' | 'feed' | 'canvas' | 'reader'>('dashboard');
+  const [workspaceMode, setWorkspaceMode] = useState<'dashboard' | 'feed' | 'canvas' | 'reader' | 'papers'>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // The paper open in the editor, if any. ?paper=<id> keeps it across a refresh.
+  const [openPaper, setOpenPaper] = useState<{ id: string; full?: Paper } | null>(null);
   const [targetDocId, setTargetDocId] = useState<string | undefined>(undefined);
   const [targetPage, setTargetPage] = useState<number | undefined>(undefined);
   const [targetHighlightText, setTargetHighlightText] = useState<string | undefined>(undefined);
+
+  // Paper mode has nothing in the app sidebar to use but the theme switch, so it starts collapsed; leaving puts it back.
+  const sidebarBeforePaper = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (workspaceMode === 'papers') {
+      setIsSidebarCollapsed((was) => {
+        if (sidebarBeforePaper.current === null) sidebarBeforePaper.current = was;
+        return true;
+      });
+    } else if (sidebarBeforePaper.current !== null) {
+      setIsSidebarCollapsed(sidebarBeforePaper.current);
+      sidebarBeforePaper.current = null;
+    }
+  }, [workspaceMode]);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('paper');
+    if (id) {
+      setWorkspaceMode('papers');
+      setOpenPaper({ id });
+    }
+  }, []);
+
+  const showPaper = (paper: { id: string; doc?: unknown } | null) => {
+    setOpenPaper(paper ? { id: paper.id, full: 'doc' in paper ? (paper as Paper) : undefined } : null);
+    const url = new URL(window.location.href);
+    if (paper) url.searchParams.set('paper', paper.id);
+    else url.searchParams.delete('paper');
+    window.history.replaceState(null, '', url);
+  };
 
   const handleOpenPdfReader = (docId?: string, pageNumber?: number, text?: string) => {
     setTargetDocId(docId);
@@ -360,6 +401,26 @@ export default function DashboardPage() {
     setIsCreateProjectOpen(true);
   };
 
+  // A person removes a project that was shared with them from their own list (the owner keeps it).
+  const handleLeaveProject = async (id: string) => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(id)}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'remove', userId: user.id }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Could not remove it.');
+      const gone = new Set([id, ...projects.filter((p) => p.parentId === id).map((p) => p.id)]);
+      if (activeProjectId && gone.has(activeProjectId)) setWorkspaceMode('dashboard');
+      await fetchProjects();
+    } catch (e: any) {
+      window.alert(e?.message || 'Could not remove the project from your list. Try again.');
+    }
+  };
+
   const handleOpenShareModal = (proj?: ResearchProject | null) => {
     const target = proj || activeProject;
     if (target && target.id !== 'all') {
@@ -407,10 +468,23 @@ export default function DashboardPage() {
           onWorkspaceModeChange={(mode) => setWorkspaceMode(mode)}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+          onOpenProjectFromNotification={(id, share) => {
+            handleSelectProject(id);
+            const target = projects.find((p) => p.id === id);
+            if (share && target) handleOpenShareModal(target);
+          }}
+          onProjectsMayHaveChanged={() => void fetchProjects()}
+          onLeaveProject={authRequired ? (id) => void handleLeaveProject(id) : undefined}
         />
 
         {/* Dynamic Main Workspace View */}
-        {workspaceMode === 'dashboard' ? (
+        {workspaceMode === 'papers' ? (
+          openPaper ? (
+            <PaperEditor paperId={openPaper.id} initial={openPaper.full} onClose={() => showPaper(null)} />
+          ) : (
+            <PaperWorkspace projects={projects} defaultProjectId={activeProjectId} onOpenPaper={showPaper} />
+          )
+        ) : workspaceMode === 'dashboard' ? (
           <DashboardHome
             projects={projects}
             atoms={atoms}
@@ -418,6 +492,7 @@ export default function DashboardPage() {
             onOpenCreateModal={handleOpenCreateModal}
             onDeleteProject={handleRequestDeleteProject}
             onOpenShareModal={authRequired ? (proj) => handleOpenShareModal(proj) : undefined}
+            onOpenPapers={() => setWorkspaceMode('papers')}
             onOpenDocuments={() => {
               // 'all' makes the library list the PDFs of every project and sub-project.
               setActiveProjectId('all');

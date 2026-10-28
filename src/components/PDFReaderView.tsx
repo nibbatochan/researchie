@@ -1,5 +1,6 @@
 'use client';
 
+import { postWithProgress } from '@/lib/net/postWithProgress';
 import { EmptyLibraryIllustration } from './illustrations';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
@@ -525,8 +526,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
     setUploadFileName(rawName);
     setUploadFileSize(formattedSize);
     setIsUploadingFile(true);
-    setUploadProgress(25);
-    setUploadStatusText('Reading and parsing PDF document...');
+    setUploadProgress(3);
+    setUploadStatusText('Sending the PDF to the server...');
     setIsUploadModalOpen(true);
 
     showToast({
@@ -550,10 +551,15 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const parseRes = await fetch('/api/documents/parse', {
-        method: 'POST',
-        body: formData,
+      // The bar follows the bytes sent (3 to 55), then the server's reading (to 70), then the citation lookup.
+      const parseRes = await postWithProgress('/api/documents/parse', formData, {
+        onUpload: (f) => {
+          setUploadProgress(Math.round(3 + f * 52));
+          if (f >= 1) setUploadStatusText('Reading the PDF on the server...');
+        },
       });
+      setUploadProgress(70);
+      setUploadStatusText('Looking for a citation...');
 
       if (parseRes.ok) {
         const json = await parseRes.json();
@@ -566,6 +572,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       console.warn('Document parsing server note:', err);
     }
 
+    setUploadProgress((p) => Math.max(p, 70));
     // DOIs in the PDF give a citation. Prefer the one whose title matches the PDF's.
     // A failure here must not block the upload.
     setUploadCitation(undefined);
@@ -655,21 +662,16 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       return;
     }
     setIsUploadingFile(true);
-    setUploadProgress(65);
+    setUploadProgress(2);
     setUploadStatusText('Saving document to project library...');
-
-    if (uploadIntervalRef.current) clearInterval(uploadIntervalRef.current);
-    uploadIntervalRef.current = setInterval(() => {
-      setUploadProgress((p) => Math.min(96, p + 6));
-    }, 120);
 
     const cleanTitle = uploadFileName.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
 
     try {
-      const res = await fetch('/api/documents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Real progress: the bar follows the bytes of this save (2 to 96); it reaches 100 only when the server says yes.
+      const res = await postWithProgress(
+        '/api/documents',
+        JSON.stringify({
           projectId: targetProjectId,
           title: cleanTitle,
           filename: uploadFileName.trim(),
@@ -682,13 +684,15 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
           tags: ['uploaded-doc'],
           citation: uploadCitation,
         }),
-      });
-
-      if (uploadIntervalRef.current) clearInterval(uploadIntervalRef.current);
-      setUploadProgress(100);
-      setUploadStatusText('Document opened successfully!');
+        {
+          headers: { 'Content-Type': 'application/json' },
+          onUpload: (f) => setUploadProgress(Math.round(2 + f * 94)),
+        }
+      );
 
       if (res.ok) {
+        setUploadProgress(100);
+        setUploadStatusText('Document opened successfully!');
         const json = await res.json();
         if (json.data) {
           const newDoc: ResearchDocument = {
@@ -724,9 +728,10 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
           });
         }
       } else {
+        setUploadStatusText('Could not save the document. Try again.');
         showToast({
           type: 'error',
-          message: 'Failed to save document. Please try again.',
+          message: res.status === 413 ? 'This file is too large to upload here.' : 'Failed to save document. Please try again.',
         });
       }
     } catch (err) {

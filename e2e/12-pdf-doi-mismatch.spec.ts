@@ -68,7 +68,7 @@ async function uploadAndOpenCitation(page: Page, resolvedTitle: string, docIds: 
   expect(project).toBeTruthy();
   await page.getByText(project.title, { exact: false }).first().click();
   await page.waitForTimeout(600);
-  await page.locator('button[title="Docs"], button:has-text("Docs")').first().click();
+  await page.locator('button[title="Docs"], button:has-text("Docs"), button:has-text("Document"):not(:has-text("Library"))').first().click();
   await page.waitForTimeout(800);
 
   await page.locator('input[type="file"]').first().setInputFiles({

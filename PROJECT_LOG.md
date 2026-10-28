@@ -176,3 +176,25 @@
 - **Not tried:** anything signed in on the live site; Firefox and Safari; real researchers; long drafts.
 - **Not built:** automatic "see Figure 1"; bold, italic and headings in own text; Zotero's own API; a conference template; a stronger retraction check (`S-79`).
 - **Known weak spot:** a rewording that changes a clip's meaning passes every check.
+
+## Session Record: Paper editor export, columns and tables (2026-10-28)
+
+### 1. Architectural Decisions
+- **One export menu** (Decision 46).
+- **Word export is a direct writer** over the editor document; the Markdown route remains for its tests (Decision 47).
+- **Columns are a section attribute** over a paper default; the Whole-paper control clears the overrides (Decision 48).
+- **Pagination measures a two-column section as one block**; long sections are split into page-sized parts in the replica (Decision 49).
+- **Every section ends in text**, through a plugin (Decision 50).
+- **Figure pictures come from a shared map**, read at paint time (Decision 51).
+- **Tables: grid picker and automatic widths** (Decision 52).
+
+### 2. State of Key Files
+- `src/lib/paper/docx.ts` (direct writer, tables, images, packaging); `tests/paper-docx.test.mjs` (15 tests).
+- `src/components/PaperEditor.tsx` (Export menu, section pagination, figure map); `src/components/PaperToolbar.tsx` (Insert table, column panel); `src/lib/paper/editor/extensions.ts` (Section `columns`, `TrailingText`, `figureSources`); `src/lib/paper/editor/columns.ts` (section helpers); `src/app/globals.css` (column and table rules).
+- Test paper `ecdf24e4-0409-46e2-af09-ca0f5a861d9b` (local store only; rebuilt from `build_replica.cjs`). Kept paper `4c7fb0c4-…`.
+- `e2e/46-paper-print.spec.ts` now opens the Export menu before printing.
+
+### 3. Readiness for Next Phase
+- **Checked:** type check; DOCX tests 15/15; export XML well-formed; python-docx opens the file; merged cells export; editor shows figures and tables; typing below columns; column controls; autosave of an edited paper.
+- **Not checked:** the file in Microsoft Word; a real clipboard copy from a browser into the paper; the full e2e suite after these changes; editor pagination with two columns on long papers (it still warns "taller than a page" for some blocks).
+- **Known weak spot:** a two-column section taller than one page is not split by the editor; users must split it with a section break.

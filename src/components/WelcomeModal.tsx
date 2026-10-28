@@ -27,7 +27,7 @@ import { ResearchieLogo } from './ResearchieLogo';
 import { useAuth } from '@/lib/auth/authContext';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { AiProviderSettings } from './AiProviderSettings';
-import { PROVIDERS, PROVIDER_ORDER } from '@/lib/ai/providers';
+import { PROVIDERS } from '@/lib/ai/providers';
 
 // The "How it works" dialog. It opens by itself the first time someone reaches the dashboard, on the
 // Set up tab, because nothing works until the extension is installed and an AI key is added.
@@ -285,7 +285,6 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, fir
     </h2>
   );
 
-  const recommended = PROVIDER_ORDER.filter((id) => PROVIDERS[id].recommended).map((id) => PROVIDERS[id]);
   const uc = USE_CASES[caseIndex];
   const UcIcon = uc.icon;
 
@@ -526,22 +525,22 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, fir
                           ) : (
                             <div className="grid xl:grid-cols-2 gap-5">
                               <div className="space-y-3">
-                                <div className="rounded-2xl border border-[#325FEC]/30 bg-[#325FEC]/[0.06] p-3.5 space-y-2">
+                                <div className="rounded-2xl border border-[#325FEC]/30 bg-[#325FEC]/[0.06] p-3.5 space-y-2.5">
                                   <div className="flex items-center gap-1.5 text-sm font-semibold text-[#274AC4] dark:text-[#8DB4FF]">
-                                    <Star size={13} weight="fill" aria-hidden /> Recommended if you do not have a key yet
+                                    <Star size={13} weight="fill" aria-hidden /> Get a free Groq key
                                   </div>
-                                  <ul className="text-sm text-slate-700 dark:text-zinc-300 space-y-1.5">
-                                    {recommended.map((p) => (
-                                      <li key={p.id}>
-                                        <span className="font-semibold">{p.label}</span>: free key, no card.{' '}
-                                        <a href={p.keysUrl} target="_blank" rel="noreferrer" className="text-[#325FEC] dark:text-[#8DB4FF] underline">
-                                          Get a key
-                                        </a>
-                                      </li>
-                                    ))}
-                                  </ul>
+                                  <ol className="list-decimal pl-5 space-y-1.5 text-sm text-slate-700 dark:text-zinc-300">
+                                    <li>
+                                      Open{' '}
+                                      <a href={PROVIDERS.groq.keysUrl} target="_blank" rel="noreferrer" className="text-[#325FEC] dark:text-[#8DB4FF] underline">
+                                        console.groq.com/keys
+                                      </a>{' '}
+                                      and sign in. The free tier is enough to start.
+                                    </li>
+                                    <li>Press Create API Key and copy it. It is shown once.</li>
+                                    <li>Paste it on the right and press Save and connect.</li>
+                                  </ol>
                                 </div>
-                                <p className="text-sm text-slate-500 dark:text-zinc-400">Already have a key from another provider? Pick it on the right and paste it.</p>
                                 <p className="text-sm text-slate-500 dark:text-zinc-400">If skipped: Ask AI and Synthesize say “Add your AI key in Settings to use this feature.” You can add it later.</p>
                               </div>
                               <div style={{ zoom: 1.2 }}><AiProviderSettings /></div>

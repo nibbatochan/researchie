@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { AUTH_REQUIRED } from '@/lib/auth/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { isCrossSiteWrite } from '@/lib/auth/tokens';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { revokeExtensionTokens } from '@/lib/auth/revoke';
 
-// Ends this browser's session and removes the cookies. 'local' leaves the user's other devices signed in;
+// Ends this browser's session, switches off the account's extension tokens, and removes the cookies. 'local' leaves the user's other devices signed in;
 // { everywhere: true } signs out all of them.
 export async function POST(request: Request) {
   if (!AUTH_REQUIRED) return NextResponse.json({ success: true });
@@ -13,6 +15,12 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const supabase = await createServerSupabaseClient();
+    // Signing out also switches off this account's Chrome extension tokens (S-120). Read who it is first.
+    const { data: who } = await supabase.auth.getUser();
+    if (who?.user) {
+      const ok = await revokeExtensionTokens(supabaseAdmin, who.user.id);
+      if (!ok) console.warn('Sign-out: could not revoke extension tokens for', who.user.id);
+    }
     await supabase.auth.signOut({ scope: body?.everywhere ? 'global' : 'local' });
   } catch {
     // The cookies are cleared below either way.

@@ -14,7 +14,7 @@ test.describe('23. Onboarding flow', () => {
     await expect(modal.getByText('Install the Chrome extension').or(modal.getByText('Download extension (.zip)'))).toBeVisible();
 
     await page.getByRole('tab', { name: /AI key/ }).click();
-    await expect(modal.getByText('Recommended if you do not have a key yet')).toBeVisible();
+    await expect(modal.getByText('Get a free Groq key')).toBeVisible();
 
     await page.getByTestId('welcome-next').click();
     await expect(modal.getByRole('heading', { name: 'Clip. Keep. Ask.' })).toBeVisible();

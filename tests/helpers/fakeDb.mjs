@@ -3,25 +3,25 @@
 
 const PKEY = { projects: 'id', atoms: 'id', documents: 'id' };
 // Tables whose id the database makes, and the column pairs that must be unique.
-const GENERATED_ID = new Set(['project_members', 'project_invites', 'share_links', 'access_requests']);
+const GENERATED_ID = new Set(['project_members', 'project_invites', 'share_links', 'access_requests', 'notifications', 'papers']);
 const UNIQUE = { project_members: ['project_id', 'user_id'], project_invites: ['project_id', 'email'], access_requests: ['project_id', 'user_id'] };
 let counter = 0;
 
-export function makeFakeDb(seed = {}) {
+export function makeFakeDb(seed = {}, { maxRows = Infinity } = {}) {
   const tables = { projects: [], atoms: [], documents: [], ...seed };
 
   function from(table) {
     const rows = tables[table] ?? (tables[table] = []);
-    const state = { op: 'select', filters: [], patch: null, row: null, single: false, maybe: false, order: null, opts: null };
+    const state = { op: 'select', filters: [], patch: null, row: null, single: false, maybe: false, order: [], range: null, opts: null };
 
     const run = () => {
-      const match = (r) => state.filters.every((f) => (f.kind === 'eq' ? r[f.col] === f.val : f.vals.includes(r[f.col])));
+      const match = (r) => state.filters.every((f) => (f.kind === 'eq' ? r[f.col] === f.val : f.kind === 'is' ? (r[f.col] ?? null) === f.val : f.kind === 'not' ? (r[f.col] ?? null) !== f.val : f.vals.includes(r[f.col])));
       if (state.op === 'insert') {
         const pk = PKEY[table];
         if (pk && rows.some((r) => r[pk] === state.row[pk])) return { data: null, error: { code: '23505', message: 'duplicate key' } };
         const pair = UNIQUE[table];
         if (pair && rows.some((r) => pair.every((c) => r[c] === state.row[c]))) return { data: null, error: { code: '23505', message: 'duplicate key' } };
-        const created = { captured_at: new Date().toISOString(), uploaded_at: new Date().toISOString(), ...(GENERATED_ID.has(table) ? { id: `gen-${++counter}` } : {}), ...state.row };
+        const created = { captured_at: new Date().toISOString(), uploaded_at: new Date().toISOString(), ...(GENERATED_ID.has(table) ? { id: `gen-${++counter}` } : {}), ...(table === 'papers' ? { created_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted_at: null } : {}), ...state.row };
         rows.push(created);
         return finish([created]);
       }
@@ -42,7 +42,18 @@ export function makeFakeDb(seed = {}) {
         return finish(hit);
       }
       let out = hit;
-      if (state.order) out = [...out].sort((a, b) => String(b[state.order] ?? '').localeCompare(String(a[state.order] ?? '')));
+      if (state.order.length) {
+        out = [...out].sort((a, b) => {
+          for (const { col, ascending } of state.order) {
+            const c = String(a[col] ?? '').localeCompare(String(b[col] ?? ''));
+            if (c !== 0) return ascending ? c : -c;
+          }
+          return 0;
+        });
+      }
+      // Like Supabase: a query returns at most maxRows rows, and a range picks a slice of them.
+      const [from, to] = state.range ?? [0, Infinity];
+      out = out.slice(from, to + 1).slice(0, maxRows);
       return finish(out);
     };
 
@@ -60,8 +71,11 @@ export function makeFakeDb(seed = {}) {
       update: (patch) => ((state.op = 'update'), (state.patch = patch), b),
       delete: () => ((state.op = 'delete'), b),
       eq: (col, val) => (state.filters.push({ kind: 'eq', col, val }), b),
+      is: (col, val) => (state.filters.push({ kind: 'is', col, val }), b),
+      not: (col, op, val) => (state.filters.push({ kind: 'not', col, val }), b),
       in: (col, vals) => (state.filters.push({ kind: 'in', col, vals }), b),
-      order: (col) => ((state.order = col), b),
+      order: (col, opts) => (state.order.push({ col, ascending: opts?.ascending ?? true }), b),
+      range: (from, to) => ((state.range = [from, to]), b),
       single: () => ((state.single = true), b),
       maybeSingle: () => ((state.maybe = true), b),
       then: (resolve, reject) => Promise.resolve(run()).then(resolve, reject),

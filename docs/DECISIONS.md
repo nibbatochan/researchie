@@ -246,6 +246,43 @@
 
 ---
 
+### Decision 46: One Export Menu for Word, PDF and Markdown
+- **Decision**: The paper editor's Export button opens one menu: Word (.docx), PDF (print), Markdown (.md). It replaces the three separate buttons. The print item keeps its `paper-print` test id and is disabled while printing.
+- **Rationale**: Owner request, 2026-10-28: one place to export, three formats.
+- **Limits**: PDF is the browser's print dialog (Save as PDF), not a server-side PDF.
+
+### Decision 47: Word Export Written Straight From the Editor Document
+- **Decision**: `paperToDocx` walks the editor's ProseMirror JSON and writes WordprocessingML itself. The Markdown route stays only for `markdownToDocx`. Sections carry a `columns` attribute ("1", "2", or unset to follow `meta.page.columns`), and each run of same-column blocks ends in its own section break. Figures are embedded as PNG or JPEG (size read from the file header). Tables become real `w:tbl` with `vMerge` and `gridSpan`, so merged cells keep their columns. Control characters are stripped before writing, because Word refuses a file that contains them. The package has no folder entries.
+- **Rationale**: The Markdown middle step lost tables and images and could not express per-section columns. A Word file that opens is the first requirement.
+- **Limits**: Equations are written as monospace LaTeX text. Hyphenation, per-paragraph spacing and odd/even headers are not carried over. Checked by XML well-formedness and python-docx only; no copy was opened in Microsoft Word.
+
+### Decision 48: Column Layout Per Section, With a Whole-Paper Reset
+- **Decision**: The column count is a section attribute. The Columns panel has "This section: One / Two columns" and "Whole paper: One / Two columns"; choosing a whole-paper value clears every section's override so the paper setting applies again. Figures and tables run across all columns (CSS `column-span: all` in the editor, a section break in Word).
+- **Rationale**: Owner request: columns only where needed (for example Methods), never on References or back matter. Before this, the whole-paper setting could not be undone once a section had its own value.
+- **Limits**: Editor pagination treats a two-column section as one block (see Decision 49). A section taller than one page is flagged in the status line, not split.
+
+### Decision 49: Two-Column Sections Are One Block to the Page Logic; Long Ones Are Split Into Chunks
+- **Decision**: In `paginate()`, a two-column section is measured and padded as a whole, not child by child. The replica builder splits any two-column section above about 520 words of weight into several page-sized sections, each keeping the same column setting.
+- **Rationale**: Padding each paragraph inside CSS columns moved text between columns, changed the height, and padded again; the page shook. Measuring the section as one block stopped the loop (0 DOM changes in a 3-second browser check at 1280, 1920 and 1500 px).
+- **Limits**: A chunk boundary is a split by weight, not a real page-break position. Workaround for users: keep a two-column section under about one page, or split it with a section break.
+
+### Decision 50: Every Section Ends in Text
+- **Decision**: A `TrailingText` plugin appends an empty paragraph to any section whose last block is a formula, figure, table or page break. It runs on every edit and once when the editor opens.
+- **Rationale**: Clicking the space below such a block had no text position, so typing did nothing there.
+- **Limits**: Each such section gains an empty paragraph, which shows as a blank line in exports.
+
+### Decision 51: Figure Pictures Come From a Shared Map, Not a Closure
+- **Decision**: Figure views read their picture from a module-level map `figureSources` (clip id to data URL), filled from the project's clips whenever they change, and repaint on a `paper:clips-changed` event.
+- **Rationale**: Figure views created before the clips loaded kept an old reference to the clip list and never showed their pictures. A shared map is read at paint time.
+- **Limits**: One editor per page is assumed; a second editor on the same page would share the map.
+
+### Decision 52: Insert Table From a Word-Style Grid; Tables Use Automatic Widths and Grid Lines
+- **Decision**: The toolbar's Insert table control opens a 6 × 6 grid picker (hover to size, click to insert, first row as header). In the editor, tables use automatic column widths and a 0.5 pt grid, matching the Word export.
+- **Rationale**: Owner request: table tools as in Word, with table content built as real tables inside the paper. Fixed layout gave every column the same width.
+- **Limits**: The picker is capped at 6 × 6; larger tables are made by adding rows and columns.
+
+---
+
 ## Molecule Build System Log
 
 ### `CRITIQUE` — 2026-09-30 · S1 Spec · Source: grill
@@ -319,3 +356,15 @@
 **Cost:** saving a key makes one short search call to check it, which uses a few tokens.
 
 **Reasoning:** supersedes the earlier "Perplexity not done" note in the entry above.
+
+### `DECISION` — 2026-10-28 · Paper abstracts from OpenAlex for answers · Source: user request
+
+**Decision:** `POST /api/papers/ask` searches OpenAlex (`api.openalex.org/works?search=`), keeps up to 5 works with an abstract that are not retracted, and asks the user's AI provider to answer from those abstracts only. The answer is labelled `basis: "abstracts"` and lists each paper with its DOI.
+
+**Why:** Abstracts give the model real research context that the user's clips may not hold. OpenAlex is free and needs no paid access. OpenAlex provides no full text, so answers say they come from abstracts.
+
+**Key:** on the tester deployment each user saves an OpenAlex key in Settings → Paper search (`user_openalex_keys`, AES-256-GCM, checked once, last four shown). Locally the server reads `OPENALEX_API_KEY` from `.env.local`. Without a key, OpenAlex's small shared daily budget applies, and the answer says so.
+
+**Chat:** the side panel has a "Papers" toggle that routes the question to `/api/papers/ask`. **Not done:** a paper picker in the web app chat, and full text. Clip answers still come from `/api/ai/qna`. Groq stays the answer writer.
+
+**Reasoning:** OpenAlex finds and describes papers; it cannot write answers, so the AI provider remains the writer.

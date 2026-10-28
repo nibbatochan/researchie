@@ -17,6 +17,7 @@ import {
   TreeStructure,
   MagnifyingGlass,
   Gear,
+  SignOut,
   Trash,
   SlidersHorizontal,
   HardDrive
@@ -28,6 +29,7 @@ import { UserProfileButton } from './UserProfileButton';
 import { ProjectAvatar } from './ProjectAvatar';
 import { GetExtensionModal } from './GetExtensionModal';
 import { useSettings } from '@/lib/settings/settingsContext';
+import { NotificationBell } from './NotificationBell';
 
 interface ProjectListProps {
   projects: ResearchProject[];
@@ -39,10 +41,16 @@ interface ProjectListProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   onOpenExtensionGuide?: () => void;
-  workspaceMode?: 'dashboard' | 'feed' | 'canvas' | 'reader';
+  workspaceMode?: 'dashboard' | 'feed' | 'canvas' | 'reader' | 'papers';
   onWorkspaceModeChange?: (mode: 'dashboard' | 'feed' | 'canvas' | 'reader') => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** Opens a project, and its Share dialog when `share` is true. Used by the notification box. */
+  onOpenProjectFromNotification?: (projectId: string, share: boolean) => void;
+  /** Something arrived that changes which projects this person can see: reload the list. */
+  onProjectsMayHaveChanged?: () => void;
+  /** A person removes a project that was shared with them from their own list. */
+  onLeaveProject?: (id: string) => void;
 }
 
 export const ProjectList: React.FC<ProjectListProps> = ({
@@ -57,6 +65,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   onWorkspaceModeChange,
   isCollapsed = false,
   onToggleCollapse,
+  onOpenProjectFromNotification,
+  onProjectsMayHaveChanged,
+  onLeaveProject,
 }) => {
   const [collapsedFolderIds, setCollapsedFolderIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,7 +251,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         {/* Bottom: Modes, Settings & User */}
         <div className="flex flex-col items-center gap-2 w-full px-2">
           {/* Mode Icons - Only show when not on dashboard */}
-          {workspaceMode !== 'dashboard' && onWorkspaceModeChange && (
+          {workspaceMode !== 'dashboard' && workspaceMode !== 'papers' && onWorkspaceModeChange && (
             <div className="flex flex-col gap-1.5">
               {[
                 { id: 'feed' as const, icon: ListDashes },
@@ -266,6 +277,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               })}
             </div>
           )}
+          <NotificationBell compact onOpenProject={(id, share) => onOpenProjectFromNotification?.(id, share)} onProjectsMayHaveChanged={onProjectsMayHaveChanged} />
           <button
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
@@ -426,6 +438,25 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       {parent.atomCount || 0}
                     </span>
 
+                    {/* A project shared with this person: remove it from their own list */}
+                    {isSharedParent && onLeaveProject && (
+                      <button
+                        type="button"
+                        data-testid="leave-shared-project"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Remove "${parent.title}" from your list? You lose access until the owner shares it with you again. The owner keeps the project.`)) {
+                            onLeaveProject(parent.id);
+                          }
+                        }}
+                        className="hidden group-hover:inline-flex p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer"
+                        title="Remove from my list"
+                        aria-label={`Remove ${parent.title} from my list`}
+                      >
+                        <SignOut size={12} />
+                      </button>
+                    )}
+
                     {/* Hover Quick Actions */}
                     <div className={`hidden ${canManageParent ? 'group-hover:flex' : ''} items-center gap-0.5`}>
                       <button
@@ -521,7 +552,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       {/* Footer Navigation Dock */}
       <div className={`px-3.5 py-2.5 border-t space-y-2 ${blend ? 'border-[#D2DAE8] bg-white dark:border-[#27272A] dark:bg-[#09090B]/60' : 'border-[#D2DAE8] dark:border-[#27272A] bg-white dark:bg-[#09090B]/60'}`}>
         {/* Workspace Mode Switcher - Only show when a project is open (not on dashboard) */}
-        {onWorkspaceModeChange && workspaceMode !== 'dashboard' && (
+        {onWorkspaceModeChange && workspaceMode !== 'dashboard' && workspaceMode !== 'papers' && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1 py-1">
               {[
@@ -567,6 +598,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
           </button>
 
           <div className="flex items-center gap-1">
+            <NotificationBell onOpenProject={(id, share) => onOpenProjectFromNotification?.(id, share)} onProjectsMayHaveChanged={onProjectsMayHaveChanged} />
             <button
               type="button"
               onClick={() => setIsSettingsModalOpen(true)}

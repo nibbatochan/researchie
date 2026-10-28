@@ -1275,6 +1275,16 @@ body.sidepanel-root {
   background: var(--bg-canvas);
 }
 
+.sp-papers-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
 #sp-chat-input {
   flex: 1;
   background: transparent;

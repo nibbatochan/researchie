@@ -14,6 +14,9 @@ export function outlineKey(projectId: string): string {
 
 export const STYLE_PREF_KEY = 'researchie.inTextStyle';
 
+/** Set when a paper is created, cleared when the person closes the editor's note. Kept in the account, so it survives logout. */
+export const INFO_PENDING_KEY = 'researchie.paperInfoPending';
+
 export type SerializeResult = { ok: true; json: string } | { ok: false; reason: string };
 
 /** The JSON to save, or the reason it can not be saved. The outline is never cut down silently. */

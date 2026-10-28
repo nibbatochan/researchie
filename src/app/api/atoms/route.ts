@@ -38,7 +38,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const t0 = Date.now();
   const auth = await authorize(request);
+  const authMs = Date.now() - t0;
   if (auth.response) return auth.response;
   if (AUTH_REQUIRED && Number(request.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
     return NextResponse.json(
@@ -163,11 +165,13 @@ export async function POST(request: Request) {
       userNotes: body.userNotes || '',
     };
 
+    const tSave = Date.now();
     const saved = await store.insertAtom(auth.user.id, {
       ...newAtomPayload,
       userId: auth.user.id,
       projectId: await store.resolveProjectId(auth.user.id, newAtomPayload.projectId),
     } as any);
+    const saveMs = Date.now() - tSave;
     if (!saved) {
       return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
     }
@@ -185,7 +189,10 @@ export async function POST(request: Request) {
         }
       });
     }
-    return NextResponse.json({ success: true, source: STORE_SOURCE, data: saved }, { status: 201 });
+    // Where the time goes on a save (S-119): shown in the browser's network panel and in the Vercel logs.
+    const timing = `auth;dur=${authMs}, save;dur=${saveMs}, total;dur=${Date.now() - t0}`;
+    console.log('POST /api/atoms timing', timing);
+    return NextResponse.json({ success: true, source: STORE_SOURCE, data: saved }, { status: 201, headers: { 'Server-Timing': timing } });
   } catch (error: any) {
     console.error('POST /api/atoms error:', error);
     return NextResponse.json(
