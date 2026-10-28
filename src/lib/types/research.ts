@@ -10,6 +10,9 @@ export interface ProvenanceMetadata {
   pageInfo?: { url: string; title?: string; siteName?: string; author?: string; published?: string; updated?: string }; // web-source fallback
   pinnedAt?: string; // set when the atom is pinned to the top of the feed; see src/lib/atoms/pin.ts
   evidenceKind?: 'quote' | 'ai-summary' | 'mine'; // how the clip may be used in a paper; see src/lib/atoms/evidence.ts
+  sourceAtomIds?: string[]; // a note saved from Researchie AI: the clips it cites, so a paper can cite them when the note is placed
+  origin?: 'research-ai'; // a note that came from Researchie AI: named by its origin, not its web address
+  references?: string[]; // that note's reference list, shown under Get citation rather than in the text
   sourceUrl: string;
   pageTitle: string;
   domainFavicon?: string;

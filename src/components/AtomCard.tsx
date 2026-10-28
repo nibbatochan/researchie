@@ -112,6 +112,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
   const [citationError, setCitationError] = useState<string | null>(null);
   const [citationCandidates, setCitationCandidates] = useState<CitationRecord[] | null>(null);
   const [citationOpen, setCitationOpen] = useState(false); // the citation panel stays open until closed
+  const [refsOpen, setRefsOpen] = useState(false); // a Research AI note lists the sources it was saved with
   const [citationStyle, setCitationStyle] = useCitationStyle();
   const [citationMismatch, setCitationMismatch] = useState<CitationRecord | null>(null); // a typed or picked source that does not match the clip
 
@@ -214,6 +215,15 @@ export const AtomCard: React.FC<AtomCardProps> = ({
         window.open(targetLink, '_blank', 'noopener,noreferrer');
       }
     }
+  };
+
+  // A [Page N] link in a document answer opens that page of the document; the saved quote is highlighted on its page.
+  const handlePageLink = (href: string) => {
+    const page = href.match(/#cite-page-(\d+)/)?.[1];
+    if (!isDocAtom || !onOpenPdfReader || !page) return;
+    const docId = atom.metadata?.documentId || (atom as any).documentId || '';
+    const pageNum = Number(page);
+    onOpenPdfReader(docId, pageNum, pageNum === atom.metadata?.pageNumber ? highlightText : undefined);
   };
 
   const handleCopyCitation = () => {
@@ -456,7 +466,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={citation ? () => setCitationOpen(true) : handleGetCitation}
+                onClick={atom.metadata?.references?.length ? () => setRefsOpen((v) => !v) : citation ? () => setCitationOpen(true) : handleGetCitation}
                 disabled={citationBusy}
                 className="p-1 rounded text-slate-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] hover:bg-[#E4ECF6] dark:hover:bg-[#222226] transition-colors cursor-pointer disabled:opacity-50"
                 title={citation ? 'Show citation' : 'Get citation'}
@@ -493,6 +503,16 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             )}
           </div>
         </div>
+
+        {refsOpen && atom.metadata?.references && (
+          <ul
+            className="mt-2 mb-1 space-y-1 rounded-md border border-[#E4ECF6] dark:border-[#27272A] p-2.5 text-[12px] text-slate-700 dark:text-zinc-300"
+            data-testid="note-references"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {atom.metadata.references.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        )}
 
         {citationOpen && (
           <div
@@ -652,7 +672,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 </h4>
               )}
               {atom.content.markdownContent ? (
-                <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} />
+                <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} onCitationClick={handlePageLink} />
               ) : atom.content.description ? (
                 <FormattedAIMessage content={atom.content.description} searchQuery={searchQuery} />
               ) : null}
@@ -756,7 +776,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             />
           ) : null}
           <span className="font-mono text-[11px] text-slate-500 dark:text-zinc-400 truncate font-medium">
-            {getSourceHostname(atom.metadata?.sourceUrl)}
+            {atom.metadata?.origin === 'research-ai' ? 'Research AI answer' : getSourceHostname(atom.metadata?.sourceUrl)}
           </span>
           <span className="font-mono text-[11px] text-slate-400 dark:text-zinc-500 flex-shrink-0">
             • {formatDate(createdAtTime)}
@@ -950,7 +970,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               </h3>
             )}
             {atom.content.markdownContent ? (
-              <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} />
+              <FormattedAIMessage content={atom.content.markdownContent} searchQuery={searchQuery} onCitationClick={handlePageLink} />
             ) : atom.content.description ? (
               <FormattedAIMessage content={atom.content.description} searchQuery={searchQuery} />
             ) : null}

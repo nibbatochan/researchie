@@ -30,9 +30,11 @@ export interface ClipInfo {
   text: string;
   kind: EvidenceKind;
   record?: CitationRecord;
+  webFallback?: boolean; // the record is a web page built from the clip's address, not a checked citation: numbered, but not listed on the Citations tab
   page?: string | number;
   retractionState?: string; // metadata.health.retraction.state when a source-health check has run
   media?: ClipMedia; // set for an image clip or a clip that holds a table
+  sourceIds?: string[]; // a note written in Researchie AI: the clips it cites
 }
 
 /** A piece of text: plain, or LaTeX maths. A display equation carries its number. */

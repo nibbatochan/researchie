@@ -81,7 +81,7 @@ export const PaperSidebar: React.FC<Props> = ({ atoms, infos, used, listed, onLi
       const info = infos.get(atom.id);
       if (!info || !matches(atom, info)) continue;
       (info.media ? images : text).push({ atom, info });
-      if (info.record && info.kind === 'quote') {
+      if (info.record && !info.webFallback && info.kind === 'quote') {
         const key = info.record.doi || `${info.record.title}|${info.record.year}`;
         if (!sources.has(key)) sources.set(key, { atom, info });
       }
@@ -196,7 +196,7 @@ export const PaperSidebar: React.FC<Props> = ({ atoms, infos, used, listed, onLi
                 ) : (
                   <span className="min-w-0 flex-1">
                     <span className={`block font-mono text-[7.5px] font-semibold uppercase tracking-wide ${tab === 'images' ? 'text-slate-500 dark:text-zinc-500' : KIND_TONE[info.kind]}`}>
-                      {tab === 'images' ? (info.media?.kind === 'table' ? 'Table' : 'Image') : KIND_WORD[info.kind]}
+                      {tab === 'images' ? (info.media?.kind === 'table' ? 'Table' : 'Image') : atom.metadata?.origin === 'research-ai' ? 'Paraphrased' : KIND_WORD[info.kind]}
                     </span>
                     <span className="block">
                       {info.media?.kind === 'image' && (

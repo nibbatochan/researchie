@@ -59,7 +59,7 @@ test.describe('25. Paper workspace', () => {
     // Trash: the way back has no trash icon.
     await page.getByTestId('paper-trash-toggle').click();
     await expect(page.getByTestId('paper-trash-toggle')).toHaveText('Back to papers');
-    await expect(page.getByTestId('paper-trash-toggle').locator('svg')).toHaveCount(0);
+    await expect(page.getByTestId('paper-trash-toggle').locator('svg')).toHaveCount(1); // the back arrow
   });
 
   test('Blank opens straight away, then rename, copy, delete, undo and the trash work', async ({ page }) => {

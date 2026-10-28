@@ -120,6 +120,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, {
       action: 'SAVE_SELECTION_TRIGGERED',
       selectionText: info.selectionText,
+    }).catch(() => {
+      // no page script in this tab (a PDF viewer): save the selection from here, with the PDF's citation
+      if (looksLikePdfUrl(tab.url)) saveSelectionFromPdfTab(info.selectionText, tab);
     });
   } else if (info.menuItemId === 'researchie-pick-block') {
     chrome.tabs.sendMessage(tab.id, { action: 'TRIGGER_BLOCK_PICKER' });
@@ -153,7 +156,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js', 'qnaDrawer.js'],
+      files: ['pageCitation.js', 'projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js', 'qnaDrawer.js'],
     });
   } catch {}
 
@@ -408,7 +411,81 @@ self.addEventListener('online', () => {
 });
 syncOfflineAlarm();
 
+
+// Text copied from a PDF breaks at every printed line. A single break is a wrapped line and joins into the paragraph; a blank
+// line stays a paragraph break; a word split by a hyphen at a line end is joined. (Same rule as src/lib/utils/pdfText.ts.)
+function unwrapPdfLines(text) {
+  return String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[­​]/g, '')
+    .split(/\n[ \t]*\n+/)
+    .map((para) => {
+      let out = '';
+      for (const line of para.split('\n').map((l) => l.trim()).filter(Boolean)) {
+        if (!out) out = line;
+        else if (/[A-Za-zÀ-ɏ]-$/.test(out) && /^[a-zà-ɏ]/.test(line)) out = out.slice(0, -1) + line;
+        else out += ' ' + line;
+      }
+      return out.replace(/[ \t]{2,}/g, ' ');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+// A PDF opened in the browser's own viewer has no citation meta tags to read. The file is fetched here (once per address,
+// remembered for the session) and the platform reads its DOI and title.
+async function pdfCitationFor(url) {
+  const key = 'pdfCitation:' + url;
+  try {
+    const cached = await chrome.storage.session.get(key);
+    if (key in cached) return cached[key];
+  } catch {}
+  let result = null;
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    const size = Number(res.headers.get('content-length') || 0);
+    if (res.ok && size <= 25 * 1024 * 1024) {
+      const blob = await res.blob();
+      if (blob.size <= 25 * 1024 * 1024) {
+        const form = new FormData();
+        form.append('file', blob, 'paper.pdf');
+        const apiBase = await getWorkingApiBase();
+        const read = await fetch(`${apiBase}/citations/pdf`, { method: 'POST', body: form });
+        const json = read.ok ? await read.json() : null;
+        const doi = json && json.success && json.data && json.data.dois && json.data.dois[0];
+        if (doi) {
+          result = { pageIdentifiers: { doi }, pageInfo: { url, title: (json.data.title || undefined) } };
+        }
+      }
+    }
+  } catch {}
+  try {
+    await chrome.storage.session.set({ [key]: result });
+  } catch {}
+  return result;
+}
+
+const looksLikePdfUrl = (url) => /\.pdf([?#]|$)/i.test(url || '') || /\/pdf\//i.test(url || '');
+
+// The side that saves a selection from a PDF viewer the page scripts cannot reach (Firefox's viewer, some embedded viewers).
+async function saveSelectionFromPdfTab(selectionText, tab) {
+  const text = unwrapPdfLines(selectionText);
+  if (!text) return;
+  const citation = await pdfCitationFor(tab.url);
+  const meta = { sourceUrl: tab.url, pageTitle: tab.title || 'PDF', ...(citation || {}) };
+  await saveAtomToPlatform({
+    type: 'quote',
+    title: `"${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`,
+    content: { rawText: text, text },
+    metadata: meta,
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'PDF_CITATION') {
+    pdfCitationFor(message.url).then((data) => sendResponse({ success: true, data })).catch(() => sendResponse({ success: false }));
+    return true;
+  }
   if (message.action === 'SAVE_ATOM') {
     saveAtomToPlatform(message.payload).then((res) => sendResponse(res));
     return true;

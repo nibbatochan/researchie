@@ -167,7 +167,13 @@ export function makePapers(db: Db, roleOn: (userId: string, projectId: string) =
     return Array.isArray(data) && data.length > 0;
   }
 
-  return { list, get, create, update, duplicate, softDelete, restore, purge };
+  /** Removes every paper in the trash for good. Returns how many were removed. */
+  async function purgeTrash(userId: string): Promise<number> {
+    const { data } = await db.from('papers').delete().eq('user_id', userId).not('deleted_at', 'is', null).select('id');
+    return Array.isArray(data) ? data.length : 0;
+  }
+
+  return { list, get, create, update, duplicate, softDelete, restore, purge, purgeTrash };
 }
 
 export type Papers = ReturnType<typeof makePapers>;

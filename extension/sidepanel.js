@@ -66,6 +66,7 @@ let activeTabInfo = {
   url: '',
   domain: '',
   mainContent: '',
+  citation: null, // the page's DOI, PMID or web facts, with a source line (see pageCitation.js)
   headings: [],
   keyParagraphs: [],
   wordCount: 0,
@@ -397,7 +398,7 @@ async function refreshActiveTabContext() {
     try {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        files: ['projectMenu.js', 'content.js'],
+        files: ['pageCitation.js', 'projectMenu.js', 'content.js'],
       });
     } catch {}
 
@@ -412,6 +413,7 @@ async function refreshActiveTabContext() {
       const data = response.data;
       activeTabInfo.title = data.title || activeTabInfo.title;
       activeTabInfo.mainContent = data.mainContent || '';
+      activeTabInfo.citation = data.citation || null;
       activeTabInfo.headings = data.headings || [];
       activeTabInfo.keyParagraphs = data.keyParagraphs || [];
       activeTabInfo.wordCount = data.wordCount || (data.mainContent ? data.mainContent.split(/\s+/).length : 0);
@@ -588,7 +590,7 @@ async function handleSummarizePage() {
   appendLoadingBubble();
 
   const payload = {
-    pageText: activeTabInfo.mainContent || activeTabInfo.title,
+    pageText: withSource(activeTabInfo.mainContent || activeTabInfo.title),
     pageTitle: activeTabInfo.title,
     mode: selectedSummaryMode,
   };
@@ -613,7 +615,7 @@ async function handleSummarizePage() {
     const d = json && json.success ? json.data : null;
     const markdown = d && (d.markdown || d.summary);
     if (markdown) {
-      appendChatMessage('assistant', `### ${activeTabInfo.title}\n\n${markdown}`);
+      appendChatMessage('assistant', withCitation(`### ${activeTabInfo.title}\n\n${markdown}`));
       return;
     }
   } catch (err) {
@@ -685,7 +687,7 @@ async function sendUserChatMessage() {
   }
 
   try {
-    const pageContext = activeTabInfo.mainContent || activeTabInfo.title;
+    const pageContext = withSource(activeTabInfo.mainContent || activeTabInfo.title);
 
     // Try background message proxy first
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -708,7 +710,7 @@ async function sendUserChatMessage() {
         if (Array.isArray(d.evidenceBullets) && d.evidenceBullets.length > 0) {
           answer += '\n\n' + d.evidenceBullets.map(b => `- ${b}`).join('\n');
         }
-        appendChatMessage('assistant', answer, d.citations || []);
+        appendChatMessage('assistant', withCitation(answer), d.citations || []);
         return;
       }
     }
@@ -735,7 +737,7 @@ async function sendUserChatMessage() {
         if (Array.isArray(d.evidenceBullets) && d.evidenceBullets.length > 0) {
           answer += '\n\n' + d.evidenceBullets.map(b => `- ${b}`).join('\n');
         }
-        appendChatMessage('assistant', answer, d.citations || []);
+        appendChatMessage('assistant', withCitation(answer), d.citations || []);
         return;
       }
     }
@@ -746,6 +748,16 @@ async function sendUserChatMessage() {
   removeLoadingBubble();
   isAiLoading = false;
   appendChatMessage('assistant', `Based on "${activeTabInfo.title}":\n\n- The page context relates directly to your query.\n- You can also highlight any paragraph and press **Alt+S** to save it to your project timeline.`);
+}
+
+// The source line goes in front of page text sent to the AI, and under an answer, so both carry the page's citation.
+function withSource(text) {
+  const line = activeTabInfo.citation?.line;
+  return line ? `Source: ${line}\n\n${text}` : text;
+}
+function withCitation(text) {
+  const line = activeTabInfo.citation?.line;
+  return line ? `${text}\n\nSource: ${line}` : text;
 }
 
 function appendChatMessage(role, text, citations = []) {
@@ -808,13 +820,15 @@ function appendChatMessage(role, text, citations = []) {
           type: 'note',
           title: `Page AI: ${activeTabInfo.title.slice(0, 45)}`,
           content: {
-            text: text,
-            markdownContent: text,
+            text: plainAnswer(text),
+            markdownContent: plainAnswer(text),
             description: `Synthesized by Researchie AI from ${activeTabInfo.title}`,
           },
           metadata: {
             sourceUrl: activeTabInfo.url,
             pageTitle: activeTabInfo.title,
+            pageIdentifiers: activeTabInfo.citation?.pageIdentifiers,
+            pageInfo: activeTabInfo.citation?.pageInfo,
           },
           tags: ['ai-page-insight', 'page-ai'],
         };
@@ -912,6 +926,8 @@ async function triggerCapture(mode) {
           sourceUrl: activeTabInfo.url,
           pageTitle: activeTabInfo.title,
           domainFavicon: `https://www.google.com/s2/favicons?domain=${activeTabInfo.domain}&sz=64`,
+          pageIdentifiers: activeTabInfo.citation?.pageIdentifiers,
+          pageInfo: activeTabInfo.citation?.pageInfo,
         },
         tags: ['web-link', activeTabInfo.domain.replace(/\..+$/, '')],
       };

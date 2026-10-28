@@ -1,6 +1,6 @@
 // The in-text markers and the reference list for a paper's body, from its cite map and the style it chose.
 // Pure. Each of the five styles draws its own in-text marker and reference list (inText.ts).
-import { renderCitations, markerText, type CitedSource, type InTextStyle, type RenderedReference } from '../citations/inText.ts';
+import { renderCitations, renderCitationsSplit, markerText, isNumberedStyle, type CitedSource, type ContentCitation, type InTextStyle, type RenderedReference } from '../citations/inText.ts';
 import { citableNodes, collectCitations, type CiteSources, type PmNode } from './docModel.ts';
 
 export const STYLE_FAMILY: Record<string, InTextStyle> = { apa: 'apa', harvard: 'harvard', mla: 'mla', chicago: 'chicago', ieee: 'ieee', vancouver: 'vancouver', ama: 'ama' };
@@ -24,7 +24,10 @@ export interface Markers {
   references: RenderedReference[];
 }
 
-export function computeMarkers(pm: PmNode, cites: Record<string, string>, sources: CiteSources, style: string, listed: string[] = []): Markers {
+/** What the text shows when the paper has not chosen: the style's own way (numbers for IEEE, Vancouver, AMA; author-date for the rest). */
+export const contentOf = (style: string, chosen?: ContentCitation): ContentCitation => chosen ?? (isNumberedStyle(familyOf(style)) ? 'numbered' : 'author-date');
+
+export function computeMarkers(pm: PmNode, cites: Record<string, string>, sources: CiteSources, style: string, listed: string[] = [], content?: ContentCitation): Markers {
   const nodes = citableNodes(pm);
   const groups = collectCitations(pm, cites, sources);
   // Listed-but-not-cited sources ride after the text's own groups, so they take the last numbers and the last rows.
@@ -33,7 +36,8 @@ export function computeMarkers(pm: PmNode, cites: Record<string, string>, source
     const clip = sources.clips.get(id);
     if (clip?.record) extra.push([{ sourceId: clip.id, record: clip.record }]);
   }
-  const rendered = renderCitations(familyOf(style), [...groups, ...extra]);
+  // no choice for the text: the style draws its own markers; a choice splits the in-text marker from the reference style
+  const rendered = content ? renderCitationsSplit(content, familyOf(style), [...groups, ...extra]) : renderCitations(familyOf(style), [...groups, ...extra]);
   const markers = rendered.markers.slice(0, nodes.length).map((parts, i) => {
     if (groups[i].length === 0) return nodes[i].type === 'citation' ? '[?]' : ''; // a quote with no source draws nothing; a citation with none is flagged
     return markerText(parts);

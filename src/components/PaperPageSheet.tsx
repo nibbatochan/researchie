@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { EditorContent, type Editor } from '@tiptap/react';
-import { PencilSimple } from '@phosphor-icons/react';
+import { PencilSimple, ArrowSquareOut, Trash, Check, X } from '@phosphor-icons/react';
 import type { PaperMeta } from '@/lib/paper/docModel';
 import type { RenderedReference } from '@/lib/citations/inText';
 import { resolveTokens } from '@/lib/paper/headerTokens';
@@ -35,9 +35,28 @@ interface Props {
   /** A margin being dragged on the ruler, in px: dashed guide lines show on every page. */
   guide?: number | null;
   onEditFront: () => void;
+  /** Comment notes drawn beside the text they are on, in the right margin. */
+  pins?: CommentPin[];
+  /** Off hides the comment highlights in the text too. */
+  commentsShown?: boolean;
+  /** Zoom of the whole sheet (CSS zoom); 1 is 100%. */
+  zoom?: number;
+  onPickPin?: (id: string, from: number, to: number) => void;
+  onDeletePin?: (id: string) => void;
 }
 
-export const PaperPageSheet: React.FC<Props> = ({ editor, meta, references, pages, geo, wrapRef, guide, onEditFront }) => {
+export interface CommentPin {
+  id: string;
+  /** Where the commented text starts, in px from the top of the sheet. */
+  anchor: number;
+  /** Where the note sits: the anchor, pushed down past any note above it. */
+  top: number;
+  from: number;
+  to: number;
+  text: string;
+}
+
+export const PaperPageSheet: React.FC<Props> = ({ editor, meta, references, pages, geo, wrapRef, guide, onEditFront, pins = [], commentsShown = true, zoom = 1, onPickPin, onDeletePin }) => {
   const { front, page } = meta;
   const hide = meta.hide ?? {};
   const token = (text: string, n: number) => resolveTokens(text, meta, n, pages);
@@ -71,8 +90,9 @@ export const PaperPageSheet: React.FC<Props> = ({ editor, meta, references, page
       data-font={page.font}
       data-margin={page.margin}
       data-columns={page.columns}
+      data-comments={commentsShown ? 'on' : 'off'}
       className="paper-sheet relative mx-auto w-full"
-      style={{ maxWidth: W, minHeight: pages * S - geo.G }}
+      style={{ maxWidth: W, minHeight: pages * S - geo.G, zoom }}
     >
       {Array.from({ length: pages }, (_, index) => (
         <div
@@ -186,7 +206,7 @@ export const PaperPageSheet: React.FC<Props> = ({ editor, meta, references, page
             ) : (
               <ol className="paper-refs space-y-1">
                 {references.map((r) => (
-                  <li key={r.sourceId} data-flow className={r.incomplete ? 'text-amber-700' : ''}>
+                  <li key={r.sourceId} id={`paper-ref-${r.sourceId}`} data-flow className={r.incomplete ? 'text-amber-700' : ''}>
                     {r.label && <span className="mr-1.5 text-slate-500">{r.label}</span>}
                     {r.text}
                   </li>
@@ -197,6 +217,35 @@ export const PaperPageSheet: React.FC<Props> = ({ editor, meta, references, page
         )}
         <div data-content-end />
       </div>
+      {pins.map((p) => (
+        <React.Fragment key={p.id}>
+          <div aria-hidden="true" className="comment-pin absolute left-full ml-1 w-px bg-slate-400" style={{ top: Math.min(p.anchor, p.top), height: Math.abs(p.top - p.anchor) + 14 }} />
+          <div aria-hidden="true" className="comment-pin absolute left-full h-px w-3 bg-slate-400" style={{ top: p.anchor }} />
+          <CommentNote pin={p} onLink={() => onPickPin?.(p.id, p.from, p.to)} onDelete={() => onDeletePin?.(p.id)} />
+        </React.Fragment>
+      ))}
     </div>
   );
 };
+
+/** A comment in the right margin: an outlined box. Hover shows a link (select its text) and a delete; delete asks tick or X. */
+function CommentNote({ pin, onLink, onDelete }: { pin: CommentPin; onLink: () => void; onDelete: () => void }) {
+  const [asking, setAsking] = React.useState(false);
+  const iconButton = 'rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 cursor-pointer';
+  return (
+    <div data-testid="comment-pin" className="comment-pin group absolute left-full ml-3 w-48 rounded-md border border-slate-300 bg-white p-2 pr-14 text-xs text-slate-800 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100" style={{ top: pin.top }}>
+      <p className="break-words">{pin.text}</p>
+      <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <button type="button" data-testid="comment-pin-link" aria-label="Show the commented text" title="Show the commented text" className={iconButton} onClick={onLink}><ArrowSquareOut size={13} /></button>
+        <button type="button" data-testid="comment-pin-delete" aria-label="Delete comment" title="Delete comment" className={iconButton} onClick={() => setAsking(true)}><Trash size={13} /></button>
+      </div>
+      {asking && (
+        <div className="mt-2 flex items-center justify-end gap-1 border-t border-slate-200 pt-2 dark:border-zinc-700">
+          <span className="mr-auto text-slate-500 dark:text-zinc-400">Delete?</span>
+          <button type="button" data-testid="comment-pin-confirm" aria-label="Yes, delete" title="Yes, delete" className={iconButton} onClick={onDelete}><Check size={13} /></button>
+          <button type="button" data-testid="comment-pin-cancel" aria-label="No, keep" title="No, keep" className={iconButton} onClick={() => setAsking(false)}><X size={13} /></button>
+        </div>
+      )}
+    </div>
+  );
+}

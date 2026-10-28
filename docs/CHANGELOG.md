@@ -6,8 +6,20 @@
 - **Paper editor: Insert table.** A toolbar grid picker (6 × 6) inserts a table with a header row at the cursor. Tables use automatic column widths and a grid of thin rules.
 - **Paper editor: column setting per section.** The Columns panel sets one or two columns for the section at the cursor; the Whole-paper choice clears the section settings.
 - **Paper editor: trailing text.** A section that ends in a formula, figure or table gets an empty paragraph after it, so the caret can go below it.
-
+- **Paper editor: comments on selected text.** Select text, press Comment, write a note. The Comments list shows every note; clicking one selects its text; Delete removes it.
+- **Extension: citations travel with every send.** The page's DOI, PMID or web facts go with AI briefs, AI questions, saved briefs and answers, and saved images, screenshots, blocks and links.
+- **AI answers in the timeline.** Web and plugin answers have no links. Document answers link each source to its page in the reader.
+- **AI deliverables grouped.** Eight deliverables are five: Research Brief (memo, product document or summary), Comparison Matrix (literature review or side-by-side), Contradictions & Gaps, Video / Podcast Script, Custom Analysis.
+- **Paper zoom.** Zoom out, percent (click for 100%) and zoom in in the toolbar; Alt + mouse wheel zooms too (50% to 200%). Pagination works in zoomed px.
+- **Comment notes stay on screen.** The text area leaves room on the right when notes are shown.
+- **Comment notes redesigned.** Outlined note boxes; hover shows a link (selects and pulses the commented text) and delete (asks tick or X). The eye button hides notes and highlights together.
+- **Comment notes in the margin.** Each comment shows beside its text on the right of the page; clicking it selects the text. Not printed.
+- **Reader: timeline answers are plain.** No page links or markers in answers saved from the Document Assistant. Copying from the PDF text layer joins wrapped lines.
+- **Plugin and reader: PDF citations and clean line breaks.** Text clipped from the reader or a browser PDF carries the paper's citation when it has a DOI; wrapped PDF lines are joined into paragraphs; synthesized timeline notes have no links.
+- **Researchie AI: edit window and cleaner chat.** Drag the panel wider; delete any chat turn; deliverables use neutral wording and have Copy, Save to Project and Edit. Edit: AI text left, your own words right, references below in a style you pick; saved as your own note with its sources.
+- **Paper: content citation and reference citation.** The Citations menu has two choices: numbers or author and year in the text, and the style of the list. Placing a note from Researchie AI cites all its sources with one marker.
 ### Changed
+- **Tall two-column sections split in the editor.** A two-column section taller than a page is shown in one column in the editor, so it splits across pages; a note says so. Word and PDF export keep two columns.
 - **Word export is written directly from the editor document** (no Markdown step). Figures are embedded as pictures; tables are real Word tables with merged cells (rowspan and colspan); each section can be one or two columns; figures and tables span the full width.
 - **Two-column sections are measured as one block** in the editor page logic, which stops the text shaking in columns.
 

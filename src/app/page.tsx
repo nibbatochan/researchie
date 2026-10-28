@@ -502,6 +502,7 @@ export default function DashboardPage() {
         ) : (
           <ProjectTimeline
             project={activeProject}
+            projects={projects}
             atoms={atoms}
             loading={loadingAtoms}
             onDeleteAtom={activeProject?.role === 'viewer' ? undefined : handleDeleteAtom}

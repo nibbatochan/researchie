@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, MagnifyingGlass, SquaresFour, ListBullets, Trash, Copy, PencilSimple, ArrowCounterClockwise, FolderSimple, Clock, Article, FileDashed } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, SquaresFour, ListBullets, Trash, Copy, PencilSimple, ArrowCounterClockwise, ArrowLeft, FolderSimple, Clock, Article, FileDashed } from '@phosphor-icons/react';
 import type { ResearchProject } from '@/lib/types/research';
 import type { PaperSummary } from '@/lib/data/papers';
 import { getTemplate } from '@/lib/paper/templates';
@@ -13,8 +13,9 @@ import { PageWireframe } from './PageWireframe';
 import { NewPaperFlow, type NewPaperChoice } from './NewPaperFlow';
 import { TemplateIcon } from './templateIcons';
 
-// Paper Mode home: every paper the person wrote, like a file explorer. List by default, grid on request, search,
-// rename, duplicate, delete with an undo toast, and a trash that keeps deleted papers until they are removed for good.
+// Paper Mode home: every paper the person wrote, like a file explorer. The newest few sit in a Recent row; the rest
+// are below, sortable and filterable. List by default, grid on request, search, rename, duplicate, delete with an undo
+// toast, and a trash that keeps deleted papers until they are removed for good (one by one, or all at once).
 // The editor that opens a paper is the next phase; until it lands, opening a paper tells the person so.
 
 interface Props {
@@ -27,6 +28,11 @@ interface Props {
 
 const UNDO_MS = 8000;
 const VIEW_KEY = 'researchie.paperView';
+const RECENT_COUNT = 4;
+const NO_SOURCE = 'none';
+
+type Sort = 'recent' | 'name' | 'created';
+const SORT_LABEL: Record<Sort, string> = { recent: 'Last edited', name: 'Name (A–Z)', created: 'Newest created' };
 
 function ago(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -50,6 +56,9 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
   const [error, setError] = useState('');
   const [showTrash, setShowTrash] = useState(false);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<Sort>('recent');
+  const [templateFilter, setTemplateFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [view, setView] = useState<'list' | 'grid'>('grid');
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -89,13 +98,35 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
     };
   }, [load]);
 
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const base = showTrash ? trash : papers;
-    return q ? base.filter((p) => p.title.toLowerCase().includes(q) || (getTemplate(p.templateId)?.label ?? '').toLowerCase().includes(q)) : base;
-  }, [papers, trash, query, showTrash]);
-
   const projectName = (id: string | null) => (id ? projects.find((p) => p.id === id)?.title ?? 'A project you no longer see' : 'No data source');
+
+  // Search, template and data-source filters, then the sort. The trash only takes the search.
+  const matching = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (showTrash) return trash.filter((p) => !q || p.title.toLowerCase().includes(q) || (getTemplate(p.templateId)?.label ?? '').toLowerCase().includes(q));
+    return papers.filter(
+      (p) =>
+        (!q || p.title.toLowerCase().includes(q) || (getTemplate(p.templateId)?.label ?? '').toLowerCase().includes(q)) &&
+        (!templateFilter || p.templateId === templateFilter) &&
+        (!projectFilter || (projectFilter === NO_SOURCE ? !p.projectId : p.projectId === projectFilter))
+    );
+  }, [papers, trash, query, templateFilter, projectFilter, showTrash]);
+
+  const sorted = useMemo(() => {
+    const list = [...matching];
+    if (sort === 'name') list.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sort === 'created') list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    else list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return list;
+  }, [matching, sort]);
+
+  // The Recent row shows the newest few, but only when nothing is searched or filtered: a filter applies to every paper.
+  const filtering = Boolean(query.trim() || templateFilter || projectFilter);
+  const recent = !showTrash && !filtering && sort === 'recent' ? sorted.slice(0, RECENT_COUNT) : [];
+  const others = recent.length ? sorted.slice(RECENT_COUNT) : sorted;
+
+  const templateOptions = useMemo(() => [...new Set(papers.map((p) => p.templateId))].map((id) => ({ id, label: getTemplate(id)?.label ?? id })), [papers]);
+  const sourceOptions = useMemo(() => [...new Set(papers.map((p) => p.projectId ?? NO_SOURCE))], [papers]);
 
   const setViewMode = (v: 'list' | 'grid') => {
     setView(v);
@@ -165,6 +196,15 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
     if (!window.confirm(`Remove "${p.title}" for good? This cannot be undone.`)) return;
     const r = await api('/api/papers', { method: 'POST', body: JSON.stringify({ action: 'purge', id: p.id }) });
     if (!r.ok) setNote(r.json.error || 'The paper could not be removed.');
+    await load();
+  };
+
+  const purgeAll = async () => {
+    if (!trash.length) return;
+    if (!window.confirm(`Remove all ${trash.length} ${trash.length === 1 ? 'paper' : 'papers'} in the trash for good? This cannot be undone.`)) return;
+    const r = await api('/api/papers', { method: 'POST', body: JSON.stringify({ action: 'purge_trash' }) });
+    if (!r.ok) setNote(r.json.error || 'The trash could not be emptied.');
+    else setNote(`Removed ${r.json.data?.removed ?? trash.length} ${trash.length === 1 ? 'paper' : 'papers'} from the trash.`);
     await load();
   };
 
@@ -262,6 +302,16 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
     </div>
   );
 
+  const papersView = (items: PaperSummary[]) =>
+    view === 'grid' ? (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-5 gap-y-8">{items.map(tile)}</div>
+    ) : (
+      <div className="space-y-2">{items.map(row)}</div>
+    );
+
+  const selectClass = 'rounded-lg border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-2.5 py-2 text-xs text-[#0F172A] dark:text-white cursor-pointer';
+  const total = recent.length + others.length;
+
   return (
     <div className="flex-1 min-w-0 overflow-y-auto bg-[#F2F5FA] dark:bg-[#09090B] ob-grid" data-testid="paper-workspace">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -273,8 +323,13 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
               <p className="text-xs text-slate-500 dark:text-zinc-500">{showTrash ? 'Deleted papers stay here until you remove them for good.' : 'Every paper you write here. Start from a template or a blank page.'}</p>
             </div>
           </div>
+          {showTrash && trash.length > 0 && (
+            <button type="button" onClick={() => void purgeAll()} data-testid="paper-trash-empty" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
+              <Trash size={14} /> Delete all
+            </button>
+          )}
           <button type="button" onClick={() => { setShowTrash((v) => !v); setQuery(''); }} data-testid="paper-trash-toggle" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-[#18181B] cursor-pointer">
-            {!showTrash && <Trash size={14} />}{showTrash ? 'Back to papers' : `Trash${trash.length ? ` (${trash.length})` : ''}`}
+            {showTrash ? <ArrowLeft size={14} /> : <Trash size={14} />}{showTrash ? 'Back to papers' : `Trash${trash.length ? ` (${trash.length})` : ''}`}
           </button>
           {!showTrash && (
             <button type="button" onClick={() => setCreating(true)} data-testid="new-paper-button" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#325FEC] text-white hover:bg-[#2A4FCC] cursor-pointer">
@@ -283,11 +338,26 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
           )}
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          <label className="relative flex-1">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <label className="relative flex-1 min-w-[12rem]">
             <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search papers" aria-label="Search papers" className="w-full rounded-lg border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] pl-8 pr-3 py-2 text-sm text-[#0F172A] dark:text-white" />
           </label>
+          {!showTrash && (
+            <>
+              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort papers" data-testid="paper-sort" className={selectClass}>
+                {(Object.keys(SORT_LABEL) as Sort[]).map((s) => <option key={s} value={s}>Sort: {SORT_LABEL[s]}</option>)}
+              </select>
+              <select value={templateFilter} onChange={(e) => setTemplateFilter(e.target.value)} aria-label="Filter by template" data-testid="paper-filter-template" className={selectClass}>
+                <option value="">All templates</option>
+                {templateOptions.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+              <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} aria-label="Filter by data source" data-testid="paper-filter-source" className={selectClass}>
+                <option value="">All data sources</option>
+                {sourceOptions.map((id) => <option key={id} value={id}>{id === NO_SOURCE ? 'No data source' : projectName(id)}</option>)}
+              </select>
+            </>
+          )}
           <div className="inline-flex rounded-lg border border-[#D2DCEA] dark:border-[#27272A] overflow-hidden">
             <button type="button" onClick={() => setViewMode('list')} aria-label="List view" aria-pressed={view === 'list'} className={`p-2 cursor-pointer ${view === 'list' ? 'bg-[#325FEC]/10 text-[#325FEC]' : 'text-slate-500'}`}><ListBullets size={15} /></button>
             <button type="button" onClick={() => setViewMode('grid')} aria-label="Grid view" aria-pressed={view === 'grid'} className={`p-2 cursor-pointer ${view === 'grid' ? 'bg-[#325FEC]/10 text-[#325FEC]' : 'text-slate-500'}`}><SquaresFour size={15} /></button>
@@ -304,19 +374,31 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
 
         {loading ? (
           <p className="text-xs text-slate-500 py-10 text-center">Loading papers…</p>
-        ) : shown.length === 0 ? (
+        ) : total === 0 ? (
           <div className="flex flex-col items-center gap-2 text-center py-14 text-xs text-slate-500 dark:text-zinc-400" data-testid="paper-empty">
             <FileDashed size={32} weight="duotone" className="text-[#325FEC]/70 dark:text-[#8DB4FF]/70" aria-hidden />
-            {query ? 'No paper matches that search.' : showTrash ? 'The trash is empty.' : 'No papers yet. Create one to get started.'}
+            {query || filtering ? 'No paper matches that search or filter.' : showTrash ? 'The trash is empty.' : 'No papers yet. Create one to get started.'}
           </div>
+        ) : recent.length || showTrash ? (
+          <>
+            {recent.length > 0 && (
+              <section className="mb-8" aria-labelledby="paper-recent">
+                <h2 id="paper-recent" className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Recent</h2>
+                {papersView(recent)}
+              </section>
+            )}
+            {others.length > 0 && (
+              <section aria-labelledby="paper-all">
+                <h2 id="paper-all" className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{showTrash ? 'In the trash' : 'All papers'}</h2>
+                {papersView(others)}
+              </section>
+            )}
+          </>
         ) : (
-          view === 'grid' ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-5 gap-y-8">
-            {shown.map(tile)}
-          </div>
-        ) : (
-          <div className="space-y-2">{shown.map(row)}</div>
-        )
+          <section aria-labelledby="paper-all">
+            <h2 id="paper-all" className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{filtering ? 'Matching papers' : 'All papers'}</h2>
+            {papersView(others)}
+          </section>
         )}
       </div>
 

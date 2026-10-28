@@ -269,6 +269,16 @@ How each rule shows up in the product: see the decisions below, and section 6 fo
 - **Why.** Pasting a real table is the owner's way to build tables inside the paper.
 - **Limit.** Copy-and-paste from a browser was not tested here (the test pane does not pass the clipboard through). Pasting was tested through the same paste path with the same table HTML. Math symbols from the source come in as plain text.
 
+### D44. A tall two-column section is shown in one column in the editor
+- **Decision.** A two-column section taller than one page is shown in one column in the editor, so it splits across pages like text. A note says so. Export keeps two columns.
+- **Why.** Owner asked for the editor to split long columns like Word. Splitting inside columns made the page shake, so the owner chose this fallback.
+- **Limit.** The editor's print and page view show that section in one column; Word may break pages differently.
+
+### D45. Comments on selected text stay out of the exports
+- **Decision.** A comment is a highlight on selected text with a note. Notes are kept with the paper but are not written into Word, PDF or Markdown.
+- **Why.** The owner asked for Word-style comments for the author's own review of the text.
+- **Limit.** A reviewer's comment would not reach a journal or a Word file; export of comments is not built.
+
 ## 4. Limits we designed around
 
 | Limit | Where it came from | What we did |

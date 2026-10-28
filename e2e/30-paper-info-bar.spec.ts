@@ -55,8 +55,10 @@ test.describe('30. Paper info bar', () => {
 
   test('the note follows the style that is chosen', async ({ page }) => {
     await createPaper(page, `${TAG} style`);
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('vancouver');
     await expect(page.getByTestId('info-bar')).toContainText('Vancouver shows (1) in the text');
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('harvard');
     await expect(page.getByTestId('info-bar')).toContainText('Harvard shows (Lee and Patel, 2020) in the text');
   });

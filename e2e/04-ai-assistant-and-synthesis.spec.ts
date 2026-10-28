@@ -34,11 +34,11 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
     await summarizeTab.click({ force: true });
     await page.waitForTimeout(300);
 
-    const matrixButton = asidePanel.locator('button:has-text("Literature Review Matrix"), button:has-text("PRD")').first();
+    const matrixButton = asidePanel.locator('button:has-text("Comparison Matrix"), button:has-text("Research Brief")').first();
     await expect(matrixButton).toBeVisible({ timeout: 5000 });
   });
 
-  test('can generate Literature Review Matrix and render structured table', async ({ page }) => {
+  test('can generate a Comparison Matrix and render structured table', async ({ page }) => {
     const fabButton = page.locator('button[aria-label="Researchie AI"], button[title*="Researchie AI"]').first();
     await fabButton.dispatchEvent('click'); // the Next.js dev badge can sit on top of this button, so click it without a mouse
     
@@ -51,8 +51,8 @@ test.describe('4. AI Assistant & Synthesis Engine Suite', () => {
     await summarizeTab.click({ force: true });
     await page.waitForTimeout(300);
 
-    // Verify Literature Review Matrix button is available and click it
-    const matrixButton = asidePanel.locator('button:has-text("Literature Review")').first();
+    // Verify Comparison Matrix button is available and click it
+    const matrixButton = asidePanel.locator('button:has-text("Comparison Matrix")').first();
     await expect(matrixButton).toBeVisible({ timeout: 5000 });
     await matrixButton.click({ force: true });
 

@@ -113,7 +113,18 @@ export interface PaperMeta {
   manualRefs: Array<{ id: string; record: CitationRecord }>;
   /** Clip ids on the References list without being cited in the text (added from the Citations tab). */
   listed: string[];
+  /** Word-style comments on selected text. The text carries a `comment` mark with the same id. */
+  comments: PaperComment[];
+  /** How a citation reads in the text: a number, or author and year. Not set: the reference style's own way. */
+  contentCitation?: 'numbered' | 'author-date';
   importedFrom?: { projectId: string; at: string };
+}
+
+export interface PaperComment {
+  id: string;
+  text: string;
+  /** ISO time the comment was written. */
+  at: string;
 }
 
 // ───────────────────────────── building ──────────────────────────────
@@ -207,6 +218,7 @@ export function defaultMeta(template: PaperTemplate, title: string, wizard: { ve
     hide: {},
     cites: {},
     manualRefs: [],
+    comments: [],
     listed: [],
   };
 }
@@ -250,6 +262,8 @@ export function upgradeMeta(raw: unknown, template: PaperTemplate, title: string
     cites: isObject(r.cites) ? (r.cites as Record<string, string>) : {},
     manualRefs: Array.isArray(r.manualRefs) ? (r.manualRefs as PaperMeta['manualRefs']) : [],
     listed: Array.isArray(r.listed) ? (r.listed as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+    comments: Array.isArray(r.comments) ? (r.comments as PaperComment[]).filter((c) => isObject(c) && typeof c.id === 'string' && typeof c.text === 'string') : [],
+    contentCitation: r.contentCitation === 'numbered' || r.contentCitation === 'author-date' ? r.contentCitation : undefined,
     importedFrom: isObject(r.importedFrom) ? (r.importedFrom as PaperMeta['importedFrom']) : undefined,
   };
 }
@@ -426,7 +440,7 @@ export interface Placed {
  * reference (design note section 4.4). A quote becomes a `quote` node, an AI summary a `clipNote` (never cited),
  * the researcher's own note plain paragraphs, an image a `figure`, a table clip an editable table with its source.
  */
-export function clipToNodes(clip: ClipInfo, cites: Record<string, string>): Placed {
+export function clipToNodes(clip: ClipInfo, cites: Record<string, string>, sources: ClipInfo[] = []): Placed {
   const withKey = (): Record<string, string> => (clip.record ? addCite(cites, clip.id, clip).cites : cites);
   if (clip.media?.kind === 'image') {
     return { nodes: [{ type: 'figure', attrs: { clipId: clip.id, caption: clip.media.caption, alt: clip.media.caption } }], cites: withKey() };
@@ -438,7 +452,22 @@ export function clipToNodes(clip: ClipInfo, cites: Record<string, string>): Plac
   const text = clip.text.trim();
   if (clip.kind === 'mine') {
     const paragraphs = text.split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
-    return { nodes: paragraphs.length ? paragraphs.map(paragraph) : [paragraph('')], cites };
+    const nodes = paragraphs.length ? paragraphs.map(paragraph) : [paragraph('')];
+    // A note written in Researchie AI cites the clips it was written from: one marker with all of them. A clip already in
+    // the paper keeps its number; a new one is added to the references and takes the next.
+    let next = cites;
+    const keys: string[] = [];
+    for (const source of sources) {
+      if (!source.record) continue;
+      const added = addCite(next, source.id, source);
+      next = added.cites;
+      if (!keys.includes(added.key)) keys.push(added.key);
+    }
+    if (keys.length > 0) {
+      const last = nodes[nodes.length - 1];
+      last.content = [...(last.content ?? []), { type: 'citation', attrs: { keys, locator: null } }];
+    }
+    return { nodes, cites: next };
   }
   const oneLine = text.replace(/\s*\n\s*/g, ' ');
   return { nodes: [{ type: 'quote', attrs: { clipId: clip.id, page: clip.page != null ? String(clip.page) : null }, content: oneLine ? [textNode(oneLine)] : undefined }], cites: withKey() };

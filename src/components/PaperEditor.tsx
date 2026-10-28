@@ -5,7 +5,7 @@ import { useEditor, useEditorState, type Editor } from '@tiptap/react';
 import 'katex/dist/katex.min.css';
 import {
   ArrowLeft, Stack, X, TextB, TextItalic, TextUnderline, TextSubscript, TextSuperscript, ListBullets, ListNumbers, Table,
-  Function as FunctionIcon, ArrowUUpLeft, ArrowUUpRight, TextHTwo, TextHThree, SidebarSimple, CheckCircle, WarningCircle, CircleNotch, Printer, FileText, DownloadSimple,
+  Function as FunctionIcon, ArrowUUpLeft, ArrowUUpRight, TextHTwo, TextHThree, SidebarSimple, CheckCircle, WarningCircle, CircleNotch, Printer, FileText, DownloadSimple, CaretDown,
 } from '@phosphor-icons/react';
 import type { Paper } from '@/lib/data/papers';
 import { getTemplate, type PaperTemplate } from '@/lib/paper/templates';
@@ -23,11 +23,17 @@ import { paperToDocx } from '@/lib/paper/docx';
 import { unitFor } from '@/lib/paper/ruler';
 import { HeaderFooterDialog } from './HeaderFooterDialog';
 import { TextSelection } from '@tiptap/pm/state';
-import { computeMarkers, STYLE_NOTE, type Markers } from '@/lib/paper/markers';
+import { computeMarkers, contentOf, STYLE_NOTE, type Markers } from '@/lib/paper/markers';
+import { Popover } from './ToolbarPopover';
 import { useAutosave } from '@/lib/paper/useAutosave';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 import { INFO_PENDING_KEY } from '@/lib/paper/store';
-import { PaperPageSheet } from './PaperPageSheet';
+import { PaperPageSheet, type CommentPin } from './PaperPageSheet';
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './PaperToolbar';
+import { commentRanges, removeCommentMarks } from '@/lib/paper/editor/comments';
+
+/** Least gap in px between two comment notes in the margin. */
+const PIN_GAP = 84;
 import { FrontMatterPanel } from './FrontMatterPanel';
 import { PaperSidebar } from './PaperSidebar';
 import { PaperToolbar } from './PaperToolbar';
@@ -84,6 +90,13 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
   const projectRef = useRef(projectId);
   const styleRef = useRef(menuStyle(paper.citationStyle));
   const tickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((text: string) => {
+    setToast(text);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }, []);
 
   const projects = useProjectList();
   const clips = useProjectClips(projectId);
@@ -109,6 +122,22 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
     });
   }, [schedule]);
 
+  /** The link on a note: select the commented text and make it breathe, so it is easy to find. */
+  const pickComment = (id: string, from: number, to: number) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.chain().focus().setTextSelection({ from, to }).scrollIntoView().run();
+    const marks = Array.from(ed.view.dom.querySelectorAll<HTMLElement>('[data-comment="' + id + '"]'));
+    marks.forEach((el) => el.classList.add('paper-comment-breathe'));
+    setTimeout(() => marks.forEach((el) => el.classList.remove('paper-comment-breathe')), 2700);
+  };
+  /** Removes a comment: its highlight in the text and its note. */
+  const deleteComment = (id: string) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.view.dispatch(removeCommentMarks(ed.state.tr, id));
+    changeMeta({ ...metaRef.current, comments: metaRef.current.comments.filter((c) => c.id !== id) });
+  };
   const changeMeta = (next: PaperMeta) => {
     metaRef.current = next;
     setMeta(next);
@@ -133,16 +162,27 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
       if (!editor || !clip) return;
       const at = pos ?? editor.state.selection.to;
       const m = metaRef.current;
-      const placed = mode === 'cite' ? citationNode(clip, m.cites) : clipToNodes(clip, m.cites);
+      const sources = (clip.sourceIds ?? []).flatMap((id) => { const info = infosRef.current.get(id); return info ? [info] : []; });
+      const placed = mode === 'cite' ? citationNode(clip, m.cites) : clipToNodes(clip, m.cites, sources);
       const tr = 'node' in placed ? insertInline(editor.state, at, placed.node) : insertBlocks(editor.state, at, placed.nodes);
+      const before = usedClipIds(editor.getJSON() as PmNode, m.cites);
       if (placed.cites !== m.cites) {
         metaRef.current = { ...m, cites: placed.cites }; // before the dispatch, so the save that follows has the key
         setMeta(metaRef.current);
       }
       editor.view.dispatch(tr);
       editor.view.focus();
+      // say which sources joined the References list, and which were already there
+      const after = usedClipIds(editor.getJSON() as PmNode, placed.cites);
+      const cited = [clip, ...sources].filter((info) => info.record).map((info) => info.id);
+      const nameOf = (id: string) => { const info = infosRef.current.get(id); return info?.record?.title || info?.text.slice(0, 60) || 'Source'; };
+      const messages = [
+        ...cited.filter((id) => after.has(id) && !before.has(id)).map((id) => `Added to references: ${nameOf(id)}`),
+        ...cited.filter((id) => before.has(id)).map((id) => `Already in references: ${nameOf(id)}`),
+      ];
+      if (messages.length) showToast(messages.join(' · '));
     },
-    []
+    [showToast]
   );
   /** Puts sources on the References list without citing them in the text. */
   const addToReferences = (ids: string[]) => {
@@ -179,6 +219,10 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
   const [pages, setPages] = useState(1);
   const [pageNow, setPageNow] = useState(1);
   const [tallPage, setTallPage] = useState<number | null>(null);
+  const [oneColPage, setOneColPage] = useState<number | null>(null);
+  const [pins, setPins] = useState<CommentPin[]>([]);
+  const [commentsShown, setCommentsShown] = useState(true);
+  const [zoom, setZoom] = useState(1);
   const [guide, setGuide] = useState<number | null>(null);
   const [ruler, setRulerOn] = useState(true);
   useEffect(() => {
@@ -208,7 +252,13 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
   };
   const [exportOpen, setExportOpen] = useState(false);
   const [printing, setPrinting] = useState(false); // while printing the pages touch, with no grey gap between them
+  // the zoom the layout works in: the sheet is drawn at `zoom`, so measurements are in zoomed px; 1 while printing
+  const effZoomRef = useRef(1);
+  effZoomRef.current = printing ? 1 : zoom;
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
   const geoOf = (m: PaperMeta): Geometry => pageGeometry(m.page.size, m.page.margin, m.page.marginPx, printing ? 0 : 24);
+  const scaleGeo = (base: Geometry, z: number): Geometry => ({ H: base.H * z, G: base.G * z, S: base.S * z, top: base.top * z, bottom: base.bottom * z });
 
   type Flow = { pos?: number; size?: number; el?: HTMLElement; dom?: HTMLElement; top: number; height: number; pad: number; breakBefore: boolean; keepWithNext: boolean; lines?: TextLine[]; extras?: number };
   const tallKey = useRef('');
@@ -217,28 +267,36 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
     const wrap = wrapRef.current;
     if (!editor || !wrap) return;
     const t0 = performance.now();
-    const g = geoOf(metaRef.current);
+    const z = effZoomRef.current;
+    const g = scaleGeo(geoOf(metaRef.current), z);
     const wrapTop = wrap.getBoundingClientRect().top;
     // Everything that takes room on the page, top to bottom: the front matter, the editor's blocks, the statements and
     // the references. Each piece is measured and moved the same way, so none of them runs across a page edge.
     const items: Flow[] = [];
+    const oneColSections: number[] = []; // two-column sections taller than a page: shown in one column, split like text
     let afterBreak = false;
     for (const el of Array.from(wrap.querySelectorAll<HTMLElement>('[data-flow], [data-testid="paper-body"]'))) {
       if (el.hasAttribute('data-flow')) {
         const r = el.getBoundingClientRect();
-        items.push({ el, top: r.top - wrapTop, height: r.height, pad: parseFloat(el.style.paddingTop) || 0, breakBefore: false, keepWithNext: el.hasAttribute('data-keep') });
+        items.push({ el, top: r.top - wrapTop, height: r.height, pad: (parseFloat(el.style.paddingTop) || 0) * z, breakBefore: false, keepWithNext: el.hasAttribute('data-keep') });
         continue;
       }
       editor.state.doc.forEach((section, sPos) => {
         // A two-column section is one block to the page logic. Padding its paragraphs one by one moves text between the
         // columns, which changes their height, which moves the padding again: the page shakes. Only the section is moved.
         const twoCol = section.attrs.columns === '2' || (section.attrs.columns !== '1' && metaRef.current.page.columns === 2);
-        if (twoCol) {
-          const dom = editor.view.nodeDOM(sPos) as HTMLElement | null;
-          if (dom) {
-            const r = dom.getBoundingClientRect();
-            items.push({ pos: sPos, size: section.nodeSize, dom, top: r.top - wrapTop, height: r.height, pad: parseFloat(dom.style.paddingTop) || 0, breakBefore: afterBreak, keepWithNext: false });
-          }
+        const sectionDom = twoCol ? (editor.view.nodeDOM(sPos) as HTMLElement | null) : null;
+        let oneCol = false;
+        if (sectionDom) {
+          // measured in one column: if that is taller than a page, the section is split like plain text
+          sectionDom.classList.add('paper-one-column');
+          oneCol = sectionDom.getBoundingClientRect().height - ((parseFloat(sectionDom.style.paddingTop) || 0) * z) > g.H - g.top - g.bottom;
+          if (oneCol) oneColSections.push(sPos);
+          else sectionDom.classList.remove('paper-one-column');
+        }
+        if (sectionDom && !oneCol) {
+          const r = sectionDom.getBoundingClientRect();
+          items.push({ pos: sPos, size: section.nodeSize, dom: sectionDom, top: r.top - wrapTop, height: r.height, pad: (parseFloat(sectionDom.style.paddingTop) || 0) * z, breakBefore: afterBreak, keepWithNext: false });
           afterBreak = false;
           return;
         }
@@ -248,14 +306,14 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
           if (dom) {
             const r = dom.getBoundingClientRect();
             const name = child.type.name;
-            const pad = parseFloat(dom.style.paddingTop) || 0;
+            const pad = (parseFloat(dom.style.paddingTop) || 0) * z;
             const item: Flow = { pos, size: child.nodeSize, dom, top: r.top - wrapTop, height: r.height, pad, breakBefore: afterBreak, keepWithNext: name === 'sectionHeading' || name === 'heading' };
             if (name === 'paragraph' || name === 'quote' || name === 'heading' || name === 'sectionHeading') {
               const gaps = Array.from(dom.querySelectorAll<HTMLElement>('.paper-split'));
               const extras = gaps.reduce((n, el) => n + el.getBoundingClientRect().height, 0);
               if (r.height - pad - extras > g.H - g.top - g.bottom) {
                 item.extras = extras;
-                item.lines = textLines(dom, r.top + pad, gaps); // only for a block taller than a page's text area
+                item.lines = textLines(dom, r.top + pad, gaps, z); // only for a block taller than a page's text area
               }
             }
             items.push(item);
@@ -266,25 +324,36 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
     }
     const { pads, tops, tall, splits } = layoutPages(items, g);
     items.forEach((it, i) => {
-      if (it.el && Math.abs(pads[i] - it.pad) > 0.5) it.el.style.paddingTop = pads[i] > 0.5 ? `${pads[i]}px` : '';
+      if (it.el && Math.abs(pads[i] - it.pad) > 0.5) it.el.style.paddingTop = pads[i] > 0.5 ? `${pads[i] / z}px` : '';
     });
     const inDoc = items.map((it, i) => ({ it, i })).filter(({ it }) => it.pos !== undefined);
     // gaps inside long paragraphs: the document position of each line that starts a page
     const gapsAt = (it: Flow, i: number) =>
       splits[i].map((sp) => {
         const line = it.lines![sp.line];
-        return { at: editor.view.posAtDOM(line.node, lineStartOffset(line)), height: sp.height };
+        return { at: editor.view.posAtDOM(line.node, lineStartOffset(line)), height: sp.height / z };
       });
     const gapList = new Map<number, Array<{ at: number; height: number }>>();
     inDoc.forEach(({ it, i }) => { if (splits[i].length) gapList.set(i, gapsAt(it, i)); });
-    const key = inDoc.map(({ it, i }) => `${it.pos}:${tall[i] ? 1 : 0}:${(gapList.get(i) ?? []).map((x) => `${x.at}/${Math.round(x.height)}`).join('+')}`).join(',');
+    const key = inDoc.map(({ it, i }) => `${it.pos}:${tall[i] ? 1 : 0}:${(gapList.get(i) ?? []).map((x) => `${x.at}/${Math.round(x.height)}`).join('+')}`).join(',') + `|${oneColSections.join(',')}`;
     if (inDoc.some(({ it, i }) => Math.abs(pads[i] - it.pad) > 0.5) || key !== tallKey.current) {
       tallKey.current = key;
-      editor.view.dispatch(editor.state.tr.setMeta(PAGINATION_META, inDoc.map(({ it, i }) => ({ pos: it.pos!, pad: pads[i], tall: tall[i], splits: gapList.get(i) }))).setMeta('addToHistory', false)); // a layout move is not an edit to undo
+      const entries = inDoc.map(({ it, i }) => ({ pos: it.pos!, pad: pads[i] / z, tall: tall[i], splits: gapList.get(i) }));
+      editor.view.dispatch(editor.state.tr.setMeta(PAGINATION_META, [...entries, ...oneColSections.map((pos) => ({ pos, pad: 0, oneColumn: true }))]).setMeta('addToHistory', false)); // a layout move is not an edit to undo
     }
     layoutRef.current = inDoc.map(({ it, i }) => ({ pos: it.pos!, size: it.size!, y: tops[i] }));
     const firstTall = items.findIndex((_, i) => tall[i]);
     setTallPage(firstTall < 0 ? null : pageOf(tops[firstTall], g) + 1);
+    const firstOneCol = oneColSections[0];
+    setOneColPage(firstOneCol === undefined ? null : pageOf((editor.view.nodeDOM(firstOneCol) as HTMLElement).getBoundingClientRect().top - wrapTop, g) + 1);
+    // comment notes beside their text: at the line the comment starts on, pushed down so the notes do not overlap
+    const raw = commentRanges(editor.state.doc).flatMap((r) => {
+      const note = metaRef.current.comments.find((c) => c.id === r.id);
+      if (!note) return [];
+      return [{ id: r.id, y: editor.view.coordsAtPos(r.from).top - wrapTop, from: r.from, to: r.to, quote: r.quote, text: note.text }];
+    }).sort((a, b) => a.y - b.y);
+    let lastTop = -Infinity;
+    setPins(raw.map((p) => { const top = Math.max(p.y, lastTop + PIN_GAP * z); lastTop = top; return { id: p.id, anchor: p.y / z, top: top / z, from: p.from, to: p.to, text: p.text }; }));
     const end = wrap.querySelector('[data-content-end]') as HTMLElement | null;
     const bottom = end ? end.getBoundingClientRect().top - wrapTop : wrap.scrollHeight;
     const count = pageCount(bottom, g);
@@ -337,12 +406,12 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
   useEffect(() => {
     if (!editor) return;
     const pm = editor.getJSON() as PmNode;
-    const result = computeMarkers(pm, meta.cites, { clips: clips.infos, manual: meta.manualRefs }, style, meta.listed);
+    const result = computeMarkers(pm, meta.cites, { clips: clips.infos, manual: meta.manualRefs }, style, meta.listed, meta.contentCitation);
     setMarks(result);
     setUsed(usedClipIds(pm, meta.cites));
     setWords(wordCount(pm));
     editor.view.dispatch(editor.state.tr.setMeta(MARKERS_META, result.markers));
-  }, [editor, tick, meta.cites, meta.manualRefs, meta.listed, style, clips.infos]);
+  }, [editor, tick, meta.cites, meta.manualRefs, meta.listed, meta.contentCitation, style, clips.infos]);
 
   useEffect(() => () => { if (tickTimer.current) clearTimeout(tickTimer.current); }, []);
 
@@ -357,7 +426,24 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
   // Re-measure when the page size or margins change, and when the sheet's width changes (the window or the sidebar).
   useEffect(() => {
     schedulePaginate();
-  }, [meta.page.size, meta.page.margin, meta.page.marginPx, printing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [meta.page.size, meta.page.margin, meta.page.marginPx, printing, zoom]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Alt + mouse wheel zooms the sheet. A native listener, so the page does not scroll while zooming.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onWheel = (ev: WheelEvent) => {
+      if (!ev.altKey) return;
+      ev.preventDefault();
+      const next = Math.round((zoomRef.current + (ev.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)) * 100) / 100;
+      setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next)));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  // a new or removed comment changes the notes beside the text
+  useEffect(() => {
+    schedulePaginate();
+  }, [meta.comments]); // eslint-disable-line react-hooks/exhaustive-deps
   // the front matter and the reference list change the page too, and they are not part of the editor's document
   useEffect(() => {
     schedulePaginate();
@@ -391,7 +477,7 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
     const e = editorRef.current;
     if (!e) return;
     paginate();
-    const g = geoOf(metaRef.current);
+    const g = scaleGeo(geoOf(metaRef.current), effZoomRef.current);
     const on = layoutRef.current.filter((it) => pageOf(it.y, g) + 1 === n);
     if (on.length === 0) return;
     if (!window.confirm(`Delete everything on page ${n}? You can undo it with Ctrl+Z.`)) return;
@@ -454,7 +540,7 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
     if (!e) return;
     const pm = e.getJSON() as PmNode;
     const m = metaRef.current;
-    const rendered = computeMarkers(pm, m.cites, { clips: infosRef.current, manual: m.manualRefs }, styleRef.current, m.listed);
+    const rendered = computeMarkers(pm, m.cites, { clips: infosRef.current, manual: m.manualRefs }, styleRef.current, m.listed, m.contentCitation);
     const images = Object.fromEntries([...infosRef.current].flatMap(([id, info]) => (info.media?.kind === 'image' ? [[id, info.media.src] as const] : [])));
     const bytes = await paperToDocx(pm, m, rendered, images);
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
@@ -524,12 +610,29 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
             </div>
           )}
         </div>
-        <label className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400" title={STYLE_NOTE[style] || undefined}>
-          Citations
-          <select value={style} onChange={(e) => changeStyle(e.target.value)} data-testid="paper-style" className="rounded-md border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-1.5 py-1 text-xs text-[#0F172A] dark:text-white">
-            {STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
-        </label>
+        <Popover testId="paper-citations-menu" width="w-72" trigger={({ open, toggle }) => (
+          <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="menu" data-testid="paper-citations-button" title={STYLE_NOTE[style] || undefined} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer">
+            Citations <span className="font-normal">{STYLES.find((s) => s.id === style)?.label}</span> <CaretDown size={10} />
+          </button>
+        )}>
+          {(close) => (
+            <div className="flex flex-col gap-3 p-3 text-xs text-slate-600 dark:text-zinc-300">
+              <label className="flex flex-col gap-1">
+                <span className="font-semibold">Content citation <span className="font-normal text-slate-400">(in the text)</span></span>
+                <select value={contentOf(style, meta.contentCitation)} onChange={(e) => { changeMeta({ ...metaRef.current, contentCitation: e.target.value as 'numbered' | 'author-date' }); close(); }} data-testid="paper-content-citation" className="rounded-md border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-1.5 py-1 text-xs text-[#0F172A] dark:text-white">
+                  <option value="numbered">Numbers, like [1], that point to the list</option>
+                  <option value="author-date">Author and year, like (Lee, 2020)</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="font-semibold">Reference citation <span className="font-normal text-slate-400">(the list at the end)</span></span>
+                <select value={style} onChange={(e) => { changeStyle(e.target.value); close(); }} data-testid="paper-style" className="rounded-md border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-1.5 py-1 text-xs text-[#0F172A] dark:text-white">
+                  {STYLES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
+        </Popover>
         <button
           type="button"
           onClick={() => setPanel((v) => !v)}
@@ -563,10 +666,30 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
         onPageSettings={() => setPageOpen(true)}
         onHeaderFooter={() => setHfOpen(true)}
         onFind={openFind}
+        commentsShown={commentsShown}
+        onToggleComments={() => setCommentsShown((v) => !v)}
+        zoom={zoom}
+        onZoom={(z) => setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100)))}
       />
       {find && editor && <FindBar key={find.n} editor={editor} initialQuery={find.query} onClose={() => setFind(null)} />}
+      {toast && (
+        <div role="status" data-testid="paper-toast" className="pointer-events-none fixed bottom-6 left-1/2 z-[80] max-w-[90vw] -translate-x-1/2 rounded-lg bg-[#0F172A] px-3.5 py-2 text-xs font-medium text-white shadow-lg">
+          {toast}
+        </div>
+      )}
 
-      <div className="relative flex-1 min-h-0 flex">
+      {/* A click on a citation number jumps to the References list at the end of the paper */}
+      <div
+        className="relative flex-1 min-h-0 flex"
+        onClick={(e) => {
+          const cite = (e.target as HTMLElement).closest<HTMLElement>('[data-marker]');
+          if (!cite) return;
+          // the number goes to its own row in References; without one, to the References list
+          const clipId = metaRef.current.cites[(cite.getAttribute('data-cite-keys') ?? '').split(';')[0]];
+          const row = clipId ? document.getElementById(`paper-ref-${clipId}`) : null;
+          (row ?? document.querySelector('[data-testid="paper-references"]'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+      >
         {sidebar ? (
           <PaperSidebar
             atoms={clips.atoms}
@@ -593,14 +716,14 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
             <PaperRuler width={meta.page.size === 'a4' ? 794 : 816} margin={geoOf(meta).top} unit={unitFor(meta.page.size)} onGuide={setGuide} onMargin={(px) => changeMeta({ ...meta, page: { ...meta.page, marginPx: px } })} />
           </div>
         )}
-        <main className="flex-1 min-w-0 overflow-y-auto px-4 py-6 [scrollbar-gutter:stable]">
+        <main className={`flex-1 min-w-0 overflow-y-auto px-4 py-6 [scrollbar-gutter:stable]${commentsShown && pins.length > 0 ? ' pr-60' : ''}`}>
           {!editor && (
             <div className="mx-auto w-full max-w-[794px] bg-white shadow-lg ring-1 ring-[#D2DCEA] px-16 py-14" aria-busy="true" data-testid="paper-skeleton">
               <h1 className="paper-title text-center">{meta.front.title || name}</h1>
               <div className="mt-8 space-y-2">{Array.from({ length: 8 }, (_, i) => <div key={i} className="h-2 rounded-full bg-[#E8EDF6]" style={{ width: `${i % 3 === 2 ? 60 : 100}%` }} />)}</div>
             </div>
           )}
-          <PaperPageSheet editor={editor} meta={meta} references={marks.references} pages={pages} geo={geoOf(meta)} wrapRef={wrapRef} guide={guide} onEditFront={() => setPanel(true)} />
+          <PaperPageSheet editor={editor} meta={meta} references={marks.references} pages={pages} geo={geoOf(meta)} wrapRef={wrapRef} guide={guide} onEditFront={() => setPanel(true)} pins={commentsShown ? pins : []} commentsShown={commentsShown} zoom={zoom} onPickPin={pickComment} onDeletePin={deleteComment} />
         </main>
         </div>
         {panel && <FrontMatterPanel meta={meta} onChange={changeMeta} onClose={() => setPanel(false)} />}
@@ -608,6 +731,11 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
         {hfOpen && <HeaderFooterDialog meta={meta} onChange={changeMeta} onClose={() => setHfOpen(false)} />}
       </div>
       <div className="flex items-center justify-end gap-3 px-4 py-1 border-t border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214]">
+        {oneColPage !== null && (
+          <span data-testid="one-column-note" role="status" className="mr-auto text-xs text-slate-500 dark:text-zinc-400">
+            The two-column section on page {oneColPage} is taller than a page, so it is shown in one column here. Word export keeps two columns.
+          </span>
+        )}
         {tallPage !== null && (
           <span data-testid="tall-block-note" role="status" className="mr-auto text-xs text-amber-700 dark:text-amber-400">
             A block on page {tallPage} is taller than a page and runs past its edge. Split it into smaller parts.
@@ -633,8 +761,8 @@ interface TextLine {
 }
 
 /** The lines of a paragraph, from the boxes of its text. Line boxes are as tall as the paragraph's line height. */
-function textLines(block: HTMLElement, contentTop: number, gaps: HTMLElement[]): TextLine[] {
-  const lh = parseFloat(getComputedStyle(block).lineHeight) || 0;
+function textLines(block: HTMLElement, contentTop: number, gaps: HTMLElement[], z: number): TextLine[] {
+  const lh = (parseFloat(getComputedStyle(block).lineHeight) || 0) * z;
   const range = document.createRange();
   const lines: Array<TextLine & { left: number }> = [];
   const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);

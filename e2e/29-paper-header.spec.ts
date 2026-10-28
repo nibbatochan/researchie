@@ -32,7 +32,7 @@ test.describe('29. Paper header', () => {
     await expect(header.getByRole('button', { name: 'Front matter' })).toHaveCount(0);
 
     const name = (await page.getByTestId('paper-name').boundingBox())!;
-    const cite = (await page.getByTestId('paper-style').boundingBox())!;
+    const cite = (await page.getByTestId('paper-citations-button').boundingBox())!;
     const bib = (await page.getByRole('button', { name: 'Bibliography' }).boundingBox())!;
     const save = (await page.getByTestId('save-status').boundingBox())!;
     // the right-hand group: save status, then Citations, then Bibliography
@@ -63,6 +63,7 @@ test.describe('29. Paper header', () => {
     await page.keyboard.type('Kept text.');
     await page.getByRole('button', { name: 'Bibliography' }).click();
     await expect(page.getByTestId('front-matter-panel')).toBeVisible();
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('harvard');
     await expect(page.getByTestId('paper-sheet')).toContainText('Kept text.');
     await expect(page.getByTestId('save-status')).toContainText('Saved', { timeout: 8000 });

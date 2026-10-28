@@ -157,7 +157,7 @@ test('one paragraph taller than a page is split across pages, line by line, and 
   expect(await page.locator('.paper-split').count()).toBeGreaterThanOrEqual(1);
 });
 
-test('columns taller than a page cannot be split: they are flagged, in the editor and in the status line', async ({ page }) => {
+test('a two-column section taller than a page is shown in one column and split across pages', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('paper-mode-button').click();
   await page.getByTestId('new-paper-button').click();
@@ -167,9 +167,17 @@ test('columns taller than a page cannot be split: they are flagged, in the edito
   await expect(page.getByTestId('paper-editor')).toBeVisible();
   await page.getByTestId('paper-sheet').locator('.paper-prose p').first().click();
   await page.getByTestId('tb-columns').click();
-  await page.getByTestId('col-insert').click();
+  await page.getByTestId('col-paper-2').click();
   await page.waitForTimeout(300);
   await pasteLong(page);
-  await expect(page.getByTestId('tall-block-note')).toBeVisible({ timeout: 15000 });
-  await expect(page.locator('.paper-oversize').first()).toBeAttached();
+  await expect(page.getByTestId('one-column-note')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.paper-section.paper-one-column')).toHaveCount(1);
+  await expect.poll(() => page.locator('.paper-split').count(), { timeout: 15000 }).toBeGreaterThanOrEqual(1);
+  await expect(page.getByTestId('tall-block-note')).toHaveCount(0);
+  // the layout settles: the gaps do not move again
+  const layout = () => page.locator('.paper-split').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)).join(','));
+  await page.waitForTimeout(1000);
+  const first = await layout();
+  await page.waitForTimeout(1500);
+  expect(await layout()).toBe(first);
 });

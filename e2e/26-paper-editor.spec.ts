@@ -83,6 +83,7 @@ test.describe('26. Paper editor', () => {
     await page.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(page.getByTestId('paper-header').first()).toContainText(/Lee · 1\/\d+/);
 
+    await page.getByTestId('paper-citations-button').click();
     await expect(page.getByTestId('paper-style').locator('option')).toHaveText(['APA 7', 'Harvard', 'MLA 9', 'Chicago', 'IEEE', 'Vancouver', 'AMA']);
     await expect(page.getByText('APA 7 shows (Lee & Patel, 2020) in the text.').first()).toBeVisible();
     await expect(page.getByTestId('save-status')).toContainText('Saved', { timeout: 8000 });

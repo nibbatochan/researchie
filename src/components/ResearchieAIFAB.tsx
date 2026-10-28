@@ -98,7 +98,7 @@ export const ResearchieAIFAB: React.FC<ResearchieAIFABProps> = ({
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate font-sans">
-                PRDs, memos & takeaways
+                Briefs, matrices & scripts
               </p>
             </div>
           </button>

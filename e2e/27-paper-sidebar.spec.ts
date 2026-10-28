@@ -57,18 +57,25 @@ test.describe('27. Paper sidebar', () => {
     await expect(row).toContainText('In the text');
 
     // switching the style changes the marker; the text stays
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('ieee');
     await expect(cite).toHaveAttribute('data-marker', '[1]');
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('vancouver');
     await expect(cite).toHaveAttribute('data-marker', '(1)');
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('ama');
     await expect(cite).toHaveAttribute('data-marker', '¹');
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('mla');
     await expect(cite).toHaveAttribute('data-marker', /^\([^\d]+\)$/); // author only, no year
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('chicago');
     await expect(cite).toHaveAttribute('data-marker', /^\([^,\d]+ \d{4}\)$/); // author year, no comma
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('harvard');
     await expect(cite).toHaveAttribute('data-marker', /\(.+\d{4}.*\)/);
+    await page.getByTestId('paper-citations-button').click();
     await page.getByTestId('paper-style').selectOption('apa');
     await expect(cite).toHaveAttribute('data-marker', /\(.+\d{4}.*\)/);
 

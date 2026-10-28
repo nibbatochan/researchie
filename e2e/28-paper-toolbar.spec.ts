@@ -42,8 +42,8 @@ test.describe('28. Paper toolbar', () => {
     await page.keyboard.press('Escape');
     // alignment, spacing, columns, header & footer and page settings are one button each
     for (const name of ['Align left', 'Centre', 'Align right', 'Justify', 'Add page', 'Delete page']) await expect(bar.getByRole('button', { name, exact: true })).toHaveCount(0);
-    // not yet: these arrive by paste
-    await expect(bar.getByRole('button', { name: 'Insert table' })).toHaveCount(0);
+    // insert table is a grid picker on the toolbar; insert formula still arrives by paste
+    await expect(page.getByTestId('tb-table')).toBeVisible();
     await expect(bar.getByRole('button', { name: 'Insert formula' })).toHaveCount(0);
   });
 

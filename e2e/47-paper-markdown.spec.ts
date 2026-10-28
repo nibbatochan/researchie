@@ -24,6 +24,7 @@ test('the Markdown button downloads the paper as Markdown', async ({ page }) => 
   await p.click();
   await page.waitForTimeout(300);
   await page.keyboard.type('Plain typed words.');
+  await page.getByTestId('paper-export').click();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('paper-markdown').click()]);
   expect(download.suggestedFilename()).toMatch(/^E2E-MD-\d+-my-paper\.md$/);
   const text = readFileSync((await download.path())!, 'utf8');

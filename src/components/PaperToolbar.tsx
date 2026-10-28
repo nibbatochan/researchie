@@ -5,6 +5,7 @@ import { useEditorState, type Editor } from '@tiptap/react';
 import {
   ArrowUUpLeft, ArrowUUpRight, TextB, TextItalic, TextUnderline, TextSubscript, TextSuperscript, TextAlignLeft, TextAlignCenter,
   TextAlignRight, TextAlignJustify, TextIndent, ListBullets, ListNumbers, Table as TableIcon, Link as LinkIcon, LinkBreak, Eraser, Minus, Article, Columns as ColumnsIcon, ArrowsVertical, CaretDown, Highlighter, MagnifyingGlass, File as FileIcon,
+  ChatText, Eye, EyeSlash, MagnifyingGlassMinus, MagnifyingGlassPlus,
 } from '@phosphor-icons/react';
 import { FONT_FAMILIES, FONT_SIZES, HIGHLIGHTS } from '@/lib/paper/editor/extensions';
 import { STYLE_LABELS, LINE_SPACINGS, DEFAULT_LINE, DEFAULT_SPACE, SPACE_ADDED, applyStyle, setBlockAttrs, styleOf, blockStateAt, type StyleId, type Alignment } from '@/lib/paper/editor/format';
@@ -137,6 +138,11 @@ function ColorTool({ editor, current }: { editor: Editor; current: string }) {
   );
 }
 
+/** Zoom limits and step: Alt + mouse wheel and the zoom buttons move by ZOOM_STEP. */
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2;
+export const ZOOM_STEP = 0.1;
+
 export interface PaperToolbarProps {
   editor: Editor | null;
   meta: PaperMeta;
@@ -144,6 +150,10 @@ export interface PaperToolbarProps {
   onPageSettings: () => void;
   onHeaderFooter: () => void;
   onFind: () => void;
+  commentsShown: boolean;
+  onToggleComments: () => void;
+  zoom: number;
+  onZoom: (z: number) => void;
 }
 
 const ALIGN: Array<{ id: Alignment; label: string; icon: React.ElementType }> = [
@@ -221,7 +231,7 @@ function ColumnsPanel({ editor, meta, onMeta, inside, close }: { editor: Editor;
   );
 }
 
-export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFooter, onFind }: PaperToolbarProps) {
+export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFooter, onFind, commentsShown, onToggleComments, zoom, onZoom }: PaperToolbarProps) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => {
@@ -240,6 +250,7 @@ export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFoo
         canUndo: e.can().undo(), canRedo: e.can().redo(),
         heading: hasHeading(e.state.doc, e.state.selection.from),
         inColumns: columnsAt(e.state) !== null,
+        selected: !e.state.selection.empty,
       };
     },
   });
@@ -250,6 +261,13 @@ export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFoo
     editor.view.focus();
   };
   const chain = () => editor.chain().focus();
+  const addComment = (text: string) => {
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    const id = Math.random().toString(36).slice(2, 10);
+    run(editor.state.tr.addMark(from, to, editor.schema.marks.comment.create({ id })));
+    onMeta({ ...meta, comments: [...meta.comments, { id, text, at: new Date().toISOString() }] });
+  };
   const setAlign = (a: Alignment) => run(setBlockAttrs(editor.state, { align: a }));
   const AlignIcon = ALIGN.find((a) => a.id === s.align)?.icon ?? TextAlignLeft;
   const pos = editor.state.selection.from;
@@ -393,6 +411,21 @@ export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFoo
         </Tool>
       )}
       <Sep />
+      <div className="flex items-center gap-0.5 rounded-md border border-slate-200 px-0.5 dark:border-zinc-700" data-testid="tb-zoom-group">
+        <Tool label="Zoom out" disabled={zoom <= ZOOM_MIN} onClick={() => onZoom(zoom - ZOOM_STEP)} testId="tb-zoom-out"><MagnifyingGlassMinus size={16} /></Tool>
+        <button type="button" title="Reset zoom to 100%" data-testid="tb-zoom-reset" onClick={() => onZoom(1)} className="min-w-[3.25rem] rounded px-1 text-xs font-semibold tabular-nums text-slate-600 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/10 cursor-pointer">{Math.round(zoom * 100)}%</button>
+        <Tool label="Zoom in" disabled={zoom >= ZOOM_MAX} onClick={() => onZoom(zoom + ZOOM_STEP)} testId="tb-zoom-in"><MagnifyingGlassPlus size={16} /></Tool>
+      </div>
+      <Sep />
+      <div className="flex items-center gap-0.5 rounded-md border border-slate-200 px-0.5 dark:border-zinc-700" data-testid="tb-comment-group">
+        <Popover testId="tb-comment-menu" width="w-72" trigger={({ open, toggle }) => (
+          <Tool label="Comment on selected text" active={open} disabled={!s.selected} onClick={toggle} testId="tb-comment"><ChatText size={16} /></Tool>
+        )}>
+          {(close) => <CommentForm onSubmit={(text) => { addComment(text); close(); }} />}
+        </Popover>
+        <Tool label={commentsShown ? "Hide comments" : "Show comments"} active={!commentsShown} onClick={onToggleComments} testId="tb-comments-toggle">{commentsShown ? <Eye size={16} /> : <EyeSlash size={16} />}</Tool>
+      </div>
+      <Sep />
 
       <Word label="Remove the heading" title="Remove this section's heading and keep its text" disabled={!s.heading} onClick={() => run(deleteSectionHeading(editor.state, pos))} testId="tb-remove-heading"><Minus size={15} /></Word>
       <Sep />
@@ -405,5 +438,16 @@ export function PaperToolbar({ editor, meta, onMeta, onPageSettings, onHeaderFoo
       <Word label="Header and footer" title="Header and footer: pages, numbers, first page" onClick={onHeaderFooter} testId="tb-header-footer"><Article size={15} /> Header &amp; footer</Word>
       <Word label="Page" title="Page settings: size, margins, add or delete a page" onClick={onPageSettings} testId="tb-page"><FileIcon size={15} /> Page</Word>
     </div>
+  );
+}
+
+/** The box for a new comment on the selected text. */
+function CommentForm({ onSubmit }: { onSubmit: (text: string) => void }) {
+  const [text, setText] = useState('');
+  return (
+    <form data-testid="tb-comment-form" className="flex flex-col gap-2 p-3" onSubmit={(e) => { e.preventDefault(); if (text.trim()) onSubmit(text.trim()); }}>
+      <textarea data-testid="tb-comment-text" autoFocus rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write a comment on the selected text" className="rounded-md border border-slate-300 bg-white p-2 text-xs dark:border-zinc-600 dark:bg-zinc-900" />
+      <button type="submit" data-testid="tb-comment-add" disabled={!text.trim()} className="self-end rounded-md bg-[#325FEC] px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 cursor-pointer">Comment</button>
+    </form>
   );
 }

@@ -21,12 +21,16 @@ export async function GET(request: Request) {
 }
 
 // POST { title?, templateId?, citationStyle?, projectId?, doc?, meta? } creates a paper.
-// POST { action: 'duplicate' | 'restore' | 'purge', id } acts on an existing one.
+// POST { action: 'duplicate' | 'restore' | 'purge', id } acts on an existing one; { action: 'purge_trash' } empties the trash.
 export async function POST(request: Request) {
   const auth = await authorize(request, { allowToken: false });
   if (auth.response) return auth.response;
   const body = await request.json().catch(() => ({}));
   const userId = auth.user.id;
+
+  if (body.action === 'purge_trash') {
+    return NextResponse.json({ success: true, data: { removed: await papers.purgeTrash(userId) } }, { headers: NO_STORE });
+  }
 
   if (body.action) {
     const id = String(body.id || '');

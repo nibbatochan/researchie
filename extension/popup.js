@@ -82,6 +82,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const qnaAnswerText = document.getElementById('qna-answer-text');
   const btnSaveQnA = document.getElementById('btn-save-qna');
 
+// The page's citation (pageCitation.js), read from the tab. Its source line goes in front of page text sent to the AI.
+async function pageCitationOf(tabId) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['pageCitation.js'] });
+    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId }, func: () => window.__researchiePageCitation.readPageCitation() });
+    return result || null;
+  } catch {
+    return null;
+  }
+}
+
+function citationFields(citation) {
+  return citation ? { pageIdentifiers: citation.pageIdentifiers, pageInfo: citation.pageInfo } : {};
+}
+
+function withSourceLine(text, citation) {
+  return citation ? 'Source: ' + citation.line + '\n\n' + text : text;
+}
+
   let currentSummaryData = null;
   let currentQnAData = null;
 
@@ -181,7 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ['projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js'],
+        files: ['pageCitation.js', 'projectMenu.js', 'content.js', 'blockPicker.js', 'cropper.js'],
       });
     } catch {}
   }
@@ -226,6 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sourceUrl: tab.url,
             pageTitle: tab.title,
             domainFavicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+            ...citationFields(await pageCitationOf(tab.id)),
           },
           tags: ['web-link', domain.replace(/\..+$/, '')],
         };
@@ -294,7 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`${apiBase}/ai/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageText, pageTitle: tab.title || 'Page' }),
+        body: JSON.stringify({ pageText: withSourceLine(pageText, await pageCitationOf(tab.id)), pageTitle: tab.title || 'Page' }),
       });
 
       if (res.ok) {
@@ -373,9 +393,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tagVal = summaryTagInput?.value.trim();
     const tags = tagVal ? [tagVal.replace(/^#/, '')] : ['summary', 'brief'];
 
-    const mdContent = keyFindings.length > 0
+    const mdContent = plainAnswer(keyFindings.length > 0
       ? `### Summary\n${summary}\n\n### Key Takeaways\n${keyFindings.map((f) => `- ${f}`).join('\n')}`
-      : summary;
+      : summary);
     const storage = await chrome.storage.local.get(['activeProjectId']);
 
     const payload = {
@@ -390,6 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         sourceUrl: tab.url,
         pageTitle: tab.title || 'Source',
         domainFavicon: `https://www.google.com/s2/favicons?domain=${new URL(tab.url).hostname}&sz=64`,
+        ...citationFields(await pageCitationOf(tab.id)),
       },
       tags: tags,
     };
@@ -455,7 +476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await fetch(`${apiBase}/ai/qna`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageText, question }),
+        body: JSON.stringify({ pageText: withSourceLine(pageText, await pageCitationOf(tab.id)), question }),
       });
 
       if (res.ok) {
@@ -500,13 +521,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       type: 'note',
       title: `Q&A: ${question}`,
       content: {
-        description: `Q: ${question}\n\nA: ${answer}`,
-        markdownContent: `### Question\n${question}\n\n### Grounded Answer\n${answer}`,
+        description: `Q: ${question}\n\nA: ${plainAnswer(answer)}`,
+        markdownContent: `### Question\n${question}\n\n### Grounded Answer\n${plainAnswer(answer)}`,
       },
       metadata: {
         sourceUrl: tab.url,
         pageTitle: tab.title || 'Source',
         domainFavicon: `https://www.google.com/s2/favicons?domain=${new URL(tab.url).hostname}&sz=64`,
+        ...citationFields(await pageCitationOf(tab.id)),
       },
       tags: tags,
     };

@@ -357,49 +357,48 @@
       .replace(/\)/g, '%29');
   }
 
-  // Reads the page's own DOI and PMID from its citation meta tags.
-  // Bibliography tags (citation_reference) are skipped: they are secondary sources.
-  // Matches src/lib/citations/identify.ts; plain JS here, so no import.
-  function readPageIdentifiers() {
-    const DOI_PATTERN = /10\.\d{4,9}\/[^\s"'<>]+/;
-    const metas = Array.from(document.querySelectorAll('meta[name]'));
-    const valueOf = (names) => {
-      for (const meta of metas) {
-        const name = (meta.getAttribute('name') || '').trim().toLowerCase();
-        if (!names.includes(name)) continue;
-        const content = (meta.getAttribute('content') || '').trim();
-        if (content) return content;
-      }
-      return '';
-    };
+  const citationMeta = () => window.__researchiePageCitation.citationMeta();
 
-    let doi = '';
-    for (const raw of [valueOf(['citation_doi']), valueOf(['dc.identifier', 'dc.identifier.doi'])]) {
-      const match = raw.match(DOI_PATTERN);
-      if (match) {
-        doi = match[0].replace(/[.,;:]+$/, '');
-        break;
+// Text copied from a PDF breaks at every printed line. A single break is a wrapped line and joins into the paragraph; a blank
+// line stays a paragraph break; a word split by a hyphen at a line end is joined. (Same rule as src/lib/utils/pdfText.ts.)
+function unwrapPdfLines(text) {
+  return String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[­​]/g, '')
+    .split(/\n[ \t]*\n+/)
+    .map((para) => {
+      let out = '';
+      for (const line of para.split('\n').map((l) => l.trim()).filter(Boolean)) {
+        if (!out) out = line;
+        else if (/[A-Za-zÀ-ɏ]-$/.test(out) && /^[a-zà-ɏ]/.test(line)) out = out.slice(0, -1) + line;
+        else out += ' ' + line;
       }
+      return out.replace(/[ \t]{2,}/g, ' ');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+  // Is this a PDF: the browser's own viewer, or the PDF text layer of the platform's reader?
+  const isPdfPage = () => document.contentType === 'application/pdf' || /\.pdf([?#]|$)/i.test(window.location.href) || /\/pdf\//i.test(window.location.pathname);
+  const inPdfTextLayer = (selection) => {
+    const node = selection && selection.anchorNode;
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    return Boolean(el && el.closest && el.closest('.textLayer, .react-pdf__Page__textContent'));
+  };
+
+  // A PDF in the browser's viewer has no citation meta tags; the background reads the file and returns its DOI and title.
+  async function citationMetaForPage() {
+    const base = citationMeta();
+    if (!isPdfPage()) return base;
+    try {
+      const reply = await new Promise((resolve) => chrome.runtime.sendMessage({ action: 'PDF_CITATION', url: window.location.href }, resolve));
+      const pdf = reply && reply.success ? reply.data : null;
+      if (!pdf) return base;
+      return { pageIdentifiers: { ...base.pageIdentifiers, ...pdf.pageIdentifiers }, pageInfo: { ...base.pageInfo, ...pdf.pageInfo } };
+    } catch {
+      return base;
     }
-
-    const pmid = valueOf(['citation_pmid']);
-    return {
-      doi: doi || undefined,
-      pmid: /^\d+$/.test(pmid) ? pmid : undefined,
-    };
-  }
-
-  // Page facts for a web-source citation. Used only when the page has no DOI or PMID.
-  function readPageInfo() {
-    const meta = (selector) => (document.querySelector(selector)?.getAttribute('content') || '').trim() || undefined;
-    return {
-      url: window.location.href,
-      title: meta('meta[property="og:title"]') || document.title || undefined,
-      siteName: meta('meta[property="og:site_name"]'),
-      author: meta('meta[name="author"]') || meta('meta[property="article:author"]'),
-      published: meta('meta[property="article:published_time"]') || meta('meta[name="date"]') || meta('meta[name="citation_publication_date"]'),
-      updated: meta('meta[property="article:modified_time"]') || meta('meta[property="og:updated_time"]') || meta('meta[name="last-modified"]'),
-    };
   }
 
   function buildTextFragment(text) {
@@ -565,7 +564,9 @@
   }
 
   async function saveCurrentSelection(text, tags = []) {
-    const cleanText = (text || activeSelectedText || extractFormattedTextFromSelection(window.getSelection())).trim();
+    const rawText = (text || activeSelectedText || extractFormattedTextFromSelection(window.getSelection())).trim();
+    // text copied from a PDF breaks at every printed line: join the wrapped lines so the clip has no half-empty gaps
+    const cleanText = isPdfPage() || inPdfTextLayer(window.getSelection()) ? unwrapPdfLines(rawText) : rawText;
     if (!cleanText) return;
 
     const userTag = tags.length > 0 ? tags[0] : '';
@@ -601,8 +602,7 @@
         contextPrefix: context.contextPrefix,
         contextSuffix: context.contextSuffix,
         surroundingParagraphs: context.surroundingParagraphs,
-        pageIdentifiers: readPageIdentifiers(),
-        pageInfo: readPageInfo(),
+        ...(await citationMetaForPage()),
       },
       tags: tags.length > 0 ? tags : undefined,
     };
@@ -943,8 +943,7 @@
         sourceUrl: window.location.href,
         pageTitle: document.title,
         domainFavicon: `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=64`,
-        pageIdentifiers: readPageIdentifiers(),
-        pageInfo: readPageInfo(),
+        ...citationMeta(),
       },
       tags: ['web-link', window.location.hostname.replace(/\..+$/, '')],
     };
@@ -1127,6 +1126,7 @@
         sourceUrl: window.location.href,
         pageTitle: document.title,
         domainFavicon: `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=64`,
+        ...citationMeta(),
       }
     };
     
@@ -1167,7 +1167,7 @@
       }
     } else if (message.action === 'EXTRACT_PAGE_CONTENT') {
       const pageData = extractPageData();
-      sendResponse({ success: true, data: pageData });
+      sendResponse({ success: true, data: { ...pageData, citation: window.__researchiePageCitation.readPageCitation() } });
     } else if (message.action === 'GET_CURRENT_SELECTION') {
       const selection = window.getSelection()?.toString().trim() || '';
       sendResponse({ selection });

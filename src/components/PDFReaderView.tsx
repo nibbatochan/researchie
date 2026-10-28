@@ -43,6 +43,8 @@ import { formatCitationLine, resolveCitation } from '@/lib/citations/client.ts';
 import { CitationStyleBar, CitationPreview, useCitationStyle } from './CitationStyleBar';
 import { readPdfDois } from '@/lib/citations/pdfReader.ts';
 import { assessCitation, readConfidence, titlesMatch, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
+import { unwrapPdfLines } from '@/lib/utils/pdfText';
+import { stripLinks } from '@/lib/utils/plainText';
 import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
 import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
@@ -465,6 +467,44 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const activeDocument = useMemo(() => {
     return documents.find((d) => d.id === activeDocId) || documents[0] || null;
   }, [documents, activeDocId]);
+
+  // Copying from the PDF text layer: the browser puts a line break at every printed line. Join the wrapped lines.
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent) => {
+      const sel = window.getSelection();
+      const node = sel && sel.anchorNode;
+      const el = node && (node.nodeType === 1 ? (node as Element) : node.parentElement);
+      if (!el || !el.closest || !el.closest('.textLayer')) return;
+      const text = unwrapPdfLines(sel!.toString());
+      if (!text || !e.clipboardData) return;
+      e.clipboardData.setData('text/plain', text);
+      e.preventDefault();
+    };
+    document.addEventListener('copy', onCopy);
+    return () => document.removeEventListener('copy', onCopy);
+  }, []);
+
+  // The plugin reads a page's citation from its citation_* meta tags. A paper open in the reader carries its own citation,
+  // so text clipped from the reader through the plugin keeps it.
+  const readerCitation = activeDocument?.citation;
+  useEffect(() => {
+    if (!readerCitation) return;
+    const added: HTMLMetaElement[] = [];
+    const add = (name: string, content?: string | number) => {
+      if (!content) return;
+      const tag = document.createElement('meta');
+      tag.name = name;
+      tag.content = String(content);
+      document.head.appendChild(tag);
+      added.push(tag);
+    };
+    add('citation_doi', readerCitation.doi);
+    add('citation_pmid', readerCitation.pmid);
+    add('citation_title', readerCitation.title);
+    add('citation_author', readerCitation.authors?.[0] ? [readerCitation.authors[0].given, readerCitation.authors[0].family].filter(Boolean).join(' ') : '');
+    add('citation_publication_date', readerCitation.year);
+    return () => added.forEach((tag) => tag.remove());
+  }, [readerCitation]);
 
   // The project new clips and notes are saved to. In library view that is the open document's project.
   const writeProjectId = projectId === 'all' ? activeDocument?.projectId || '' : projectId;
@@ -908,7 +948,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
   // ─── Save as Highlight Handler ─────────────────────────────────
   const handleSaveHighlight = (textToSave?: string, pageNumToSave?: number) => {
-    const highlightText = (textToSave || selectedText || quickClipText).trim();
+    // text copied from a PDF breaks at every printed line; join the wrapped lines so the clip has no half-empty gaps
+    const highlightText = unwrapPdfLines((textToSave || selectedText || quickClipText).trim());
     const pageNum = pageNumToSave || selectedPageNum || currentPage || quickClipPage || 1;
 
     if (!highlightText || !activeDocument) return;
@@ -941,6 +982,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
           documentId: activeDocument.id,
           pageNumber: pageNum,
           totalDocumentPages: activeDocument.totalPages,
+          ...(activeDocument.citation ? { citation: activeDocument.citation } : {}),
         },
         tags: ['doc-highlight', 'pdf-clip'],
       });
@@ -1100,7 +1142,8 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
 
     // Save the clean answer (no raw page markers) and the PDF's own citation. The page comes
     // from the first verified citation, never from the model's page text.
-    const cleanText = buildAnswerLinks(msg.text, msg.citations).map((p) => p.text).join('\n\n');
+    // The timeline gets the plain answer: no page links or markers (those stay in the chat only).
+    const cleanText = stripLinks(buildAnswerLinks(msg.text, msg.citations).map((p) => p.text).join('\n\n'));
     const firstCite = (msg.citations || []).find((c: any) => c.supported === true && c.pageNumber);
     const savedPage = firstCite?.pageNumber || currentPage;
 

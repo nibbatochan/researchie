@@ -622,6 +622,11 @@ a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }
 .paper-sheet .paper-prose [data-indent='first'] { text-indent: 12pt; }
 .paper-sheet .paper-prose [data-variant='caption'], .paper-sheet .paper-prose [data-variant='note'] { font-size: 8pt; line-height: 1.3; text-align: left; }
 .paper-sheet .paper-section[data-columns='2'] { column-count: 2; column-gap: 0.33in; }
+.paper-sheet .paper-section.paper-one-column[data-columns='2'] { column-count: 1; }
+.paper-sheet .paper-comment { background: rgba(251, 191, 36, 0.28); border-bottom: 2px solid #F59E0B; }
+.paper-sheet[data-comments='off'] .paper-comment { background: none; border-bottom: 0; }
+@keyframes paper-comment-breathe { 0%, 100% { background: rgba(251, 191, 36, 0.28); } 50% { background: rgba(251, 191, 36, 0.8); } }
+.paper-comment-breathe { animation: paper-comment-breathe 0.9s ease-in-out 3; }
 .paper-sheet .paper-section[data-columns='2'] .paper-figure, .paper-sheet .paper-section[data-columns='2'] .paper-table-figure { column-span: all; }
 .paper-sheet .paper-prose [data-variant='reference'] { font-size: 8pt; line-height: 1.3; text-align: left; padding-left: 1.6em; text-indent: -1.6em; margin-bottom: 3pt; }
 .paper-sheet .paper-prose [data-variant='label'] { font-size: 8pt; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; text-align: left; }
@@ -715,6 +720,7 @@ a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }
 /* Print / PDF: the editor puts a copy of the sheet in #paper-print-root and the rest of the app is not printed. */
 #paper-print-root { display: none; }
 @media print {
+  .comment-pin { display: none !important; }
   html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; height: auto !important; overflow: visible !important; }
   body > *:not(#paper-print-root):not(style) { display: none !important; }
   #paper-print-root { display: block; margin: 0; }
@@ -746,3 +752,7 @@ a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }
 .paper-sheet .paper-hl[data-hl='blue'] { background: #BFDBFE; }
 .paper-sheet .paper-hl[data-hl='pink'] { background: #FBCFE8; }
 .paper-sheet .paper-hl[data-hl='orange'] { background: #FED7AA; }
+
+/* A chat source the researcher clicked: the clip it names breathes in the timeline for a moment. */
+@keyframes atomBreathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(50, 95, 236, 0); } 50% { box-shadow: 0 0 0 6px rgba(50, 95, 236, 0.35); } }
+.atom-breathe { animation: atomBreathe 1.2s ease-in-out 2; border-radius: 0.75rem; }

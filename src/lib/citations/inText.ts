@@ -338,6 +338,30 @@ export function renderCitations(style: InTextStyle, groups: CitedSource[][]): Re
   }
 }
 
+/** How a citation reads in the text: a number that points to the reference list, or the author and year. */
+export type ContentCitation = 'numbered' | 'author-date';
+
+export const isNumberedStyle = (style: InTextStyle): boolean => style === 'ieee' || style === 'vancouver' || style === 'ama';
+
+/**
+ * The in-text citation and the reference list can follow different styles. The text shows numbers ([1], numbered by first
+ * use) or author-date markers; the list is written in the chosen reference style. With numbers, the list is in order of
+ * first use and each row carries its number; with author-date, the list is alphabetical.
+ */
+export function renderCitationsSplit(content: ContentCitation, referenceStyle: InTextStyle, groups: CitedSource[][]): RenderedCitations {
+  const markerStyle: InTextStyle = content === 'numbered' ? 'ieee' : isNumberedStyle(referenceStyle) ? 'apa' : referenceStyle;
+  const base = renderCitations(markerStyle, groups);
+  if (markerStyle === referenceStyle) return base;
+  const written = new Map(renderCitations(referenceStyle, groups).references.map((r) => [r.sourceId, r]));
+  return {
+    markers: base.markers,
+    references: base.references.map((r) => {
+      const own = written.get(r.sourceId);
+      return own ? { ...r, text: own.text, incomplete: own.incomplete } : r;
+    }),
+  };
+}
+
 export function markerText(parts: MarkerPart[]): string {
   return parts.map((p) => p.text).join('');
 }

@@ -352,6 +352,7 @@
           description: `Captured ${tag} container (${Math.round(target.offsetWidth)}×${Math.round(target.offsetHeight)}px)`,
         },
         metadata: {
+          ...window.__researchiePageCitation.citationMeta(),
           sourceUrl: window.location.href,
           pageTitle: document.title || 'Source Page',
           domainFavicon: `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=64`,

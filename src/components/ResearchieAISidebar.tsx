@@ -12,8 +12,7 @@ import {
   FileDoc, 
   Table, 
   Lightbulb, 
-  PencilSimple, 
-  DownloadSimple, 
+  PencilSimple,
   ChatCircleDots,
   Trash,
   CaretRight,
@@ -33,10 +32,12 @@ import {
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 import { ResearchieAILogo } from './ResearchieAILogo';
 import { FormattedAIMessage } from './FormattedAIMessage';
+import { DeliverableEditModal } from './DeliverableEditModal';
 import type { WebSource } from '@/lib/ai/webResearch';
-import { downloadFile } from '@/lib/export/download';
 import { getAtomHighlightText } from './AtomCard';
 import { buildDeepLink } from '@/lib/utils/textFragments';
+import { stripLinks } from '@/lib/utils/plainText';
+import { formatCitationLine } from '@/lib/citations/client';
 
 export type AISidebarTab = 'ask' | 'summarize';
 
@@ -50,7 +51,33 @@ interface ChatMessage {
   model?: string;
   // Set on a web-search answer: the pages Perplexity used. These are not clips.
   webSources?: WebSource[];
+  // Set on a deliverable: the clips that were sent to the AI for this request.
+  sources?: ResearchAtom[];
   timestamp: string;
+}
+
+// Resize bounds for the docked panel (desktop only, lg and up).
+const SIDEBAR_WIDTH_KEY = 'researchie.aiSidebarWidth';
+const SIDEBAR_DEFAULT_WIDTH = 450;
+const SIDEBAR_MIN_WIDTH = 380;
+const SIDEBAR_MAX_WIDTH = 900;
+
+function clampSidebarWidth(width: number): number {
+  const windowMax = typeof window === 'undefined' ? SIDEBAR_MAX_WIDTH : Math.floor(window.innerWidth * 0.7);
+  const max = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, windowMax));
+  return Math.round(Math.min(max, Math.max(SIDEBAR_MIN_WIDTH, width)));
+}
+
+// A delete removes one turn: a question with the answer after it, or an answer with the question before it.
+// An answer with no question before it is removed on its own.
+function getTurnIds(list: ChatMessage[], index: number): string[] {
+  const msg = list[index];
+  if (msg.role === 'user') {
+    const next = list[index + 1];
+    return next && next.role === 'assistant' ? [msg.id, next.id] : [msg.id];
+  }
+  const prev = list[index - 1];
+  return prev && prev.role === 'user' ? [prev.id, msg.id] : [msg.id];
 }
 
 interface ResearchieAISidebarProps {
@@ -61,10 +88,12 @@ interface ResearchieAISidebarProps {
   project: ResearchProject | null;
   atoms: ResearchAtom[];
   selectedAtoms?: ResearchAtom[];
-  onSaveAsNote?: (title: string, markdown: string, tags: string[]) => void;
+  onSaveAsNote?: (title: string, markdown: string, tags: string[], sourceAtomIds?: string[], extra?: { projectId?: string; references?: string[] }) => void;
   onSelectAllAtoms?: () => void;
   onClearSelection?: () => void;
   onOpenPdfReader?: (docId?: string, pageNumber?: number, text?: string) => void;
+  /** The project and its sub-projects: where an edited deliverable can be saved. */
+  projects?: ResearchProject[];
 }
 
 export interface DeliverableTemplate {
@@ -82,135 +111,84 @@ export interface DeliverableTemplate {
 
 const PRESET_TEMPLATES: DeliverableTemplate[] = [
   {
-    id: 'summary',
-    label: 'Key Findings Summary',
-    badge: 'Prioritized Insights',
-    description: 'Synthesizes empirical findings, key numbers, and verbatim evidence citations.',
+    id: 'brief',
+    label: 'Research Brief',
+    badge: 'Memo, report or summary',
+    description: 'One written brief over your clips: a decision memo, a report, or a summary of findings.',
     icon: FileText,
     minClipsRequired: 1,
-    clarifyingQuestion: 'What specific angle or focus area should the findings highlight?',
+    clarifyingQuestion: 'Which kind of brief should this be, and what should it focus on?',
     quickFocusOptions: [
-      'Top critical takeaways & conclusions',
-      'Quantitative metrics, benchmarks & numbers',
-      'User pain points & friction areas',
-      'Comprehensive workspace summary',
+      'Decision memo: the question, the options, and a recommendation',
+      'Report: background, findings, and conclusions',
+      'Key findings: numbers and verbatim evidence',
+      'Summary of all clips for a general reader',
     ],
     instructionTemplate: (focus) =>
-      `Summarize the core findings, quantitative metrics, and actionable takeaways focusing on: ${focus}. Include clear bullet points and verified citations from the research clips. Keep the structure simple and direct without unnecessary sub-headings.`,
+      `Write a research brief over these clips focusing on: ${focus}. Use these headings where they fit: Summary, Key findings, Evidence, Differences between sources, Open questions, Conclusion. Keep each heading short and use plain language. Cite each clip used.`,
   },
   {
     id: 'matrix',
-    label: 'Literature Review Matrix',
-    badge: 'Cross-Document Matrix',
-    description: 'Surfaces methodologies, quantitative data, and cross-study findings.',
-    icon: BookOpen,
-    minClipsRequired: 2,
-    clarifyingQuestion: 'What specific research questions or methodologies should we compare?',
-    quickFocusOptions: [
-      'Methodology & study design differences',
-      'Quantitative metrics & benchmark variance',
-      'Conflicting behavioral findings',
-      'All cross-study findings & gaps',
-    ],
-    instructionTemplate: (focus) =>
-      `Synthesize these research documents and clips into a Literature Review Matrix focusing on: ${focus}. Include a complete Markdown Comparison Table (| Source / Document | Methodology | Core Thesis | Key Findings | Constraints |) and cross-document pattern analysis with verified citations.`,
-  },
-  {
-    id: 'comparison',
     label: 'Comparison Matrix',
-    badge: 'Side-by-Side Analysis',
-    description: 'Compares entities, architectures, subjects, or experimental groups.',
+    badge: 'Side-by-side table',
+    description: 'A table that compares sources or cases: methods, findings, gaps, or the criteria you choose.',
     icon: Table,
     minClipsRequired: 2,
-    clarifyingQuestion: 'What are we comparing, and which criteria matter most?',
+    clarifyingQuestion: 'What should the comparison matrix cover, and which columns matter most?',
     quickFocusOptions: [
-      'Feature & capability matrix',
-      'Performance, latency & cost benchmarks',
-      'Architectural trade-offs & pros/cons',
-      'User experience differences',
+      'Literature review: method, findings and gaps per study',
+      'Side-by-side: options, results and trade-offs',
+      'Numbers and measurements across sources',
+      'Points where the sources disagree',
     ],
     instructionTemplate: (focus) =>
-      `Synthesize these research clips into a Comparative Analysis focusing on: ${focus}. Include a Side-by-Side Comparison Markdown Table and strategic trade-off evaluation with citations.`,
-  },
-  {
-    id: 'prd',
-    label: 'PRD / Spec Draft',
-    badge: 'Product Spec',
-    description: 'Converts user pain points, quotes, and clips into functional requirements.',
-    icon: FileDoc,
-    minClipsRequired: 1,
-    clarifyingQuestion: 'Which feature, problem statement, or user flow should this PRD focus on?',
-    quickFocusOptions: [
-      'Core MVP user flow & requirements',
-      'User pain points & acceptance criteria',
-      'Technical data model & entity relations',
-      'Comprehensive product requirements',
-    ],
-    instructionTemplate: (focus) =>
-      `Synthesize these research clips into a Product Requirements Document (PRD) focusing on: ${focus}. Include: 1. Problem Statement & User Jobs, 2. Functional Requirements & Acceptance Criteria, 3. Technical Constraints, and 4. Open Questions.`,
+      `Build a comparison matrix over these clips focusing on: ${focus}. Use a Markdown table with one row per source or case and one column per criterion. Add a short plain-language note under the table on the main differences, with citations.`,
   },
   {
     id: 'gaps',
     label: 'Contradictions & Gaps',
-    badge: 'Conflict Analysis',
-    description: 'Evaluates conflicting evidence, methodological variance, and missing data.',
+    badge: 'Conflicts and missing evidence',
+    description: 'Finds where sources disagree, and where evidence is missing or weak.',
     icon: Scales,
     minClipsRequired: 2,
-    clarifyingQuestion: 'What potential conflicts, discrepancies, or missing evidence should we investigate?',
+    clarifyingQuestion: 'What conflicts, gaps, or weak evidence should we look for?',
     quickFocusOptions: [
-      'Conflicting quantitative data & metrics',
-      'Methodology & sample size discrepancies',
-      'Unresolved edge cases & assumptions',
-      'All cross-source contradictions',
+      'Conflicting numbers and results',
+      'Differences in method and sample size',
+      'Unstated assumptions and unresolved questions',
+      'All contradictions between sources',
     ],
     instructionTemplate: (focus) =>
-      `Perform a Cross-Document Contradictions and Gaps analysis across these research clips focusing on: ${focus}. Detail points of disagreement, evidence divergences, and areas requiring further empirical validation.`,
-  },
-  {
-    id: 'memo',
-    label: 'Executive Memo',
-    badge: 'Decision Memo',
-    description: 'High-density strategic brief highlighting data, trade-offs, and next steps.',
-    icon: Lightbulb,
-    minClipsRequired: 1,
-    clarifyingQuestion: 'What strategic decision or audience should this executive brief address?',
-    quickFocusOptions: [
-      'Leadership decision memo & trade-offs',
-      'Sprint planning & roadmap brief',
-      'Stakeholder research synthesis',
-      'Resource allocation & next steps',
-    ],
-    instructionTemplate: (focus) =>
-      `Synthesize these research clips into a concise Executive Brief / Decision Memo focusing on: ${focus}. Include context, high-impact findings, strategic implications, and clear recommendations.`,
+      `Find the contradictions and gaps across these clips, focusing on: ${focus}. Use these headings: Points of disagreement, Evidence that conflicts, Missing evidence, Weak or unclear evidence, Open questions. Cite each clip used.`,
   },
   {
     id: 'script',
     label: 'Video / Podcast Script',
-    badge: 'Audio/Video Format',
-    description: 'Produces a full narrative script formatted with dialogue, host notes, and timestamps.',
+    badge: 'Spoken script',
+    description: 'A spoken script with sections, speaker notes, and cues. Works for a video, podcast, or talk.',
     icon: Microphone,
     isScript: true,
     minClipsRequired: 1,
-    clarifyingQuestion: 'What tone, format (solo/co-host), and key narrative hook should this script emphasize?',
+    clarifyingQuestion: 'What tone, format (one speaker or two), and opening hook should the script use?',
     quickFocusOptions: [
-      'Engaging 5-minute video walkthrough',
-      'Deep dive 2-host podcast dialogue',
-      'Executive video brief with slide cues',
-      'Technical explainer with timecoded sections',
+      'Short video walkthrough, about 5 minutes',
+      'Two-person podcast conversation',
+      'Talk with slide cues',
+      'Plain explainer with timed sections',
     ],
     instructionTemplate: (focus) =>
-      `Convert these research clips into a full narrative Script focusing on: ${focus}. As this is a script deliverable, format with structured sections: [INTRO / HOOK], [SEGMENT 1: CORE DISCOVERY], [SEGMENT 2: EVIDENCE & DATA], [HOST DISCUSSION / CUES], and [OUTRO / KEY TAKEAWAYS].`,
+      `Turn these clips into a spoken script focusing on: ${focus}. Use these section headings: [INTRO / HOOK], [SECTION 1: MAIN FINDINGS], [SECTION 2: EVIDENCE], [NOTES FOR THE SPEAKER / CUES], and [CLOSING: KEY TAKEAWAYS]. Cite each clip used.`,
   },
   {
     id: 'custom',
     label: 'Custom Analysis',
-    badge: 'Freeform Prompt',
-    description: 'Write any custom synthesis prompt targeting specific clips in your workspace.',
+    badge: 'Freeform prompt',
+    description: 'Write any prompt you like over the clips in this project.',
     icon: PencilSimple,
     minClipsRequired: 1,
-    clarifyingQuestion: 'What custom synthesis or analysis would you like to perform?',
+    clarifyingQuestion: 'What would you like to ask or produce from these clips?',
     quickFocusOptions: [],
-    instructionTemplate: (focus) => focus || 'Synthesize these research clips into structured product takeaways.',
+    instructionTemplate: (focus) => focus || 'Summarize these clips into a clear answer with headings and citations.',
   },
 ];
 
@@ -226,6 +204,7 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
   onSelectAllAtoms,
   onClearSelection,
   onOpenPdfReader,
+  projects = [],
 }) => {
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -238,7 +217,7 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
 
   // Summarize state: 'list' (deliverable selection) or 'chat' (scoped generation & chat)
   const [summarizeView, setSummarizeView] = useState<'list' | 'chat'>('list');
-  const [selectedTemplate, setSelectedTemplate] = useState('summary');
+  const [selectedTemplate, setSelectedTemplate] = useState('brief');
   const [focusInput, setFocusInput] = useState('');
   const [customInstruction, setCustomInstruction] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -251,6 +230,101 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
   const [copiedSummaryId, setCopiedSummaryId] = useState<string | null>(null);
   const [savedSummaryId, setSavedSummaryId] = useState<string | null>(null);
   const deliverableBottomRef = useRef<HTMLDivElement>(null);
+  // Deliverable message being edited in the edit modal
+  const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
+
+  // Panel width (desktop resize). null = default width.
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isLgScreen, setIsLgScreen] = useState(false);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+
+  // Restore the saved width and track the lg breakpoint
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      if (saved > 0) setSidebarWidth(clampSidebarWidth(saved));
+    } catch {}
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const syncLg = () => setIsLgScreen(mql.matches);
+    syncLg();
+    mql.addEventListener('change', syncLg);
+    return () => mql.removeEventListener('change', syncLg);
+  }, []);
+
+  // Remove drag listeners if the panel unmounts mid-drag
+  useEffect(() => {
+    return () => resizeCleanupRef.current?.();
+  }, []);
+
+  const handleResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    resizeCleanupRef.current?.();
+
+    const startX = e.clientX;
+    const startWidth = clampSidebarWidth(sidebarWidth ?? SIDEBAR_DEFAULT_WIDTH);
+    let latestWidth = startWidth;
+
+    // Dragging left makes the panel wider
+    const onMove = (ev: PointerEvent) => {
+      latestWidth = clampSidebarWidth(startWidth + (startX - ev.clientX));
+      setSidebarWidth(latestWidth);
+    };
+    const onUp = () => {
+      cleanup();
+      try {
+        window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(latestWidth));
+      } catch {}
+    };
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      document.body.style.cursor = '';
+      resizeCleanupRef.current = null;
+      setIsResizing(false);
+    };
+
+    resizeCleanupRef.current = cleanup;
+    setIsResizing(true);
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  };
+
+  const handleDeleteAskTurn = (msgId: string) => {
+    setMessages((prev) => {
+      const index = prev.findIndex((m) => m.id === msgId);
+      if (index < 0) return prev;
+      const ids = getTurnIds(prev, index);
+      return prev.filter((m) => !ids.includes(m.id));
+    });
+  };
+
+  const handleDeleteDeliverableTurn = (msgId: string) => {
+    setDeliverableMessages((prev) => {
+      const list = prev[selectedTemplate] || [];
+      const index = list.findIndex((m) => m.id === msgId);
+      if (index < 0) return prev;
+      const ids = getTurnIds(list, index);
+      return { ...prev, [selectedTemplate]: list.filter((m) => !ids.includes(m.id)) };
+    });
+  };
+
+  const turnDeleteButton = (onDelete: () => void) => (
+    <button
+      type="button"
+      onClick={onDelete}
+      data-testid="chat-turn-delete"
+      title="Delete this chat"
+      aria-label="Delete this chat"
+      className="ml-auto p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+    >
+      <Trash size={13} />
+    </button>
+  );
 
   const currentTemplate = useMemo(() => {
     return PRESET_TEMPLATES.find((t) => t.id === selectedTemplate) || PRESET_TEMPLATES[0];
@@ -339,8 +413,8 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
     const el = document.getElementById(`atom-${id}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-[#325FEC]', 'animate-pulse', 'duration-500');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-[#325FEC]', 'animate-pulse', 'duration-500'), 2000);
+      el.classList.add('atom-breathe');
+      setTimeout(() => el.classList.remove('atom-breathe'), 2400);
     }
   };
 
@@ -362,8 +436,10 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
       }
     } else if (href.startsWith('#cite-ref-')) {
       const refNum = parseInt(href.replace('#cite-ref-', ''), 10);
-      if (msg.citations && msg.citations[refNum - 1]) {
-        const atom = msg.citations[refNum - 1];
+      // a deliverable's numbers point at its sources; a chat answer's at its citations
+      const list = msg.citations ?? msg.sources ?? [];
+      if (list[refNum - 1]) {
+        const atom = list[refNum - 1];
         if (atom.metadata?.pageNumber !== undefined && onOpenPdfReader) {
           onOpenPdfReader(atom.metadata?.documentId || (atom as any).documentId, atom.metadata?.pageNumber, atom.content?.text || atom.content?.rawText);
         } else {
@@ -502,7 +578,7 @@ User Question: ${query.trim()}`,
           const cleanDirect = rawDirect 
             ? rawDirect.replace(/\*\*/g, '').replace(/^- /gm, '').replace(/^#+\s*/gm, '').trim()
             : null;
-          const summary = synthData.data.markdownContent || synthData.data.keyInsights?.join('\n\n') || 'Answer synthesized.';
+          const summary = synthData.data.markdownContent || synthData.data.keyInsights?.join('\n\n') || 'Answer ready.';
 
           // Filter citations to strictly match verified cited items
           const citedIds = new Set(
@@ -528,7 +604,7 @@ User Question: ${query.trim()}`,
         const aiMessage: ChatMessage = {
           id: `ai-${Date.now()}`,
           role: 'assistant',
-          content: `Synthesized findings for "${query.trim()}" across ${topResults.length} clips in your workspace.`,
+          content: `Findings for "${query.trim()}" across ${topResults.length} clips in your workspace.`,
           citations: topResults.slice(0, 2),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
@@ -563,7 +639,8 @@ User Question: ${query.trim()}`,
       ? `### Direct Answer\n${msg.directAnswer}\n\n### Evidence & Summary\n${msg.content}` 
       : msg.content;
 
-    onSaveAsNote(noteTitle, fullBody, ['ai-qna', 'smart-answer']);
+    // links in an answer point nowhere once it is on the timeline; Document Assistant answers keep their page links
+    onSaveAsNote(noteTitle, stripLinks(fullBody), ['ai-qna', 'smart-answer'], (msg.citations ?? []).map((a) => a.id));
     setSavedMsgId(msg.id);
     setTimeout(() => setSavedMsgId(null), 2500);
   };
@@ -576,7 +653,7 @@ User Question: ${query.trim()}`,
     // Sufficiency check
     if (inputClips.length < currentTemplate.minClipsRequired) {
       setGenerationError(
-        `We couldn't find sufficient empirical research clips in this project for a complete ${currentTemplate.label}.`
+        `We couldn't find enough clips in this project for a complete ${currentTemplate.label}.`
       );
       return;
     }
@@ -598,7 +675,7 @@ User Question: ${query.trim()}`,
     setDeliverableInputQuery('');
 
     const instruction = selectedTemplate === 'custom' 
-      ? (customInstruction.trim() || activeFocus || 'Synthesize these research clips into structured product takeaways.')
+      ? (customInstruction.trim() || activeFocus || 'Summarize these clips into a clear answer with headings and citations.')
       : currentTemplate.instructionTemplate(activeFocus);
 
     try {
@@ -632,9 +709,10 @@ User Question: ${query.trim()}`,
           const assistantMsg: ChatMessage = {
             id: `deliv-ai-${Date.now()}`,
             role: 'assistant',
-            content: json.data.markdownContent || json.data.keyInsights?.join('\n\n') || 'Synthesis generated.',
+            content: json.data.markdownContent || json.data.keyInsights?.join('\n\n') || 'Deliverable generated.',
             directAnswer: cleanDirect,
             citations: inputClips.slice(0, 5),
+            sources: inputClips,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
 
@@ -643,15 +721,15 @@ User Question: ${query.trim()}`,
             [selectedTemplate]: [...(prev[selectedTemplate] || []), assistantMsg],
           }));
         } else {
-          setGenerationError('Synthesis response was empty. Please check your research data.');
+          setGenerationError('The response was empty. Please check your research data.');
         }
       } else {
         const errJson = await res.json().catch(() => ({}));
-        setGenerationError(errJson.error || `Failed to synthesize (${res.status}).`);
+        setGenerationError(errJson.error || `Failed to generate (${res.status}).`);
       }
     } catch (err: any) {
       console.error('Synthesis failed:', err);
-      setGenerationError(err?.message || 'Network error occurred while generating synthesis.');
+      setGenerationError(err?.message || 'Network error occurred while generating the deliverable.');
     } finally {
       setIsGenerating(false);
     }
@@ -664,20 +742,13 @@ User Question: ${query.trim()}`,
     setTimeout(() => setCopiedSummaryId(null), 2000);
   };
 
-  const handleDownloadDeliverableMsg = (msg: ChatMessage) => {
-    const slug = currentTemplate.label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    downloadFile(msg.content, `${slug}-deliverable.md`, 'text/markdown;charset=utf-8');
-  };
-
   const handleSaveDeliverableAsNote = (msg: ChatMessage) => {
     if (!onSaveAsNote) return;
     onSaveAsNote(
       `${currentTemplate.label} Deliverable`,
-      msg.content,
-      ['ai-synthesis', selectedTemplate]
+      stripLinks(msg.content),
+      [],
+      (msg.sources ?? []).map((a) => a.id)
     );
     setSavedSummaryId(msg.id);
     setTimeout(() => setSavedSummaryId(null), 2500);
@@ -706,7 +777,7 @@ User Question: ${query.trim()}`,
         'What are the key findings and main themes across all research items?',
         'Summarize the core takeaways and actionable conclusions',
         'Identify patterns, contradictions, and potential research gaps',
-        'Extract all critical quantitative metrics and data points',
+        'Extract the key numbers and data points',
       ];
     }
 
@@ -746,11 +817,23 @@ User Question: ${query.trim()}`,
       />
 
       {/* Docked Side-by-Side Assistant Panel */}
-      <aside 
+      <aside
         data-testid="researchie-ai-sidebar"
         aria-label="Researchie AI Sidebar"
-        className="w-full sm:w-[380px] md:w-[420px] lg:w-[450px] h-full flex-shrink-0 z-40 bg-[#FAFBFD] dark:bg-[#121214] border-l border-[#D9E1EC] dark:border-[#27272A] flex flex-col transition-all duration-300 ease-out select-none shadow-xl"
+        style={isLgScreen ? { width: clampSidebarWidth(sidebarWidth ?? SIDEBAR_DEFAULT_WIDTH) } : undefined}
+        className={`relative w-full sm:w-[380px] md:w-[420px] h-full flex-shrink-0 z-40 bg-[#FAFBFD] dark:bg-[#121214] border-l border-[#D9E1EC] dark:border-[#27272A] flex flex-col select-none shadow-xl ${
+          isResizing ? '' : 'transition-all duration-300 ease-out'
+        }`}
       >
+        {/* Drag handle on the left edge (desktop only): drag left to widen */}
+        <div
+          data-testid="ai-sidebar-resize"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize AI sidebar"
+          onPointerDown={handleResizeStart}
+          className="hidden lg:block absolute left-0 top-0 h-full w-2 -translate-x-1/2 cursor-col-resize z-50 hover:bg-[#325FEC]/30 active:bg-[#325FEC]/50 transition-colors"
+        />
         {/* Top Header */}
         <div className="px-4 py-3 border-b border-[#D9E1EC] dark:border-[#27272A] bg-[#F4F6F9] dark:bg-[#09090B] flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -831,7 +914,7 @@ User Question: ${query.trim()}`,
                       Query your research stream
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
-                      Answers are synthesized from verified quotes, documents, and web blocks in this workspace.
+                      Answers are built from verified quotes, documents, and web clips in this workspace.
                     </p>
                   </div>
 
@@ -863,13 +946,14 @@ User Question: ${query.trim()}`,
                   return (
                     <div
                       key={msg.id}
-                      className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5 animate-popIn`}
+                      className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5 animate-popIn`}
                     >
                       {/* Message Bubble Header */}
-                      <div className="flex items-center gap-2 px-1 text-[11px] font-mono text-slate-500 dark:text-zinc-500">
+                      <div className="w-full flex items-center gap-2 px-1 text-[11px] font-mono text-slate-500 dark:text-zinc-500">
                         <span className="font-medium">{isUser ? 'You' : 'Researchie AI'}</span>
                         <span>•</span>
                         <span>{msg.timestamp}</span>
+                        {turnDeleteButton(() => handleDeleteAskTurn(msg.id))}
                       </div>
 
                       {/* Content Bubble: Single Cohesive Reading Surface */}
@@ -942,6 +1026,10 @@ User Question: ${query.trim()}`,
                                       atom.metadata?.sourceUrl?.startsWith('/reader')
                                     );
 
+                                    // Citation line when the clip has one; otherwise the page address
+                                    const citationLine = atom.metadata?.citation ? formatCitationLine(atom.metadata.citation) : null;
+                                    const sourceLine = citationLine || atom.metadata?.sourceUrl || null;
+
                                     return (
                                       <button
                                         key={atom.id}
@@ -964,6 +1052,11 @@ User Question: ${query.trim()}`,
                                             <ArrowSquareOut size={12} />
                                           </div>
                                         </div>
+                                        {sourceLine && (
+                                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+                                            {sourceLine}
+                                          </p>
+                                        )}
                                         {quote && (
                                           <p className="italic text-slate-600 dark:text-zinc-400 line-clamp-2 pl-2 border-l-2 border-slate-300 dark:border-zinc-700 text-xs">
                                             "{quote}"
@@ -1008,7 +1101,7 @@ User Question: ${query.trim()}`,
                 <div className="flex flex-col items-start space-y-1 animate-popIn">
                   <div className="p-3.5 rounded-2xl bg-white dark:bg-[#18181B] border border-[#D9E1EC] dark:border-[#27272A] flex items-center gap-2.5 text-xs text-slate-600 dark:text-zinc-400 shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-[#325FEC] dark:bg-[#518FFF] animate-ping" />
-                    <span className="font-medium">Synthesizing answer from research clips...</span>
+                    <span className="font-medium">Writing answer from research clips...</span>
                   </div>
                 </div>
               )}
@@ -1073,7 +1166,7 @@ User Question: ${query.trim()}`,
                     Select Deliverable Format
                   </h3>
                   <p className="text-xs text-slate-600 dark:text-zinc-400 mt-0.5">
-                    Choose a format to start a focused synthesis workspace.
+                    Choose a format to start a focused workspace.
                   </p>
                 </div>
 
@@ -1133,11 +1226,6 @@ User Question: ${query.trim()}`,
                     <span>Deliverables</span>
                   </button>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#325FEC]/10 dark:bg-[#518FFF]/20 text-[#325FEC] dark:text-[#518FFF] border border-[#325FEC]/20">
-                      {currentTemplate.label}
-                    </span>
-                  </div>
                 </div>
 
                 {/* Scoped Chat Stream */}
@@ -1183,10 +1271,10 @@ User Question: ${query.trim()}`,
                             <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                             <div className="space-y-1">
                               <span className="font-semibold font-display text-sm block">
-                                Insufficient Project Data
+                                Not enough clips
                               </span>
                               <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                                We couldn't find sufficient empirical research data in this project for a complete <strong>{currentTemplate.label}</strong> (requires at least {currentTemplate.minClipsRequired} clips, found {inputClips.length}).
+                                We couldn't find enough clips in this project for a complete <strong>{currentTemplate.label}</strong> (requires at least {currentTemplate.minClipsRequired} clips, found {inputClips.length}).
                               </p>
                             </div>
                           </div>
@@ -1275,12 +1363,13 @@ User Question: ${query.trim()}`,
                     return (
                       <div
                         key={msg.id}
-                        className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5 animate-popIn`}
+                        className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1.5 animate-popIn`}
                       >
-                        <div className="flex items-center gap-2 px-1 text-[11px] font-mono text-slate-500 dark:text-zinc-500">
+                        <div className="w-full flex items-center gap-2 px-1 text-[11px] font-mono text-slate-500 dark:text-zinc-500">
                           <span className="font-medium">{isUser ? 'You' : `${currentTemplate.label} AI`}</span>
                           <span>•</span>
                           <span>{msg.timestamp}</span>
+                          {turnDeleteButton(() => handleDeleteDeliverableTurn(msg.id))}
                         </div>
 
                         <div
@@ -1295,14 +1384,11 @@ User Question: ${query.trim()}`,
                           ) : (
                             <>
                               {msg.directAnswer && (
-                                <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-blue-950 dark:text-blue-200 text-sm leading-relaxed flex items-start gap-2.5">
-                                  <Sparkle size={17} weight="fill" className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0 mt-0.5" />
-                                  <div>
-                                    <span className="font-semibold text-xs uppercase tracking-wider text-[#325FEC] dark:text-[#518FFF] block mb-0.5 font-mono">
-                                      Key Takeaway
-                                    </span>
-                                    <span>{msg.directAnswer}</span>
-                                  </div>
+                                <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-blue-950 dark:text-blue-200 text-sm leading-relaxed">
+                                  <span className="font-semibold text-xs uppercase tracking-wider text-[#325FEC] dark:text-[#518FFF] block mb-0.5 font-mono">
+                                    Key Takeaway
+                                  </span>
+                                  <span>{msg.directAnswer}</span>
                                 </div>
                               )}
 
@@ -1314,17 +1400,10 @@ User Question: ${query.trim()}`,
                               <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-100 dark:border-zinc-800">
                                 <button
                                   onClick={() => handleCopyDeliverableMsg(msg)}
-                                  className="p-1.5 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white bg-[#EEF3F8] dark:bg-[#27272A] border border-[#D9E1EC] dark:border-[#27272A] transition-colors cursor-pointer"
-                                  title="Copy Markdown"
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-mono text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white hover:bg-[#EEF3F8] dark:hover:bg-[#27272A] transition-colors cursor-pointer"
                                 >
                                   {copiedSummaryId === msg.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                                </button>
-                                <button
-                                  onClick={() => handleDownloadDeliverableMsg(msg)}
-                                  className="p-1.5 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-[#0F172A] dark:hover:text-white bg-[#EEF3F8] dark:bg-[#27272A] border border-[#D9E1EC] dark:border-[#27272A] transition-colors cursor-pointer"
-                                  title="Download .md"
-                                >
-                                  <DownloadSimple size={13} />
+                                  <span>{copiedSummaryId === msg.id ? 'Copied' : 'Copy'}</span>
                                 </button>
                                 {onSaveAsNote && (
                                   <button
@@ -1335,6 +1414,14 @@ User Question: ${query.trim()}`,
                                     <span>{savedSummaryId === msg.id ? 'Saved!' : 'Save to Project'}</span>
                                   </button>
                                 )}
+                                <button
+                                  onClick={() => setEditingMsg(msg)}
+                                  data-testid="deliverable-edit"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-sans font-medium text-slate-800 dark:text-zinc-200 hover:bg-[#EEF3F8] dark:hover:bg-[#27272A] border border-[#D9E1EC] dark:border-[#27272A] transition-colors cursor-pointer"
+                                >
+                                  <PencilSimple size={13} />
+                                  <span>Edit</span>
+                                </button>
                               </div>
                             </>
                           )}
@@ -1409,6 +1496,22 @@ User Question: ${query.trim()}`,
           </div>
         )}
       </aside>
+
+      {editingMsg && (
+        <DeliverableEditModal
+          title={currentTemplate.label}
+          content={editingMsg.content}
+          sources={editingMsg.sources ?? []}
+          projectAtoms={atoms}
+          projects={projects}
+          currentProjectId={project?.id ?? ''}
+          onClose={() => setEditingMsg(null)}
+          onSave={(save) => {
+            onSaveAsNote?.(save.title, save.markdown, save.tags, save.sourceAtomIds, { projectId: save.projectId, references: save.references });
+            setEditingMsg(null);
+          }}
+        />
+      )}
     </>
   );
 };

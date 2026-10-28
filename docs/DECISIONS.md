@@ -281,6 +281,53 @@
 - **Rationale**: Owner request: table tools as in Word, with table content built as real tables inside the paper. Fixed layout gave every column the same width.
 - **Limits**: The picker is capped at 6 × 6; larger tables are made by adding rows and columns.
 
+### Decision 53: A Two-Column Section Taller Than a Page Is Shown in One Column in the Editor
+- **Decision**: The editor measures a two-column section in one column. If that is taller than a page's text area, the section is not one block: its paragraphs are split across pages like plain text, and the editor shows a note naming the page. The section stays two columns in Word and PDF export.
+- **Rationale**: Splitting inside CSS columns needs per-paragraph padding, which moved text between columns and made the page shake (Decision 49). Owner chose this fallback over a warning only and over a per-paragraph split.
+- **Limits**: In the editor and in print, a tall two-column section reads as one column. Page-break and column layout can differ from Word for that section. Only sections are handled; a `columns` block (Insert columns) taller than a page is still flagged as before.
+
+---
+
+### Decision 54: Comments Are a Mark on the Text, the Note Lives in Meta
+- **Decision**: A comment on selected text is a `comment` mark carrying an id. The note (text and time) lives in the paper's `comments` list in meta, not in the document. The Comments list reads both: the marks give the text and its place, the list gives the note. Deleting a comment removes its mark and its note.
+- **Rationale**: Word-style comments on text. Keeping the note out of the document keeps the body text clean for export and lets the list stay in the toolbar.
+- **Limits**: Comments are not exported (Word, PDF, Markdown). Print shows the highlight. No replies or resolve. A comment whose text was deleted stays in the list as "Text removed" until deleted.
+
+---
+
+### Decision 55: The Page Citation Travels With Every Send From the Extension
+- **Decision**: One shared script (extension/pageCitation.js) reads the page's DOI, PMID and web facts and gives one source line. The line is put first in page text sent to the AI and under the answer; the same fields are saved with image, screenshot, block, link, brief and answer items. Every injection list loads the script first.
+- **Rationale**: Owner request: content sent from the extension should keep its citation. Copies of the reader in four files had drifted apart.
+- **Limits**: The AI gets the source as text in its input; the server does not parse it into a structured citation. Not run in a real Chrome against a DOI page.
+
+---
+
+### Decision 56: Timeline Answers Carry Page Links for Documents and No Links for Web or Plugin
+- **Decision**: A document answer keeps a [Page N] link on each sentence that has a source; the link opens that page in the reader. A web or plugin answer saved to the timeline has its links removed (the words stay) and its source line has no URL; the URL stays in the saved metadata.
+- **Rationale**: Owner report: AI answers carried links that did not work in the timeline. Document pages can be reached exactly; web links from an AI answer cannot be checked.
+- **Limits**: Only the first page of a document answer is highlighted with its quote. Answers saved before this change keep their links. The extension zip was rebuilt (npm run pack:extension).
+
+---
+
+### Decision 57: Eight Deliverables Become Five; Memo, PRD and Summary Are One Research Brief
+- **Decision**: The AI sidebar lists Research Brief (memo, product document or findings summary, chosen by focus), Comparison Matrix (literature review or side-by-side, chosen by focus), Contradictions & Gaps, Video / Podcast Script and Custom Analysis. Key Findings Summary, Executive Memo, PRD and Literature Review Matrix are removed as separate entries.
+- **Rationale**: The four written outputs and the two tables differed only in the instruction. One name per group is clearer for a researcher.
+- **Limits**: The server's local fallback still has separate branches keyed on the instruction words. The fallback's canned text is not yet removed (see Decision 56 note in the earlier review).
+
+---
+
+### Decision 58: PDF Citations Come From the File; Wrapped PDF Lines Are Joined; Timeline Notes Carry No Links
+- **Decision**: A PDF in the browser's own viewer has no page tags, so the extension fetches the file once per address and the platform reads its DOI and title (/api/citations/pdf, in memory, nothing stored). In the reader, the open paper's citation is put in the page as citation_* meta tags, so the plugin finds it like on any article page. Text from a PDF has its single line breaks joined into paragraphs (blank lines stay). Synthesized notes saved to the timeline have their links removed.
+- **Rationale**: Owner report: copied PDF text had no citation, every printed line became a paragraph, and timeline notes carried links that did not work.
+- **Limits**: The first DOI in the PDF metadata or first page is used; a stray DOI of a cited work is possible (the checks in the reader still run on upload). Not run in real browser PDF viewers.
+
+---
+
+### Decision 59: The Text and the Reference List Have Their Own Citation Choice
+- **Decision**: A paper chooses how a citation reads in the text (numbers that point to the list, or author and year) apart from the style of the reference list. Numbers are numbered by first use and each list row carries its number; author and year give an alphabetical list. A paper with no choice keeps its style's own way. A note written in the Researchie AI edit window is the researcher's own text (evidence kind "mine") and carries the clips it cites; placing it in a paper cites all of them with one marker.
+- **Rationale**: Owner request: in-text citation and reference citation are different syntax; researchers rewrite AI text in their own words and the result must not read as AI-written.
+- **Limits**: New papers still default to the old style (APA); a source with no citation details gets a plain line in the edit window and no marker in the paper.
+
 ---
 
 ## Molecule Build System Log

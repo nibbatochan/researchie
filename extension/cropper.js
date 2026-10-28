@@ -170,6 +170,7 @@
           description: `Direct image capture (${Math.round(target.offsetWidth)}×${Math.round(target.offsetHeight)}px)`,
         },
         metadata: {
+          ...window.__researchiePageCitation.citationMeta(),
           sourceUrl: window.location.href,
           pageTitle: document.title,
           domainFavicon: `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=64`,

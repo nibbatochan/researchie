@@ -48,6 +48,8 @@ interface ProjectTimelineProps {
   project: ResearchProject | null;
   atoms: ResearchAtom[];
   loading?: boolean;
+  /** Every project, with its sub-projects, for choosing where a Research AI note is saved. */
+  projects?: ResearchProject[];
   onDeleteAtom?: (id: string) => void;
   onTogglePin?: (id: string, pinned: boolean) => void;
   onOpenManualModal?: () => void;
@@ -64,6 +66,10 @@ interface ProjectTimelineProps {
       documentId?: string;
       pageNumber?: number;
       totalDocumentPages?: number;
+      evidenceKind?: 'quote' | 'ai-summary' | 'mine';
+      origin?: 'research-ai';
+      sourceAtomIds?: string[];
+      references?: string[];
     };
     tags?: string[];
   }) => void;
@@ -107,6 +113,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   onTogglePin,
   onOpenManualModal,
   onCreateAtom,
+  projects,
   workspaceMode = 'feed',
   onWorkspaceModeChange,
   targetDocId,
@@ -295,15 +302,25 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
     }
   };
 
-  const handleSaveSynthesis = (title: string, markdown: string, tags: string[]) => {
+  // A note the researcher rewrote is theirs ("mine"); a note straight from the AI stays an AI summary. The clips it cites
+  // travel with it (sourceAtomIds), so dropping it in a paper cites them.
+  // `origin` marks a note that came from Research AI, so the timeline and the paper can name it; `references` is its list,
+  // shown under Get citation rather than in the text. `extra.projectId` saves to a chosen project or sub-project.
+  const handleSaveSynthesis = (title: string, markdown: string, tags: string[], sourceAtomIds: string[] = [], extra?: { projectId?: string; references?: string[] }) => {
     if (!project || !onCreateAtom) return;
     onCreateAtom({
-      projectId: project.id === 'all' ? 'proj-ai-main' : project.id,
+      projectId: extra?.projectId ?? (project.id === 'all' ? 'proj-ai-main' : project.id),
       type: 'note',
       title,
       content: {
         description: markdown.slice(0, 300) + '...',
         markdownContent: markdown,
+      },
+      metadata: {
+        origin: 'research-ai',
+        evidenceKind: tags.includes('user-written') ? 'mine' : 'ai-summary',
+        ...(sourceAtomIds.length > 0 ? { sourceAtomIds } : {}),
+        ...(extra?.references?.length ? { references: extra.references } : {}),
       },
       tags,
     });
@@ -867,6 +884,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
             atoms={atoms}
             selectedAtoms={selectedAtomsList}
             onSaveAsNote={handleSaveSynthesis}
+            projects={projects}
             onSelectAllAtoms={handleSelectAll}
             onClearSelection={() => setSelectedIds(new Set())}
             onOpenPdfReader={onOpenPdfReader}

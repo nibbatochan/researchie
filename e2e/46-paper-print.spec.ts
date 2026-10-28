@@ -31,9 +31,9 @@ test('Print / PDF puts the pages in a print-only copy, in the right order, and r
   await page.waitForTimeout(300);
   await page.keyboard.type('FIRSTPAGEWORD');
   for (let i = 2; i <= 75; i++) { await page.keyboard.press('Enter'); await page.keyboard.type(`Line ${i}`); }
-  await page.getByTestId('tb-columns').click();
-  await page.getByTestId('col-insert').click();
   await page.keyboard.type('COLUMNWORD');
+  await page.getByTestId('tb-columns').click();
+  await page.getByTestId('col-paper-2').click();
   await expect.poll(() => page.locator('[data-page-box]').count(), { timeout: 15000 }).toBeGreaterThanOrEqual(2);
   const screenPages = await page.locator('[data-page-box]').count();
 

@@ -423,7 +423,7 @@ export const TrailingText = Extension.create({
   },
 });
 /** `splits` are gaps inside a long text block: `at` is the document position of a line start, `height` the gap in px. */
-export type PadEntry = { pos: number; pad: number; tall?: boolean; splits?: Array<{ at: number; height: number }> };
+export type PadEntry = { pos: number; pad: number; tall?: boolean; oneColumn?: boolean; splits?: Array<{ at: number; height: number }> };
 
 function splitGap(height: number): HTMLElement {
   const el = document.createElement('span');
@@ -452,7 +452,7 @@ export const Pagination = Extension.create({
             if (!pads) return set.map(tr.mapping, tr.doc);
             const decos: Decoration[] = [];
             for (const e of pads) {
-              if (e.pad > 0.5 || e.tall) decos.push(Decoration.node(e.pos, e.pos + (tr.doc.nodeAt(e.pos)?.nodeSize ?? 0), { ...(e.pad > 0.5 ? { style: `padding-top: ${e.pad}px` } : {}), ...(e.tall ? { class: 'paper-oversize' } : {}) }));
+              if (e.pad > 0.5 || e.tall || e.oneColumn) decos.push(Decoration.node(e.pos, e.pos + (tr.doc.nodeAt(e.pos)?.nodeSize ?? 0), { ...(e.pad > 0.5 ? { style: `padding-top: ${e.pad}px` } : {}), ...(e.tall ? { class: 'paper-oversize' } : {}), ...(e.oneColumn ? { class: 'paper-one-column' } : {}) }));
               for (const sp of e.splits ?? []) decos.push(Decoration.widget(sp.at, () => splitGap(sp.height), { side: -1, key: `split-${sp.at}-${Math.round(sp.height)}`, ignoreSelection: true }));
             }
             return DecorationSet.create(tr.doc, decos);
@@ -518,6 +518,17 @@ export const HighlightMark = Mark.create({
   },
   parseHTML: () => [{ tag: 'mark[data-hl]', getAttrs: (el) => (HIGHLIGHTS.some((h) => h.id === (el as HTMLElement).getAttribute('data-hl')) ? null : false) }],
   renderHTML: ({ HTMLAttributes }) => ['mark', mergeAttributes(HTMLAttributes, { class: 'paper-hl' }), 0],
+});
+
+/** A comment on a stretch of text. The id ties the text to its note in the paper's meta; typing after it does not extend it. */
+export const CommentMark = Mark.create({
+  name: 'comment',
+  inclusive: false,
+  addAttributes() {
+    return { id: { default: null, parseHTML: (el: HTMLElement) => el.getAttribute('data-comment'), renderHTML: (a: Record<string, unknown>) => ({ 'data-comment': String(a.id ?? '') }) } };
+  },
+  parseHTML: () => [{ tag: 'span[data-comment]' }],
+  renderHTML: ({ HTMLAttributes }) => ['span', mergeAttributes(HTMLAttributes, { class: 'paper-comment' }), 0],
 });
 
 const dataAttr = (name: string) => ({
@@ -708,6 +719,7 @@ export function paperExtensions({ hintFor, onMathClick, onDropClip, imageFor = (
     FontSize,
     FontFamilyMark,
     HighlightMark,
+    CommentMark,
     PageBreak,
     Column,
     Columns,

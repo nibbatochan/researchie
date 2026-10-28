@@ -213,7 +213,7 @@ export function parseMarkdownToSections(markdown: string): ContentSection[] {
   let currentSection: ContentSection = {
     id: 'sec-0',
     kind: 'summary',
-    title: 'Overview',
+    title: '', // the text before any heading has no title; a label here would read as an AI header
     blocks: [],
   };
 

@@ -318,6 +318,38 @@ Statuses: not started, in progress, blocked, done, dropped.
         - [not started] Import old outlines as papers (C2c) {S-157}
               | What: design note section 7. One click per old outline; never deletes the old data.
               | Model: Sonnet · M · medium · about 80k tokens
+        - [done] Comments on selected text {S-167}
+              | What: select text, press Comment, write a note. The text is highlighted; Comments lists every note; clicking one selects its text; Delete removes the note and the highlight. Word-style, for the author's own notes.
+              | Done: 2026-10-28. Comment mark and comments list in meta (src/lib/paper/editor/comments.ts, docModel.ts), toolbar Comment and Comments buttons. 3 unit tests (tests/paper-comments.test.mjs), 2 e2e tests (e2e/54-paper-comments.spec.ts). Left: comments are not in Word, PDF or Markdown export; print shows the highlight; no replies or resolve.
+        - [done] Extension sends the page citation with every AI request and save {S-168}
+              | What: the page's DOI or PMID (or web facts when it has neither) travels with the AI brief, the AI question, the saved brief and answer, the saved image, screenshot, block and link. The AI text starts with a Source line, and an answer shows its Source line.
+              | Done: 2026-10-28. extension/pageCitation.js (shared reader), content.js, cropper.js, blockPicker.js, popup.js, sidepanel.js, manifest.json. Checked by syntax and a stub-page run of the reader. Left: not run in a real Chrome with a DOI page; the server is unchanged, so the citation reaches the AI as text, not as a structured field.
+        - [done] AI answer links: none in web and plugin timeline text; document links open the page {S-169}
+              | What: web and plugin answers saved to the timeline have no links (link text kept, URLs dropped; the source line has no URL). Document Assistant answers keep a [Page N] link on each sentence; clicking it opens that page of the document in the reader, with the saved quote highlighted on its page.
+              | Done: 2026-10-28. extension/answerText.js (plainAnswer), sidepanel.js and popup.js saves, pageCitation.js source line, PDFReaderView.tsx save, AtomCard.tsx page links. Unit tests and extension zip test pass; e2e 07 and 09 pass (07 failed once in a suite run, passes alone). Left: the links are not checked by hand in Chrome; answers saved before this change keep their old links.
+        - [done] Comment notes in the right margin {S-170}
+              | What: each comment shows as a note beside its text in the right margin; clicking the note selects the text. Notes are not printed.
+              | Done: 2026-10-28. PaperEditor.tsx computes the pins in the pagination pass; PaperPageSheet.tsx draws them; globals.css hides them in print. e2e/56-comment-pins.spec.ts passes. Left: the margin is off-screen on narrow windows (about 1280 px wide the note is cut at the window edge); the abstract and other front matter are not in the editor, so they cannot be commented (move them into the editor: new item).
+        - [not started] Front matter (abstract, title, keywords) inside the editor so it can be commented {S-171}
+              | What: the abstract is drawn from the front-matter form, not the editor. Comments and selection there do nothing today.
+        - [done] Timeline links, PDF citations and PDF line breaks {S-172}
+              | What: synthesized content saved to the timeline has no links (Document Assistant keeps its page links). Text copied from the reader through the plugin carries the paper's citation (the reader sets citation meta tags). Text clipped from a PDF in the browser's own viewer gets the PDF's DOI and title (the extension fetches the file; the platform reads it at /api/citations/pdf). Wrapped PDF lines are joined, so a clip has no half-empty gaps.
+              | Done: 2026-10-28. src/lib/utils/pdfText.ts, plainText.ts, 5 unit tests (tests/text-clean.test.mjs); the new route was tried on a test PDF with a DOI. Left: not tried in real Chrome, Edge or Firefox PDF viewers; the reader meta tags are not checked in a browser; a PDF with no DOI in its metadata or first page gets no citation; Firefox's viewer is reached only through the right-click menu.
+        - [done] Researchie AI panel: width, delete, edit window, content and reference citations {S-173}
+              | What: the panel widens by dragging its left edge; a chat turn (question or deliverable) can be deleted; deliverable wording is neutral; a deliverable has Copy, Save to Project and Edit (no download, no tag chips or stars). Edit opens a window of about 70% of the screen: the AI text on the left, an empty page for your own words on the right, references in a chosen style at the bottom (sources used, plus any you add). Saving puts the rewritten text with its references on the timeline as your own note, with the cited clips (sourceAtomIds). Placing that note in a paper inserts the text with one marker that cites all its sources; a clip already in the paper keeps its number, a new one is added to the references. The paper header Citations is a dropdown: Content citation (numbers or author and year) and Reference citation (APA, Harvard, MLA, Chicago, IEEE, Vancouver, AMA).
+              | Done: 2026-10-29. DeliverableEditModal.tsx, ResearchieAISidebar.tsx (Haiku agent), inText.ts renderCitationsSplit, docModel.ts clipToNodes, PaperEditor.tsx header. 4 unit tests (tests/citation-split.test.mjs), e2e/59-ai-sidebar-edit.spec.ts; e2e 26, 27, 29, 30 updated for the dropdown. Left: new papers still open in the old default (APA, author and year); you asked for numbered as the default and that changes many existing tests, so it is your call. Not tried with a real AI key. Notes written in the edit window cite only clips that have citation details.
+        - [not started] Word export layout and formatting fixes {S-163}
+              | What: owner: the .docx opens and looks almost like the platform paper, but has layout and formatting issues. The owner has not listed them yet: collect them from a Word open and fix them one by one.
+              | Notes: Needs the owner's list of issues from Word.
+        - [not started] Word export: equations as real Word maths {S-164}
+              | What: equations are written as monospace LaTeX text. Write them as Office Math (OMML) so Word shows them as equations.
+        - [not started] Paste maths from PMC without losing symbols {S-165}
+              | What: math symbols from a PubMed Central page paste as plain text. Keep them as maths (LaTeX) or as proper characters.
+        - [not started] Print copy page count matches the screen {S-166}
+              | What: e2e/46 print: the screen shows 3 pages, the print copy shows 2. Same on the baseline code, so not from the one-column change. Find why the print layout counts pages differently.
+        - [not started] Fix stale paper e2e tests and the Insert columns overflow {S-162}
+              | What: e2e/25 outline PDF "one column" fails on the baseline too (still open). e2e/28 and e2e/47 are fixed (2026-10-28). e2e/46 now fails on the print page count (S-166). Also: an Insert columns block taller than a page is still flagged, not split.
+              | Notes: Parked by the owner 2026-10-28 to do later.
         - [done] Two-column editing and layout variants {S-158}
               | What: owner asked for two-column variants. Today two columns appear only in the picker preview; the editing sheet is one column. Add a layout choice per paper (one column, two columns, abstract spanning both) shown while editing and in print.
               | Model: Sonnet · M · medium · about 120k tokens
@@ -406,8 +438,9 @@ Statuses: not started, in progress, blocked, done, dropped.
         - [not started] Zotero and Mendeley import {S-109}
               | What: No import exists; BibTeX and RIS export only.
               | Model: Sonnet · M · medium
-        - [not started] Word (.docx) export {S-110}
+        - [done] Word (.docx) export {S-110}
               | What: Only PDF, Markdown, Notion and Obsidian exist.
+              | Done: 2026-10-28. Written straight from the editor document: real tables with merged cells, embedded images, per-section columns. 15 unit tests (tests/paper-docx.test.mjs). Checked: XML well-formed, python-docx opens it, owner opened it in Word: "kind of working"; layout and formatting issues open as S-163.
               | Model: Sonnet · M · medium
         - [not started] Contradiction finder {S-111}
               | What: Show two clips that disagree, side by side with sources. Needs S-86 to S-92.

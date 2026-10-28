@@ -92,5 +92,12 @@ export function makeLocalPapers(): Papers {
     return true;
   }
 
-  return { list, get, create, update, duplicate, softDelete, restore, purge };
+  async function purgeTrash(_userId: string): Promise<number> {
+    const all = read();
+    const keep = all.filter((p) => !p.deletedAt);
+    write(keep);
+    return all.length - keep.length;
+  }
+
+  return { list, get, create, update, duplicate, softDelete, restore, purge, purgeTrash };
 }

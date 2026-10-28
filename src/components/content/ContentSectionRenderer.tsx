@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CaretDown, CaretRight, Sparkle, Quotes, LinkSimple, ListChecks, Question } from '@phosphor-icons/react';
+import { CaretDown, CaretRight, Quotes, LinkSimple, ListChecks, Question } from '@phosphor-icons/react';
 import { ContentSection, InlineChip } from '@/lib/types/contentBlocks';
 import { ContentBlockRenderer } from './ContentBlockRenderer';
 
@@ -23,7 +23,7 @@ export const ContentSectionRenderer: React.FC<ContentSectionRendererProps> = ({
   const getSectionIcon = () => {
     switch (section.kind) {
       case 'summary':
-        return Sparkle;
+        return null; // no sparkle: a summary reads as the text, not as an AI label
       case 'key_points':
         return ListChecks;
       case 'evidence':
@@ -42,7 +42,7 @@ export const ContentSectionRenderer: React.FC<ContentSectionRendererProps> = ({
   return (
     <div className="border-t border-[#E2E8F0] dark:border-[#27272A] first:border-t-0 pt-2.5 first:pt-0">
       {/* Section Header */}
-      {!hideHeader && <div 
+      {!hideHeader && section.title && <div
         onClick={() => section.isCollapsible && setIsCollapsed(!isCollapsed)}
         className={`flex items-center justify-between py-1 select-none ${section.isCollapsible ? 'cursor-pointer group' : ''}`}
       >
