@@ -3,6 +3,7 @@ import { AUTH_REQUIRED, type AuthedUser } from '@/lib/auth/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { aiService } from './service';
 import { GroqAIAdapter } from './adapters/groq';
+import { AnthropicAIAdapter } from './adapters/anthropic';
 import { AIKeyError, type AIServiceAdapter } from './types';
 import { openSecret } from './keyVault';
 import { getProvider } from './providers';
@@ -33,6 +34,9 @@ export async function loadUserAI(userId: string): Promise<AIServiceAdapter> {
 
   const provider = getProvider(data.provider);
   const model = data.model || provider.defaultModel;
+  if (provider.id === 'anthropic') {
+    return new AnthropicAIAdapter(key, model, provider.baseUrl, { strict: true, keysUrl: provider.keysUrl });
+  }
   return new GroqAIAdapter(key, model, provider.baseUrl, {
     fallbackModels: provider.fallbackModels ?? [model],
     strict: true,

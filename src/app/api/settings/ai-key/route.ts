@@ -74,6 +74,10 @@ export async function PUT(request: Request) {
     if (!/^[A-Za-z0-9._:/@+-]+$/.test(model)) {
       return NextResponse.json({ success: false, error: 'That model name has characters it should not.' }, { status: 400, headers: NO_STORE });
     }
+    // A provider with a fixed model list only accepts models from it.
+    if (provider.models && !provider.models.some((m) => m.id === model)) {
+      return NextResponse.json({ success: false, error: 'Pick one of the models in the list.' }, { status: 400, headers: NO_STORE });
+    }
 
     const check = await checkProviderKey(provider, cleaned.key);
     if (check.status === 'invalid') {

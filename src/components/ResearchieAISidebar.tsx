@@ -27,11 +27,13 @@ import {
   Info,
   Article,
   Microphone,
-  FileCode
+  FileCode,
+  Globe
 } from '@phosphor-icons/react';
 import { ResearchAtom, ResearchProject } from '@/lib/types/research';
 import { ResearchieAILogo } from './ResearchieAILogo';
 import { FormattedAIMessage } from './FormattedAIMessage';
+import type { WebSource } from '@/lib/ai/webResearch';
 import { downloadFile } from '@/lib/export/download';
 import { getAtomHighlightText } from './AtomCard';
 import { buildDeepLink } from '@/lib/utils/textFragments';
@@ -44,6 +46,10 @@ interface ChatMessage {
   content: string;
   directAnswer?: string | null;
   citations?: ResearchAtom[];
+  // The model id that wrote this answer, from the server. Shown under the answer.
+  model?: string;
+  // Set on a web-search answer: the pages Perplexity used. These are not clips.
+  webSources?: WebSource[];
   timestamp: string;
 }
 
@@ -368,6 +374,52 @@ export const ResearchieAISidebar: React.FC<ResearchieAISidebarProps> = ({
   };
 
   // Ask AI Submission
+  // Web search: asks Perplexity with web search on. The answer is not from the project's clips, so it is labelled.
+  const handleWebSearch = async () => {
+    const query = inputQuery.trim();
+    if (!query || isAsking) return;
+    const time = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setMessages((prev) => [...prev, { id: `user-${Date.now()}`, role: 'user', content: `Web: ${query}`, timestamp: time() }]);
+    setInputQuery('');
+    setIsAsking(true);
+    try {
+      const res = await fetch('/api/ai/web-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        const sources: WebSource[] = json.data.sources || [];
+        const reply: ChatMessage = {
+          id: `web-${Date.now()}`,
+          role: 'assistant',
+          content: json.data.answer || 'Perplexity returned no answer for this question.',
+          webSources: sources,
+          model: json.data.model,
+          timestamp: time(),
+        };
+        setMessages((prev) => [...prev, reply]);
+      } else {
+        const reply: ChatMessage = {
+          id: `web-${Date.now()}`,
+          role: 'assistant',
+          content: json.error || 'Web search failed. Try again in a minute.',
+          timestamp: time(),
+        };
+        setMessages((prev) => [...prev, reply]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: `web-${Date.now()}`, role: 'assistant', content: 'Web search failed. Check your connection and try again.', timestamp: time() },
+      ]);
+    } finally {
+      setIsAsking(false);
+    }
+  };
+
   const handleSendQuestion = async (e?: React.FormEvent, customQ?: string) => {
     e?.preventDefault();
     const query = customQ || inputQuery;
@@ -467,6 +519,7 @@ User Question: ${query.trim()}`,
             content: summary,
             directAnswer: cleanDirect,
             citations: isNotFound ? [] : (verifiedCitations.length > 0 ? verifiedCitations : (citedIds.size === 0 ? [] : topResults.slice(0, 2))),
+            model: synthData.data.model,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           };
           setMessages((prev) => [...prev, aiMessage]);
@@ -849,6 +902,30 @@ User Question: ${query.trim()}`,
                               <FormattedAIMessage content={msg.content} onCitationClick={(href) => handleMarkdownCitationClick(href, msg)} />
                             </div>
 
+                            {msg.model && (
+                              <div className="text-[10px] font-mono text-slate-500 dark:text-zinc-500">Answered by {msg.model}</div>
+                            )}
+
+                            {msg.webSources && msg.webSources.length > 0 && (
+                              <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 space-y-1">
+                                <div className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
+                                  Web sources ({msg.webSources.length}) · not from your clips
+                                </div>
+                                {msg.webSources.map((s) => (
+                                  <a
+                                    key={s.url}
+                                    href={s.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block truncate text-[12px] text-[#325FEC] dark:text-[#518FFF] hover:underline"
+                                    title={s.url}
+                                  >
+                                    {s.title}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+
                             {/* Verified Source Citations with 1-Click Page/URL Jumping */}
                             {msg.citations && msg.citations.length > 0 && (
                               <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-2">
@@ -954,8 +1031,18 @@ User Question: ${query.trim()}`,
                   }}
                   placeholder="Ask a question about this workspace..."
                   rows={2}
-                  className="w-full pl-3.5 pr-11 py-2.5 bg-white dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs md:text-[13px] text-[#0F172A] dark:text-zinc-100 placeholder-slate-400 focus:outline-none resize-none transition-all shadow-inner"
+                  className="w-full pl-3.5 pr-20 py-2.5 bg-white dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs md:text-[13px] text-[#0F172A] dark:text-zinc-100 placeholder-slate-400 focus:outline-none resize-none transition-all shadow-inner"
                 />
+                <button
+                  type="button"
+                  onClick={handleWebSearch}
+                  disabled={isAsking || !inputQuery.trim()}
+                  className="absolute right-11 bottom-2.5 p-2 rounded-lg text-slate-500 hover:text-[#325FEC] dark:text-zinc-400 dark:hover:text-[#518FFF] disabled:opacity-30 transition-all flex items-center justify-center cursor-pointer"
+                  title="Search the web with Perplexity (not your clips)"
+                  aria-label="Search the web with Perplexity"
+                >
+                  <Globe size={15} />
+                </button>
                 <button
                   type="submit"
                   disabled={isAsking || !inputQuery.trim()}

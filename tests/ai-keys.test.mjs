@@ -29,9 +29,11 @@ test('a missing or short server secret is refused', () => {
   assert.throws(() => sealSecret(KEY, U1, 'short'), /KEY_ENCRYPTION_SECRET/);
 });
 
-test('providers: Groq is the default, all four exist, and the Google note warns', () => {
+test('providers: Groq and Claude are offered, the other adapters still exist, and the Google note warns', () => {
   assert.equal(DEFAULT_PROVIDER, 'groq');
-  assert.deepEqual([...PROVIDER_ORDER].sort(), ['cerebras', 'google', 'groq', 'openrouter']);
+  assert.deepEqual(PROVIDER_ORDER, ['groq', 'anthropic']); // the list people can pick from
+  assert.deepEqual(Object.keys(PROVIDERS).sort(), ['anthropic', 'cerebras', 'google', 'groq', 'openrouter']); // old saved keys keep working
+  assert.ok(PROVIDERS.anthropic.models.some((m) => m.id === PROVIDERS.anthropic.defaultModel)); // default is in the list
   assert.equal(getProvider('nope').id, 'groq');
   assert.equal(getProvider(undefined).id, 'groq');
   assert.equal(isProviderId('google'), true);
@@ -39,7 +41,7 @@ test('providers: Groq is the default, all four exist, and the Google note warns'
   assert.equal(isProviderId('toString'), false);
   assert.equal(PROVIDERS.google.privacy.level, 'warn');
   assert.match(PROVIDERS.google.privacy.text, /Do not use this with sensitive/);
-  assert.ok(PROVIDERS.groq.recommended && PROVIDERS.cerebras.recommended);
+  assert.ok(PROVIDERS.groq.recommended && !PROVIDERS.cerebras.recommended); // Cerebras asked testers for a card
   for (const id of PROVIDER_ORDER) {
     assert.match(PROVIDERS[id].baseUrl, /^https:\/\//);
     assert.match(PROVIDERS[id].keysUrl, /^https:\/\//);
@@ -69,4 +71,16 @@ test('key check maps provider answers and sends the key only as a bearer header'
   assert.ok(seen.every((s) => s.auth === `Bearer ${KEY}` && !s.url.includes(KEY)));
   await checkProviderKey(PROVIDERS.openrouter, KEY, fake(200));
   assert.equal(seen.at(-1).url, 'https://openrouter.ai/api/v1/key'); // not /models, which answers without a key
+});
+
+test('Claude key check sends the key in x-api-key, not as a bearer token', async () => {
+  let headers;
+  const res = await checkProviderKey(PROVIDERS.anthropic, KEY, async (url, init) => {
+    headers = init.headers;
+    return { ok: true, status: 200 };
+  });
+  assert.equal(res.status, 'valid');
+  assert.equal(headers['x-api-key'], KEY);
+  assert.equal(headers['anthropic-version'], '2023-06-01');
+  assert.equal(headers.Authorization, undefined);
 });

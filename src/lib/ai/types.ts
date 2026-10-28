@@ -8,6 +8,8 @@ export interface AISummaryResult {
   mode?: SummaryMode;
   // True when no model answered and the text is the page's own first sentences.
   extractiveOnly?: boolean;
+  // The model id that wrote the summary; absent when the page's own sentences were used.
+  model?: string;
   keyEntities?: string[];
   keyFindings?: string[];
   metricsAndData?: string[];
@@ -61,6 +63,8 @@ export interface AIQnAResult {
   citations: AICitation[];
   // True when the main model was unavailable (rate limit) and a fallback model answered.
   fromFallbackModel?: boolean;
+  // The model id that actually answered. Shown in the chat so the user knows what produced the text.
+  model?: string;
 }
 
 export interface AISynthesisResult {
@@ -74,6 +78,8 @@ export interface AISynthesisResult {
     quote?: string;
     sourceUrl?: string;
   }[];
+  // The model id that wrote this synthesis, shown in the chat.
+  model?: string;
 }
 
 export interface AIServiceAdapter {

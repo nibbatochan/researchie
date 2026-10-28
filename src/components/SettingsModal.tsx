@@ -27,6 +27,7 @@ import {
 import { useSettings } from '@/lib/settings/settingsContext';
 import { useAuth } from '@/lib/auth/authContext';
 import { AiProviderSettings } from './AiProviderSettings';
+import { WebSearchKeySettings } from './WebSearchKeySettings';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { DeleteAccountSettings } from './DeleteAccountSettings';
 import { NotionTokenField } from './NotionTokenField';
@@ -341,6 +342,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ atoms, projects })
                 <div className="space-y-4">
                   {/* Bring your own AI key */}
                   <AiProviderSettings />
+                  {/* Bring your own Perplexity key, for web search only */}
+                  <WebSearchKeySettings />
                 </div>
               </div>
             )}

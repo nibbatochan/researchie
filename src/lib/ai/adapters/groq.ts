@@ -2,17 +2,19 @@ import { AIServiceAdapter, AISummaryResult, AIQnAResult, AISynthesisResult, AISe
 import { MockAIAdapter } from './mock';
 import { SUMMARY_SYSTEM_PROMPT, type SummaryMode, buildSummaryPrompt, truncationNote } from '../summaryPrompt';
 
+// The shared base for every chat adapter: the prompts, the JSON handling and the grounding rules live here.
+// The name is historical. Subclasses (see anthropic.ts) only override callChatCompletion for their wire format.
 export class GroqAIAdapter implements AIServiceAdapter {
-  private apiKey: string;
-  private model: string;
+  protected apiKey: string;
+  protected model: string;
   private fallbackModels: string[];
-  private baseUrl: string;
+  protected baseUrl: string;
   private mockFallback = new MockAIAdapter();
 
-  private timeoutMs: number;
+  protected timeoutMs: number;
   // Strict = a user's own key: a refused or exhausted key is reported, never replaced by a fake answer.
-  private strict: boolean;
-  private keysUrl?: string;
+  protected strict: boolean;
+  protected keysUrl?: string;
 
   constructor(
     apiKey: string,
@@ -44,7 +46,7 @@ export class GroqAIAdapter implements AIServiceAdapter {
     return clean.trim();
   }
 
-  private async callChatCompletion(payload: any) {
+  protected async callChatCompletion(payload: any) {
     // skipModels lets a caller leave out models too weak for its task.
     const { skipModels = [], ...requestBody } = payload as { skipModels?: string[] };
     const modelsToTry = [this.model, ...this.fallbackModels.filter((m) => m !== this.model)].filter((m) => !skipModels.includes(m));
@@ -126,6 +128,7 @@ export class GroqAIAdapter implements AIServiceAdapter {
         summary: written,
         markdown: written,
         mode,
+        model: data.__model,
         bulletTakeaways: markdown.split('\n').filter((l) => /^\s*[-*]\s+/.test(l)).map((l) => l.replace(/^\s*[-*]\s+/, '')),
       };
     } catch (error) {
@@ -213,7 +216,7 @@ Return a strict JSON object with:
             passageId: typeof c.passageId === 'string' ? c.passageId.trim().toLowerCase() : undefined,
             textFragment: `#:~:text=${encodeURIComponent(c.quote.slice(0, 32))}`,
           }));
-    return { answer, citations, fromFallbackModel: data.__model !== this.model };
+    return { answer, citations, fromFallbackModel: data.__model !== this.model, model: data.__model };
   }
 
   async askPageQuestion(pageText: string, question: string): Promise<AIQnAResult> {
@@ -327,6 +330,7 @@ Return a strict JSON object with:
         keyInsights: parsed.keyInsights || [],
         markdownContent: parsed.markdownContent || 'Synthesis generated.',
         citationsUsed: parsed.citationsUsed || [],
+        model: data.__model,
       };
     } catch (error) {
       if (error instanceof AIKeyError) throw error;

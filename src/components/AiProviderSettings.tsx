@@ -117,6 +117,7 @@ export const AiProviderSettings: React.FC = () => {
         </div>
       )}
 
+      {PROVIDER_ORDER.length > 1 && (
       <label className="block space-y-1">
         <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Provider</span>
         <select
@@ -136,6 +137,7 @@ export const AiProviderSettings: React.FC = () => {
           ))}
         </select>
       </label>
+      )}
 
       <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-zinc-400">
         <p>{info.freeTier}</p>
@@ -168,18 +170,36 @@ export const AiProviderSettings: React.FC = () => {
         </div>
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Model</span>
-        <input
-          type="text"
-          spellCheck={false}
-          placeholder={info.defaultModel}
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="w-full px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none font-mono"
-        />
-        <span className="text-[10px] text-slate-500 dark:text-zinc-500">Leave empty to use {info.defaultModel}. Model names change; if answers fail, check the provider&apos;s list.</span>
-      </label>
+      {info.models ? (
+        <label className="block space-y-1">
+          <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Model</span>
+          <select
+            value={model || info.defaultModel}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none"
+          >
+            {info.models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-[10px] text-slate-500 dark:text-zinc-500">The chat shows which model wrote each answer.</span>
+        </label>
+      ) : (
+        <label className="block space-y-1">
+          <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Model</span>
+          <input
+            type="text"
+            spellCheck={false}
+            placeholder={info.defaultModel}
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-lg text-xs bg-[#F4F6F9] dark:bg-[#202024] border border-[#D2DCEA] dark:border-[#27272A] text-slate-800 dark:text-zinc-200 outline-none font-mono"
+          />
+          <span className="text-[10px] text-slate-500 dark:text-zinc-500">Leave empty to use {info.defaultModel}. Model names change; if answers fail, check the provider&apos;s list.</span>
+        </label>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button

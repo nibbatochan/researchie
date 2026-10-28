@@ -107,21 +107,34 @@ VALUES
 ON CONFLICT (id) DO UPDATE 
 SET title = EXCLUDED.title, description = EXCLUDED.description, color = EXCLUDED.color;
 
--- 6. Enable Row Level Security (RLS) & Allow Read/Write for Authenticated and Service Role
+-- 6. Enable Row Level Security (RLS). Nothing is allowed to the anon key until migration 001 adds policies.
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.atoms ENABLE ROW LEVEL SECURITY;
 
--- Development & Service Policies (Permissive for verified service_role / anon)
-DROP POLICY IF EXISTS "Public Projects Access" ON public.projects;
-CREATE POLICY "Public Projects Access" ON public.projects FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Atoms Access" ON public.atoms;
-CREATE POLICY "Public Atoms Access" ON public.atoms FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Profiles Access" ON public.profiles;
-CREATE POLICY "Public Profiles Access" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+-- No policies here, on purpose. With row-level security on and no policy, the public anon key can read and
+-- write nothing; the server uses the service-role key, which bypasses RLS and always filters by the signed-in
+-- user. Migration 001 adds the per-user policies. (An earlier version of this file created three open
+-- "Public ... Access" policies, which left a fresh setup readable and writable by anyone with the anon key.)
 
 -- 7. Realtime Replication for instant multi-tab sync
 ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.atoms;
+
+-- 9. Web research key (Perplexity Agent API). One row per user, encrypted like user_ai_keys.
+--    Kept apart from user_ai_keys so a user can use Groq or Claude for answers and Perplexity for web search.
+CREATE TABLE IF NOT EXISTS public.user_web_keys (
+  user_id UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT 'perplexity',
+  ciphertext TEXT NOT NULL,
+  iv TEXT NOT NULL,
+  auth_tag TEXT NOT NULL,
+  key_last4 TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'valid',
+  last_checked_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+-- Only the server (service role) reads or writes this table; no policy means no browser access.
+ALTER TABLE public.user_web_keys ENABLE ROW LEVEL SECURITY;
+-- Search depth for web research (fast | low | medium). Added after the table; safe to run on an existing table.
+ALTER TABLE public.user_web_keys ADD COLUMN IF NOT EXISTS effort TEXT NOT NULL DEFAULT 'fast';

@@ -214,6 +214,36 @@
 - **Decision**: Files shared with other people's unfinished work (`SCOPE.md`, `docs/CHANGELOG.md`, `src/lib/data/cloud.ts`) were staged with only this feature's lines.
 - **Rationale**: Nobody's half-finished change is published under this feature's message.
 
+### Decision 40: Paper Mode Is a Workspace of Many Papers
+- **Decision**: A `papers` table (migration 006) and a file-explorer home replace one outline per project in the account preferences. A paper is private to its owner, points at its data-source project by id with no foreign key, and is deleted in two steps (trash, then remove).
+- **Rationale**: The preferences store is capped at 256 KB for all settings, so several papers cannot live there.
+- **Limits**: The editor and the move of old outlines are not built yet. Papers are not shareable.
+
+### Decision 41: The Editor Will Be TipTap (Reverses Part of Decision 37 for the Workspace)
+- **Context**: Decision 37 chose a plain text box because a rich-text editor cost too much for a first version. The owner now wants Word-style editing, section reordering, drag and drop and paste from Word.
+- **Decision**: TipTap (MIT core). The page look is a CSS page sheet; page-based layout and DOCX export are paid in TipTap and are not used. Planned, not built.
+- **Limits**: The `[@key]` citation model carries over as a TipTap node. Sanitising pasted HTML is required.
+
+### Decision 42: The Paper Editor Core (S-154)
+- **Decision**: A paper is two JSON values: `doc` (ProseMirror JSON in `{v:1, pm}`) and `meta` (`{v:1, ...}` front matter, page setup, cite map, manual references). The body stores clip ids and citation keys, never clip text or image data. Template headings are locked by a transaction filter that compares the locked sections before and after every change.
+- **Rationale**: A filter on the whole document catches every way to remove a heading (typing, backspace, select-all and delete, paste over), where per-key handling would miss cases. Storing keys keeps style switching free.
+- **Limits**: Open time measured on the dev server only (about 0.4 s). Clips are not loaded yet, so citations to unknown clips show [?] until C2. TipTap's page layout and Word export are paid and are not used.
+
+### Decision 43: The Editor Locks Nothing and Takes Its Type Scale From a Real Paper
+- **Decision**: Template sections and headings can be typed over or deleted (a section's heading is optional); a transaction filter no longer protects them. The page type scale, the toolbar's styles and the layout options come from measuring a real PLOS ONE article. Numbered citation styles were removed from the menus; quotes lost their side rule.
+- **Rationale**: Owner feedback, 2026-10-22: the editor is freehand, so structure must be removable to match a real paper. This reverses the template-heading lock of Decision 42.
+- **Limits**: The sample's side column, numbered headings and figure cross-references are not built. A numbered bibliography may need to come back.
+
+### Decision 44: Pages, Menus, Columns and Five Real Citation Styles in the Paper Editor
+- **Decision**: The sheet is real A4 or Letter pages. Each block is measured and moved down (a padding-top decoration) so none crosses a page edge; the same pass covers the front matter, statements and references, keeps a heading with what follows, and splits a paragraph taller than a page line by line with spacer gaps. The toolbar groups tools into menus (alignment, line spacing, lists, more text formats, columns) and two panels (Page settings with a page list, Header & footer). Columns are a block of 2 to 6 columns with resizable widths. A ruler sets the margins. APA 7, Harvard, IEEE, Vancouver and AMA each draw their own in-text marker and reference list; clips of one paper (same DOI, title, year, first author) are listed once.
+- **Rationale**: Owner feedback in 2026-10: it should look and behave like Word, without a wide toolbar. Moving blocks with padding leaves the document text untouched, so undo, copy and save are unaffected, and the layout is only a view.
+- **Limits**: A columns block, list or table taller than a page cannot be split; it is outlined and noted in the status line. Layout is measured in Chromium only. Pagination re-measures the whole paper on each change (about 120 ms per key at 61 pages in the test browser). MLA and Chicago are not built.
+
+### Decision 45: Print by Copy, Fonts and Highlights as Our Own Marks, Find as a Decoration
+- **Decision**: Print / PDF re-lays the pages with no gap, copies the sheet into a print-only container and calls the browser's print; nothing is generated server-side. Typeface and highlight are our own marks with a fixed list of values, so pasted `font-family` and `background-color` are dropped. Find and replace marks matches with a decoration plugin and replaces through ordinary transactions. Markdown export is a pure function over the document.
+- **Rationale**: The browser prints exactly what the editor shows, so the PDF cannot drift from the screen. Whitelisted values keep a pasted Word or web page from dragging foreign styling into a journal-looking paper.
+- **Limits**: Print layout is verified in Chromium only (page count, size and text of its own PDF output). Tall columns, lists and tables are still not split across pages.
+
 ---
 
 ## Molecule Build System Log
@@ -263,3 +293,29 @@
 - **Provisional 1:** Real-time multi-player collaboration and concurrent timeline ordering.
 - **Provisional 2:** Offline clipping queue and cache resolution mechanics.
 - **Provisional 3:** Automated periodic bi-directional webhook sync for Notion.
+
+---
+
+### `DECISION` — 2026-10-28 · AI providers · Source: user request
+
+**Decision:** Claude (Anthropic) is offered next to Groq in Settings → AI, with a fixed model list (Haiku 5.5, Sonnet 5.5, Opus 5.5, Fable 5.1). Each Ask AI answer and synthesis shows the model that wrote it ("Answered by …"), taken from the API response, so a fallback model shows as itself.
+
+**Why:** Testers asked to use their own Claude account and choose the model. The model label makes it clear which model produced an answer.
+
+**Structured output:** The Claude adapter forces JSON through a tool call (`tool_choice` on `record_result`), so the reply shape comes from the API. Groq keeps `response_format: json_object`, which does not guarantee a schema.
+
+**Not done:** Perplexity Agent API (not clip-grounded; needs its own web-research feature). "Code mode" (no tool loop in the current pipeline, so nothing to save).
+
+**Reasoning:** Supersedes the 2026-10-18 "only Groq" decision for the provider list. Claude subscriptions (Pro/Max) cannot be used; only an API key works.
+
+### `DECISION` — 2026-10-28 · Web research (Perplexity) · Source: user request
+
+**Decision:** Web search is a separate action in the AI chat (globe button). It calls Perplexity's Agent API (`POST https://api.perplexity.ai/v1/agent`, `web_search` tool, `effort: fast`). Answers are labelled "not from your clips" and list their web sources.
+
+**Why:** Perplexity searches the open web, so its answers cannot be checked against saved clips. Keeping it as its own action stops a web answer passing as a clip-grounded one.
+
+**Key storage:** its own table, `user_web_keys`, so a user can keep Groq or Claude for answers and Perplexity for web search. Run the table block in `supabase/schema.sql` on the tester database before use.
+
+**Cost:** saving a key makes one short search call to check it, which uses a few tokens.
+
+**Reasoning:** supersedes the earlier "Perplexity not done" note in the entry above.

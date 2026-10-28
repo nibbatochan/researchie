@@ -215,6 +215,8 @@ Answer directly from the passages. Cite passage ids and copy quotes verbatim.`;
           hasUnsupportedClaims,
           retrievedPagesCount,
           totalPagesAnalyzed: resolvedPages.length,
+          // The model that answered, shown under the answer in the chat.
+          model: result.model,
         },
       },
       {

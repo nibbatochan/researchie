@@ -4,19 +4,21 @@
 // the default model and the key check differ. The free-tier and privacy notes below were checked against
 // each provider's own pages on 2026-10-15. Where a claim could not be confirmed, the note says so.
 
-export type ProviderId = 'groq' | 'cerebras' | 'openrouter' | 'google';
+export type ProviderId = 'groq' | 'cerebras' | 'openrouter' | 'google' | 'anthropic';
 
 export interface ProviderInfo {
   id: ProviderId;
   label: string;
   baseUrl: string;
   defaultModel: string;
+  /** Models the user can pick from. Absent = the user types a model name. */
+  models?: { id: string; label: string }[];
   /** Where the user gets a free key. */
   keysUrl: string;
   /** Models to fall back to when the first is busy. null = only the chosen model. */
   fallbackModels: string[] | null;
-  /** How the key is checked when saved or tested. */
-  keyCheck: { url: string };
+  /** How the key is checked when saved or tested. `headers` defaults to a Bearer token. */
+  keyCheck: { url: string; headers?: (key: string) => Record<string, string> };
   freeTier: string;
   privacy: { level: 'ok' | 'check' | 'warn'; text: string };
   recommended?: boolean;
@@ -30,6 +32,13 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     label: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1',
     defaultModel: 'openai/gpt-oss-120b',
+    // Groq's production models (checked 2026-10-28 against the models page). Preview models are left out.
+    models: [
+      { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B (default, strongest)' },
+      { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B (faster, smaller)' },
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B' },
+      { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (fastest, weakest)' },
+    ],
     keysUrl: 'https://console.groq.com/keys',
     // Production models in Groq's list (checked 2026-10-15). qwen/qwen3.8-27b is preview-only and allam-2-7b is no longer listed.
     fallbackModels: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile'],
@@ -49,12 +58,11 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     keysUrl: 'https://cloud.cerebras.ai/',
     fallbackModels: null,
     keyCheck: { url: 'https://api.cerebras.ai/v1/models' },
-    freeTier: 'Free tier: about 1 million tokens a day, but only 5 requests a minute on the current models.',
+    freeTier: 'Free tier: about 1 million tokens a day, but only 5 requests a minute on the current models. A tester reported that sign-up asked for card details, so it is not offered as the first choice.',
     privacy: {
       level: 'check',
       text: 'Cerebras says inference inputs and outputs are not retained. We could not confirm this for the free API tier, so check Cerebras\'s terms before sending sensitive text.',
     },
-    recommended: true,
   },
   openrouter: {
     id: 'openrouter',
@@ -88,13 +96,40 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
       text: 'On the free tier Google may use what you send to improve its products, and people may read it. Do not use this with sensitive, confidential or personal data. In the EU, UK and Switzerland the paid-tier data terms apply even to free use.',
     },
   },
+  anthropic: {
+    id: 'anthropic',
+    label: 'Anthropic (Claude)',
+    baseUrl: 'https://api.anthropic.com/v1',
+    defaultModel: 'claude-sonnet-5-5',
+    models: [
+      { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5 (fastest, lowest cost)' },
+      { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (balanced)' },
+      { id: 'claude-opus-5-5', label: 'Claude Opus 5.5 (most capable)' },
+      { id: 'claude-fable-5-1', label: 'Claude Fable 5.1' },
+    ],
+    keysUrl: 'https://console.anthropic.com/settings/keys',
+    // A fixed list of Claude models; no fallback to another model, so a Claude answer is always a Claude answer.
+    fallbackModels: null,
+    keyCheck: {
+      url: 'https://api.anthropic.com/v1/models',
+      headers: (key) => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }),
+    },
+    freeTier: 'No free tier. You pay per token on your own Anthropic API account. A Claude.ai Pro or Max subscription cannot be used here: Anthropic does not allow third-party apps to use plan credentials.',
+    privacy: {
+      level: 'check',
+      text: 'Anthropic API requests are covered by Anthropic\'s API terms, not the consumer app terms. We have not checked the current API data-retention terms, so read them before sending sensitive text.',
+    },
+  },
 };
 
-export const PROVIDER_ORDER: ProviderId[] = ['groq', 'cerebras', 'openrouter', 'google'];
+// Groq is the default. Claude (Anthropic) is offered from 2026-10-28 so testers can pick a Claude model. Cerebras,
+// OpenRouter and Google stay in the code, and a key saved earlier for one of them keeps working; they are just not
+// in the list. Add an id here to offer it again.
+export const PROVIDER_ORDER: ProviderId[] = ['groq', 'anthropic'];
 
 /** Shown under the dropdown for everyone. */
 export const MEDICAL_DATA_NOTICE =
-  'If your clips contain patient or other identifiable medical data, do not send them to any free AI tier. Groq and Cerebras are the defaults to try first. Mistral\'s free plan, which is not offered here, trains on your data unless you opt out.';
+  'If your clips contain patient or other identifiable medical data, do not send them to any free AI tier. Groq is the one to try first. Mistral\'s free plan, which is not offered here, trains on your data unless you opt out.';
 
 export function isProviderId(value: unknown): value is ProviderId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDERS, value);
@@ -127,7 +162,7 @@ export async function checkProviderKey(
 ): Promise<{ status: KeyCheckStatus; httpStatus?: number }> {
   try {
     const res = await fetchImpl(provider.keyCheck.url, {
-      headers: { Authorization: `Bearer ${key}` },
+      headers: provider.keyCheck.headers ? provider.keyCheck.headers(key) : { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(10000),
     });
     if (res.ok) return { status: 'valid', httpStatus: res.status };
