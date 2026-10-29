@@ -1,5 +1,15 @@
 # Version Changelog
 
+## [Unreleased] — 2026-10-29 (Speed fixes, Agentation removed, old Paper outline removed)
+### Changed
+- **Faster project and clip loading.** The clip list sends images as cached addresses (3.8 MB to 0.8 MB on a real project), the background refresh asks a small question first, a checked session is remembered for 30 seconds, project counts run beside the list, and the functions run in Singapore (`sin1`) beside the Supabase project. Migration 008 adds two indexes. Notes: `docs/research/vercel-slow-loading.md`.
+- **Dashboard.** A folder-card skeleton shows while projects load; the last project list paints at once.
+- **Content no longer jumps** between projects: only the answer for the project on screen can change the screen.
+
+### Removed
+- **Agentation** overlay and package.
+- **The old "Paper" outline view** in a project's header, with its preview, paste and import panels and its test file. Use Written papers on the dashboard.
+
 ## [Unreleased] — 2026-10-29 (Research AI notes, papers page, forgot password, timeline pages, deploy prep)
 ### Security
 - **Knowledge graph route:** `projectId` is validated and the script runs without a shell (was command injection).

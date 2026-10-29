@@ -493,3 +493,12 @@
 **Why:** the server uses the service-role key, so these only matter to someone using the public anon key and their own login against the REST API, but that key ships in the browser. An id such as `"><img …>` was stored as given and printed unescaped in the extension side panel (the extension's CSP blocks inline script, so it could only inject markup).
 
 **Not done / to check:** run 007 on the tester database and run the two diagnostic queries at its end first; I could not run it, and did not look at the live database or Supabase advisors. The `gallery`, `sandbox` and `test-lab` pages, `scripts/`, and the remaining open items (token scopes, TOTP, enumeration, AI size limits) are still open.
+
+### `DECISION` — 2026-10-29 · The old Paper outline view is removed · Source: user request
+
+**Decision:** The "Paper" button in a project's header, and the outline and preview screens behind it (`PaperOutlineView`, `PaperPreview`, `PastePanel`, `ImportRefsPanel`, `SectionEditor`), are removed. Written papers (the paper editor, opened from the dashboard) is the one place to write a paper.
+
+**Why:** Two paper tools in one app confused people, and the outline tool had its own failing tests. The editor does everything the outline did.
+
+**Kept:** the shared logic in `src/lib/paper/` (clip info, evidence kinds, citation styles, templates) because the editor uses it. The outline's own helpers (`checklist.ts`, `pasteMatch.ts`) are now unused and can go in a later cleanup.
+
