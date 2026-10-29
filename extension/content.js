@@ -1181,18 +1181,34 @@ function unwrapPdfLines(text) {
   });
 
   // Seamless Web App ↔ Extension Sync: When user selects a project in web dashboard, sync to extension storage
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'RESEARCHIE_SET_ACTIVE_PROJECT') {
-      const { projectId, projectTitle, projectDesc, projectColor } = event.data;
-      if (projectId && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({
-          activeProjectId: projectId,
-          activeProjectTitle: projectTitle || 'Active Project',
-          activeProjectDesc: projectDesc || '',
-          activeProjectColor: projectColor || '#325FEC',
-        });
-      }
+  // Any web page can post a message to itself, so only the Researchie app is believed: a message from this window
+  // whose origin is this computer or the server the extension is connected to.
+  async function isResearchieOrigin(origin) {
+    try {
+      const url = new URL(origin);
+      if (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return true;
+      const stored = await chrome.storage.local.get(['serverUrl', 'apiOrigin']);
+      return [stored.serverUrl, stored.apiOrigin].some((s) => {
+        try { return Boolean(s) && new URL(s).origin === url.origin; } catch { return false; }
+      });
+    } catch {
+      return false;
     }
+  }
+
+  window.addEventListener('message', async (event) => {
+    if (event.source !== window || !event.data || event.data.type !== 'RESEARCHIE_SET_ACTIVE_PROJECT') return;
+    if (!chrome.storage || !chrome.storage.local) return;
+    if (!(await isResearchieOrigin(event.origin))) return;
+    const { projectId, projectTitle, projectDesc, projectColor } = event.data;
+    const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+    if (typeof projectId !== 'string' || !projectId || projectId.length > 100) return;
+    chrome.storage.local.set({
+      activeProjectId: projectId,
+      activeProjectTitle: text(projectTitle, 200) || 'Active Project',
+      activeProjectDesc: text(projectDesc, 1000),
+      activeProjectColor: /^#[0-9a-f]{3,8}$/i.test(projectColor) ? projectColor : '#325FEC',
+    });
   });
 
   // --- UNIVERSAL IN-SITU AUTO-SCROLL & SPOTLIGHT ENGINE ---

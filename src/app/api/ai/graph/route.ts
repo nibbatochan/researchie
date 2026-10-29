@@ -2,17 +2,30 @@ import { NextResponse } from 'next/server';
 import { unavailableInTesterMode } from '@/lib/auth/server';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// projectId names a file on disk and is passed to a script, so it is limited to the characters real project ids use.
+const PROJECT_ID = /^[A-Za-z0-9_-]{1,100}$/;
+const DEFAULT_PROJECT = 'proj-rag-production-systems';
+
+function runGraphBuilder(projectId: string) {
+  return execFileAsync('python', ['scripts/cognee_graph_builder.py', projectId], { timeout: 120_000 });
+}
+
+function badProjectId() {
+  return NextResponse.json({ success: false, error: 'Invalid projectId' }, { status: 400 });
+}
 
 export async function GET(request: Request) {
   const blocked = unavailableInTesterMode('The knowledge graph');
   if (blocked) return blocked;
   try {
     const { searchParams } = new URL(request.url);
-    const projectId = searchParams.get('projectId') || 'proj-rag-production-systems';
+    const projectId = searchParams.get('projectId') || DEFAULT_PROJECT;
+    if (!PROJECT_ID.test(projectId)) return badProjectId();
 
     const graphFile = path.join(process.cwd(), `.cognee-graph-${projectId}.json`);
 
@@ -32,7 +45,7 @@ export async function GET(request: Request) {
 
     // Run graph builder script if not yet generated
     try {
-      await execAsync(`python scripts/cognee_graph_builder.py "${projectId}"`);
+      await runGraphBuilder(projectId);
       if (fs.existsSync(graphFile)) {
         const raw = fs.readFileSync(graphFile, 'utf-8');
         const data = JSON.parse(raw);
@@ -66,10 +79,11 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
   try {
     const body = await request.json();
-    const projectId = body.projectId || 'proj-rag-production-systems';
+    const projectId = body.projectId || DEFAULT_PROJECT;
+    if (typeof projectId !== 'string' || !PROJECT_ID.test(projectId)) return badProjectId();
 
     try {
-      await execAsync(`python scripts/cognee_graph_builder.py "${projectId}"`);
+      await runGraphBuilder(projectId);
       const graphFile = path.join(process.cwd(), `.cognee-graph-${projectId}.json`);
       if (fs.existsSync(graphFile)) {
         const raw = fs.readFileSync(graphFile, 'utf-8');

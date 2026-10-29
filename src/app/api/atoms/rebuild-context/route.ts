@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { store } from '@/lib/data/store';
 import { isPublicHttpUrl } from '@/lib/security/publicUrl';
+import { fetchPublic } from '@/lib/security/safeFetch';
 
 export async function POST(req: NextRequest) {
   const auth = await authorize(req);
@@ -33,7 +34,9 @@ export async function POST(req: NextRequest) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch(targetUrl, { signal: controller.signal, headers: { 'User-Agent': 'Researchie-Context-Rebuilder/1.0' } });
+        const init = { signal: controller.signal, headers: { 'User-Agent': 'Researchie-Context-Rebuilder/1.0' } };
+        // On the accounts deployment every hop (redirects included) must stay on the public internet.
+        const res = AUTH_REQUIRED ? await fetchPublic(targetUrl, init) : await fetch(targetUrl, init);
         clearTimeout(timeoutId);
 
         if (res.ok) {

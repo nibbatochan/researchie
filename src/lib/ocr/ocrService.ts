@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import path from 'path';
 import os from 'os';
+import { fetchPublic } from '@/lib/security/safeFetch';
 
 let workerPromise: Promise<any> | null = null;
 
@@ -62,12 +63,14 @@ export async function extractTextFromImage(imageSource: string): Promise<{ text:
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 8000);
               
-              const response = await fetch(imageSource, {
+              const init = {
                 signal: controller.signal,
                 headers: {
                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Researchie/1.0',
                 },
-              });
+              };
+              // On the accounts deployment every hop (redirects included) must stay on the public internet.
+              const response = process.env.AUTH_REQUIRED === 'true' ? await fetchPublic(imageSource, init) : await fetch(imageSource, init);
               clearTimeout(timeoutId);
 
               if (!response.ok) {

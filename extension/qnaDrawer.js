@@ -90,6 +90,9 @@
   // Listen for messages from the embedded iframe (e.g. close, trigger capture)
   window.addEventListener('message', (event) => {
     if (!event.data) return;
+    // Only our own side panel iframe may drive the page; any other frame or script on the page is ignored.
+    if (!drawerIframe || event.source !== drawerIframe.contentWindow) return;
+    if (event.origin !== new URL(chrome.runtime.getURL('')).origin) return;
 
     if (event.data.action === 'RESEARCHIE_CLOSE_DRAWER') {
       closeDrawer();
