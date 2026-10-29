@@ -198,3 +198,25 @@
 - **Checked:** type check; DOCX tests 15/15; export XML well-formed; python-docx opens the file; merged cells export; editor shows figures and tables; typing below columns; column controls; autosave of an edited paper.
 - **Not checked:** the file in Microsoft Word; a real clipboard copy from a browser into the paper; the full e2e suite after these changes; editor pagination with two columns on long papers (it still warns "taller than a page" for some blocks).
 - **Known weak spot:** a two-column section taller than one page is not split by the editor; users must split it with a section break.
+
+## Session Record: Research AI notes, papers page, forgot password, timeline pages, deploy prep (2026-10-29)
+
+### 1. Architectural Decisions
+- Research AI notes carry `metadata.origin` and `metadata.references` (DECISIONS, 2026-10-29).
+- Web-address clips are cited as web pages; not listed on the Citations tab (`webFallback`).
+- Papers: Recent row, sort, filters; `purge_trash` action (irreversible, no e2e).
+- Forgot password: `/api/auth/forgot` → `/auth/callback` → `/login/reset` → `/api/auth/password`.
+- Timeline pages of 25.
+- `NEXT_PUBLIC_AUTH_REQUIRED` is a Config (public) variable on Vercel.
+
+### 2. State of Key Files
+- `src/components/PaperWorkspace.tsx` (Recent, sort, filters, Delete all); `src/app/api/papers/route.ts` and `src/lib/data/papers.ts` / `papersLocal.ts` (`purgeTrash`).
+- `src/app/login/page.tsx` (Forgot password form), `src/app/login/reset/page.tsx`, `src/app/api/auth/forgot/route.ts`, `src/app/api/auth/password/route.ts`.
+- `src/components/ProjectTimeline.tsx` (`TIMELINE_PAGE_SIZE`, pager).
+- `src/lib/paper/clipInfo.ts` (`recordOf`, `clipTextOf`), `src/lib/paper/preview.ts` (`webFallback`), `src/components/PaperEditor.tsx` (toast, row jump).
+- Pushed: `fb5d48a` on `feat/canvas-pdf-ui-and-citation-core` (Vercel preview). Later work is not committed.
+
+### 3. Readiness for Next Phase
+- **Checked:** tsc clean; 673/673 unit; e2e 01, 02, 03, 04, 07, 25, 26, 27, 54, 59 pass.
+- **Not checked:** Delete all, forgot password end to end (needs Vercel domain in Supabase Redirect URLs), timeline pager in a browser, Vercel build of the pushed commit.
+- **Before deploy of new work:** commit, then push (requires the owner's go).

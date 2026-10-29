@@ -55,7 +55,7 @@ function LoginContent() {
     signInAsDemo,
   } = useAuth();
 
-  const [authMode, setAuthMode] = useState<'signin' | 'register'>(initialTab);
+  const [authMode, setAuthMode] = useState<'signin' | 'register' | 'forgot'>(initialTab);
   const [name, setName] = useState('');
   // "Switch account" opens this page as /login?email=... so the address is already filled in.
   const [email, setEmail] = useState(() => {
@@ -116,6 +116,27 @@ function LoginContent() {
       goNext();
     } else {
       setMessage({ text: res.message, type: 'error' });
+    }
+  };
+
+  // Always the same message, whether or not the email has an account (see /api/auth/forgot).
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setIsLoading(true);
+    setMessage(null);
+    const res = await fetch('/api/auth/forgot', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setIsLoading(false);
+    if (res.ok && json.success) {
+      setMessage({ text: json.message, type: 'success' });
+    } else {
+      setMessage({ text: json.error || 'Could not send the reset link. Try again.', type: 'error' });
     }
   };
 
@@ -224,7 +245,43 @@ function LoginContent() {
           </div>
 
           {/* Form */}
-          {authMode === 'signin' ? (
+          {authMode === 'forgot' ? (
+            <form onSubmit={handleForgot} className="space-y-3" data-testid="forgot-form">
+              <p className="text-xs text-slate-600 dark:text-zinc-400">Enter your email. We will send you a link to choose a new password.</p>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Email Address</label>
+                <div className="relative flex items-center">
+                  <EnvelopeSimple size={15} className="absolute left-3 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@university.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] focus:border-[#325FEC] dark:focus:border-[#518FFF] rounded-xl text-xs text-[#0F172A] dark:text-white placeholder-slate-400 outline-none"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 bg-[#325FEC] hover:bg-[#274AC4] text-white font-semibold rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
+              >
+                <span>{isLoading ? 'Sending...' : 'Send reset link'}</span>
+                <ArrowRight size={13} weight="bold" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setMessage(null);
+                }}
+                className="w-full text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#325FEC] dark:hover:text-[#518FFF] cursor-pointer"
+              >
+                Back to sign in
+              </button>
+            </form>
+          ) : authMode === 'signin' ? (
             <form onSubmit={handleSignIn} className="space-y-3">
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
@@ -248,6 +305,16 @@ function LoginContent() {
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
                     Password
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('forgot');
+                      setMessage(null);
+                    }}
+                    className="text-[11px] font-semibold text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <div className="relative flex items-center">
                   <LockSimple size={15} className="absolute left-3 text-slate-400" />

@@ -3,7 +3,9 @@
 import { PaperOutlineView } from './PaperOutlineView';
 import { EmptyFeedIllustration } from './illustrations';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { 
+import {
+  CaretLeft,
+  CaretRight,
   FolderSimple,
   MagnifyingGlass, 
   BookmarkSimple, 
@@ -88,6 +90,9 @@ interface ProjectTimelineProps {
 
 // ─── Timeline Empty State Vector Illustration ────────────────────────
 export const TimelineEmptyIllustration = EmptyFeedIllustration;
+
+// A long timeline shows this many clips at a time, with Previous and Next under the list.
+const TIMELINE_PAGE_SIZE = 25;
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'All Types', icon: SquaresFour },
@@ -325,6 +330,15 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
       tags,
     });
   };
+
+  // A new search, filter or project starts again at the first page.
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, filterType, pinnedOnly, dateFilter, selectedTag, project?.id]);
+  const pageCount = Math.max(1, Math.ceil(filteredAtoms.length / TIMELINE_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageAtoms = filteredAtoms.slice(currentPage * TIMELINE_PAGE_SIZE, (currentPage + 1) * TIMELINE_PAGE_SIZE);
 
   const selectedFilterObj = FILTER_OPTIONS.find((f) => f.id === filterType) || FILTER_OPTIONS[0];
   const SelectedFilterIcon = selectedFilterObj.icon;
@@ -850,7 +864,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               </div>
             ) : (
               <div className="max-w-4xl mx-auto flex flex-col gap-[26px]">
-                {filteredAtoms.map((atom) => (
+                {pageAtoms.map((atom) => (
                   <React.Fragment key={atom.id}>
                     <div className={freshAtomIds.has(atom.id) ? 'animate-clipIn' : undefined}>
                     <AtomCard
@@ -868,6 +882,27 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                     </div>
                   </React.Fragment>
                 ))}
+                {pageCount > 1 && (
+                  <nav aria-label="Timeline pages" data-testid="timeline-pager" className="flex items-center justify-between gap-3 pt-2 text-xs text-slate-600 dark:text-zinc-400">
+                    <button
+                      type="button"
+                      onClick={() => setPage(currentPage - 1)}
+                      disabled={currentPage === 0}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
+                    >
+                      <CaretLeft size={13} /> Previous
+                    </button>
+                    <span>Page {currentPage + 1} of {pageCount}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPage(currentPage + 1)}
+                      disabled={currentPage >= pageCount - 1}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
+                    >
+                      Next <CaretRight size={13} />
+                    </button>
+                  </nav>
+                )}
               </div>
             )}
           </div>

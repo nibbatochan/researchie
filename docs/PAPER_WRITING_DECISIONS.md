@@ -304,6 +304,22 @@ How each rule shows up in the product: see the decisions below, and section 6 fo
 8. **A save that could fail silently** (D10).
 9. **A false alarm.** One walk-through failed on a development-server cold start (a chunk-load timeout), not on the app.
 
+### D46. Clips with a web address are numbered as web pages
+- **Decision.** A clip with no verified citation but a web address is cited as a web page: its title and address are the reference; authors and year are left out and marked "n.d.". It is numbered and listed in References, but not on the Citations tab.
+- **Why.** A note written in Researchie AI cites the clips it came from. Those clips are often unverified web clips, so the note showed no numbers at all.
+- **Rejected.** Guessing an author or year from the page. Listing every web clip on the Citations tab (it is for verified sources).
+- **Impact.** A web clip in a paper is always traceable to its address; the reference says what is known and nothing more.
+
+### D47. A click on a citation number goes to its own reference row; placing a clip says what was added
+- **Decision.** A click on a number scrolls to that source's row in References. Placing a clip shows a toast: "Added to references: <name>" for a new source, "Already in references: <name>" for one already listed.
+- **Why.** The researcher could not tell which reference a number meant, or whether a drop had added anything.
+- **Impact.** A note with several sources shows one number per source in the text; the toast lists each.
+
+### D48. A note from Research AI is labelled Paraphrased and shows its own text
+- **Decision.** The paper's clip list shows a note saved from Research AI with the tag "Paraphrased" and its written text (blank-line paragraphs kept), not its title. Its reference list is not part of the text.
+- **Why.** The title "Research Brief (own words)" was the only thing shown, so the researcher could not tell what the note said.
+- **Impact.** The clip list can be read without opening the note.
+
 ## 6. What this changes for a researcher (the impact)
 
 **Before.** Clips sat in a feed. Turning them into a paper happened in another tool, with citations typed by hand, and no view of the finished shape.
