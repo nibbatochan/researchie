@@ -55,6 +55,21 @@ export const LINK_PREFIX = 'shr_';
 
 const fail = (code: SharingFailure['code'], error: string): SharingFailure => ({ ok: false, code, error });
 
+// A view link needs no sign-in, so what it shows is limited to what the page draws. The owner's private notes, the
+// authors' account ids and any metadata the page does not use stay out.
+const PUBLIC_METADATA_KEYS = [
+  'sourceUrl', 'pageTitle', 'domainFavicon', 'scrollToTextFragment', 'textFragment', 'domCssSelector', 'authorOrByline',
+  'publishedTime', 'pageNumber', 'contextPrefix', 'contextSuffix', 'sectionHeading', 'surroundingParagraphs',
+  'citation', 'pinned', 'evidenceKind',
+];
+
+export function publicAtom(atom: ResearchAtom): ResearchAtom {
+  const metadata: Record<string, unknown> = {};
+  const source = (atom.metadata ?? {}) as unknown as Record<string, unknown>;
+  for (const key of PUBLIC_METADATA_KEYS) if (source[key] !== undefined) metadata[key] = source[key];
+  return { ...atom, userId: '', userNotes: '', metadata } as unknown as ResearchAtom;
+}
+
 const verb = (role: unknown) => (role === 'editor' ? 'edit' : 'view');
 
 export function makeSharing(db: Db, roleOn: (userId: string, projectId: string) => Promise<Role | null>) {
@@ -301,7 +316,7 @@ export function makeSharing(db: Db, roleOn: (userId: string, projectId: string) 
     const atoms = await readAllRows(() =>
       db.from('atoms').select('*').in('project_id', ids).order('captured_at', { ascending: false }).order('id', { ascending: false })
     );
-    return { project: mapProject(project, link.role), atoms: atoms.map(mapAtom), role: link.role };
+    return { project: { ...mapProject(project, link.role), userId: '' }, atoms: atoms.map(mapAtom).map(publicAtom), role: link.role };
   }
 
   /**

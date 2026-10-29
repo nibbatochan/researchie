@@ -11,6 +11,11 @@
 - **Forgot password:** rate limited per email and caller; the link uses `NEXT_PUBLIC_SITE_URL` when set.
 - **Admin client:** no silent fallback to the anon key when accounts are on.
 - **Dependencies:** `sanitize-html` updated (clears its own and `deepmerge` advisories).
+- **Security headers:** frame, type-sniffing and referrer protections on every response.
+- **Block preview:** the iframe no longer shares the app's origin; the search word is escaped inside its script.
+- **View links:** no private notes, account ids or unlisted metadata.
+- **Image uploads:** write access checked first; png/jpeg/webp/gif only, 4 MB, per-user limit, random names under the user's folder.
+- **Clipped HTML:** style allow-list; no `srcset`.
 
 ### Added
 - **Papers: Recent row.** The newest four papers sit in a Recent row above All papers. Hidden while a search or filter is on.

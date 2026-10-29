@@ -251,6 +251,19 @@ export function getIsolatedBlockStyles(theme: 'auto' | 'light' | 'dark' = 'auto'
 
 
 /**
+ * JSON that is safe inside a <script> block. JSON.stringify leaves "<" alone, so a value holding "</script>" would end
+ * the block early and what follows would be read as HTML. "<", ">", "&" and the two line separators are escaped.
+ */
+export function jsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\\u2028')
+    .replace(new RegExp(String.fromCharCode(0x2029), 'g'), '\\u2029');
+}
+
+/**
  * Highlight script injected into iframe if search query is active
  */
 function getHighlightScript(searchQuery?: string): string {
@@ -258,7 +271,7 @@ function getHighlightScript(searchQuery?: string): string {
   return `
     <script>
       (function() {
-        var q = ${JSON.stringify(searchQuery.trim())};
+        var q = ${jsonForScript(searchQuery.trim())};
         if (!q) return;
         function highlight(node) {
           if (node.nodeType === 3) {

@@ -48,3 +48,58 @@ test('email links use the configured site address, else the request origin', () 
   assert.equal(siteOrigin('javascript:alert(1)', 'https://app.example.com'), 'https://app.example.com');
   assert.equal(siteOrigin('not a url', 'https://app.example.com'), 'https://app.example.com');
 });
+
+import { sanitizeBlockHtml } from '../src/lib/security/sanitizeBlockHtml.ts';
+import { jsonForScript, buildIsolatedBlockDoc } from '../src/lib/utils/htmlBlockNormalizer.ts';
+import { parseImageDataUrl } from '../src/lib/storage/imageData.ts';
+import { publicAtom } from '../src/lib/data/sharing.ts';
+import { SECURITY_HEADERS } from '../src/lib/security/headers.ts';
+
+const BS = String.fromCharCode(92);
+
+test('sanitizer: css escapes, positioning and srcset are removed; normal text styling stays', () => {
+  const escaped = sanitizeBlockHtml(`<div style="background:${BS}75rl(https://evil.example/p.png)">x</div>`);
+  assert.ok(!escaped.includes('evil.example') && !escaped.includes(BS), escaped);
+  const overlay = sanitizeBlockHtml('<div style="position:fixed;inset:0;z-index:2147483647;color:red">x</div>');
+  assert.ok(!/position|z-index|inset/.test(overlay), overlay);
+  assert.ok(overlay.includes('color:red'), overlay);
+  const img = sanitizeBlockHtml('<img src="https://ok.example/a.png" srcset="https://evil.example/t.gif 1x">');
+  assert.ok(!img.includes('srcset') && !img.includes('evil.example'), img);
+  const kept = sanitizeBlockHtml('<div style="padding:14px;color:#0f172a;text-align:center">x</div>');
+  assert.ok(kept.includes('padding:14px') && kept.includes('color:#0f172a') && kept.includes('text-align:center'), kept);
+});
+
+test('a search word cannot end the highlight script block', () => {
+  const json = jsonForScript('</script><img src=x onerror=alert(1)>');
+  assert.ok(!json.includes('<') && !json.includes('>'), json);
+  assert.equal(JSON.parse(json), '</script><img src=x onerror=alert(1)>');
+  const doc = buildIsolatedBlockDoc({ sanitizedHtml: '<p>hello</p>', searchQuery: '</script><b>x</b>' });
+  assert.equal((doc.match(/<\/script>/g) ?? []).length, 1, 'only the real end tag');
+});
+
+test('only small raster images are uploaded to the public bucket', () => {
+  const png = 'data:image/png;base64,' + 'A'.repeat(100);
+  assert.equal(parseImageDataUrl(png)?.contentType, 'image/png');
+  assert.equal(parseImageDataUrl('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='), null);
+  assert.equal(parseImageDataUrl('data:text/html;base64,PGh0bWw+'), null);
+  assert.equal(parseImageDataUrl('https://example.com/' + 'a'.repeat(600)), null);
+  assert.equal(parseImageDataUrl('data:image/png;base64,' + 'A'.repeat(6_000_000)), null);
+  assert.equal(parseImageDataUrl(undefined), null);
+});
+
+test('a view link hides private notes, account ids and unlisted metadata', () => {
+  const shown = publicAtom({
+    id: 'a1', projectId: 'p1', userId: 'user-secret', type: 'quote', title: 't', content: { text: 'hi' },
+    metadata: { sourceUrl: 'https://s.example', internalFlag: 'private', pinned: true }, tags: ['x'], userNotes: 'my private thought', capturedAt: 'now',
+  });
+  assert.equal(shown.userNotes, '');
+  assert.equal(shown.userId, '');
+  assert.deepEqual(shown.metadata, { sourceUrl: 'https://s.example', pinned: true });
+  assert.equal(shown.content.text, 'hi');
+});
+
+test('every response can be set to refuse framing and type guessing', () => {
+  assert.equal(SECURITY_HEADERS['X-Frame-Options'], 'DENY');
+  assert.match(SECURITY_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/);
+  assert.equal(SECURITY_HEADERS['X-Content-Type-Options'], 'nosniff');
+});

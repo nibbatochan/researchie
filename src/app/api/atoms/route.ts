@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { store, STORE_SOURCE } from '@/lib/data/store';
+import { canWrite } from '@/lib/data/roles';
 
 // Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
 const MAX_BODY_BYTES = 4_300_000;
@@ -76,11 +77,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Handle Asset Upload for Image Atoms
+    // The project is worked out and the user's right to add to it checked before anything is stored, so a picture
+    // is never uploaded for a project the user cannot write to.
+    const resolvedProjectId = await store.resolveProjectId(auth.user.id, body.projectId);
+    // (Local mode accepts any project id, as it always has: its insert below decides.)
+    if (AUTH_REQUIRED && !canWrite(await store.roleOn(auth.user.id, resolvedProjectId))) {
+      return NextResponse.json({ success: false, error: 'Project not found.' }, { status: 404 });
+    }
+
+    // Handle Asset Upload for Image Atoms (inline images only; other values are kept as given)
     let finalImageUrl = body.content?.imageUrl;
-    if (body.type === 'image' && finalImageUrl && (finalImageUrl.startsWith('data:image/') || finalImageUrl.length > 500)) {
+    if (body.type === 'image' && typeof finalImageUrl === 'string' && finalImageUrl.startsWith('data:image/')) {
       try {
-        const uploadResult = await uploadAsset(finalImageUrl, 'crop.png', 'image/png');
+        const uploadResult = await uploadAsset(auth.user.id, finalImageUrl);
         if (uploadResult && uploadResult.url) {
           finalImageUrl = uploadResult.url;
         }
@@ -169,7 +178,7 @@ export async function POST(request: Request) {
     const saved = await store.insertAtom(auth.user.id, {
       ...newAtomPayload,
       userId: auth.user.id,
-      projectId: await store.resolveProjectId(auth.user.id, newAtomPayload.projectId),
+      projectId: resolvedProjectId,
     } as any);
     const saveMs = Date.now() - tSave;
     if (!saved) {

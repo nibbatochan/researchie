@@ -262,7 +262,7 @@ export const BlockAtomCard: React.FC<BlockAtomCardProps> = ({
               <iframe
                 srcDoc={iframeSrcDoc}
                 title="DOM Block Preview"
-                sandbox="allow-same-origin allow-scripts"
+                sandbox="allow-scripts"
                 className="w-full h-[300px] border-0 rounded bg-transparent"
               />
             </div>
@@ -330,7 +330,7 @@ export const BlockAtomCard: React.FC<BlockAtomCardProps> = ({
                 <iframe
                   srcDoc={iframeSrcDoc}
                   title="Expanded DOM Block Preview"
-                  sandbox="allow-same-origin allow-scripts"
+                  sandbox="allow-scripts"
                   className="w-full h-full border-0 rounded bg-transparent"
                 />
               </div>
