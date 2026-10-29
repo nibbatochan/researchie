@@ -3,56 +3,6 @@
  * Capture Tools, Knowledge Feed, and Page AI (Summarize + Q&A)
  */
 
-const CANDIDATE_ORIGINS = [
-  'http://localhost:3001',
-  'http://localhost:3000',
-  'http://localhost:3002',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3000',
-];
-
-let cachedWorkingOrigin = null;
-
-async function getWorkingApiBase() {
-  // A saved server address (popup -> Connect) wins over looking for a local one.
-  const saved = await chrome.storage.local.get(['serverUrl']);
-  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
-
-  if (cachedWorkingOrigin) {
-    try {
-      const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1000) });
-      if (ping.ok) return `${cachedWorkingOrigin}/api`;
-    } catch {}
-  }
-
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    try {
-      const storage = await chrome.storage.local.get(['apiBaseUrl', 'apiOrigin']);
-      if (storage.apiBaseUrl) {
-        const ping = await fetch(`${storage.apiBaseUrl}/projects`, { signal: AbortSignal.timeout(1000) });
-        if (ping.ok) {
-          cachedWorkingOrigin = storage.apiOrigin || storage.apiBaseUrl.replace(/\/api$/, '');
-          return storage.apiBaseUrl;
-        }
-      }
-    } catch {}
-  }
-
-  for (const origin of CANDIDATE_ORIGINS) {
-    try {
-      const ping = await fetch(`${origin}/api/projects`, { signal: AbortSignal.timeout(1000) });
-      if (ping.ok) {
-        cachedWorkingOrigin = origin;
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          await chrome.storage.local.set({ apiBaseUrl: `${origin}/api`, apiOrigin: origin });
-        }
-        return `${origin}/api`;
-      }
-    } catch {}
-  }
-
-  return 'http://localhost:3001/api';
-}
 
 // State
 let activeProjectId = 'proj-ai-main';
@@ -841,20 +791,21 @@ function appendChatMessage(role, text, citations = []) {
           });
 
           if (res.ok) {
+            const { activeProjectTitle, serverUrl } = await chrome.storage.local.get(['activeProjectTitle', 'serverUrl']);
             saveProjectBtn.textContent = 'Saved';
-            showToast('Saved to project timeline');
+            showToast(`Saved to ${activeProjectTitle || 'the project'}${serverUrl ? ' on ' + new URL(serverUrl).host : ''}`);
             loadProjectAtoms();
           } else {
             saveProjectBtn.textContent = 'Save to Project';
             saveProjectBtn.disabled = false;
-            showToast('Failed to save');
+            showToast(res.status === 401 ? 'Not connected. Press Connect in the popup.' : `Not saved (server status ${res.status}).`);
           }
         } catch (err) {
           // Offline: the background keeps it in the queue and sends it when the connection returns.
           const queued = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
           saveProjectBtn.textContent = queued && (queued.success || queued.queued) ? 'Queued' : 'Save to Project';
           saveProjectBtn.disabled = Boolean(queued && (queued.success || queued.queued));
-          showToast(queued && (queued.success || queued.queued) ? 'Saved to offline queue' : 'Failed to save');
+          showToast(queued && queued.queued ? 'Server not reachable. Saved offline; it will send when it is back.' : (queued && queued.error) || 'Not saved.');
         }
       });
     }
@@ -935,12 +886,12 @@ async function triggerCapture(mode) {
       // The background saves it, or keeps it in the offline queue when the server can't be reached.
       const result = await chrome.runtime.sendMessage({ action: 'SAVE_ATOM', payload }).catch(() => null);
       if (result && result.success) {
-        showToast('Page link saved');
+        showToast(`Page link saved to ${result.projectTitle || 'the project'}${result.serverHost ? ' on ' + result.serverHost : ''}`);
         loadProjectAtoms();
       } else if (result && result.queued) {
-        showToast('Saved to offline queue');
+        showToast(result.error || 'Saved offline.');
       } else {
-        showToast('Failed to save link');
+        showToast((result && result.error) || 'Link not saved.');
       }
     }
   }
@@ -1026,7 +977,11 @@ function setupEventListeners() {
   // Top Header buttons
   if (elements.btnOpenDash) {
     elements.btnOpenDash.addEventListener('click', async () => {
-      const origin = cachedWorkingOrigin || 'http://localhost:3001';
+      const origin = await getServerOrigin();
+      if (!origin) {
+        showToast('Not connected. Press Connect in the popup first.');
+        return;
+      }
       const targetUrl = `${origin}?project=${encodeURIComponent(activeProjectId)}`;
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.create({ url: targetUrl });

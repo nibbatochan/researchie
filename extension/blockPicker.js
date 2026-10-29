@@ -389,10 +389,16 @@
     };
 
     async function directBlockFetch(payload) {
-      const candidatePorts = [3001, 3000, 3002];
+      // Only the server the person connected to (popup -> Connect). A guessed local port could take the clip.
+      const { serverUrl } = await chrome.storage.local.get(['serverUrl']).catch(() => ({}));
+      if (!serverUrl) {
+        showToast('Not connected. Press Connect in the extension popup first.');
+        return;
+      }
+      const candidatePorts = [serverUrl];
       for (const port of candidatePorts) {
         try {
-          const res = await fetch(`http://localhost:${port}/api/atoms`, {
+          const res = await fetch(`${String(port).replace(/\/+$/, '')}/api/atoms`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

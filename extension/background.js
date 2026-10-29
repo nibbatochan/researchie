@@ -1,42 +1,7 @@
 // Researchie Chrome Extension Background Service Worker
 importScripts('auth.js'); // adds the saved token to requests to the connected server
+importScripts('api.js'); // where the server is (the saved Connect address only)
 
-const CANDIDATE_ORIGINS = [
-  'http://localhost:3001',
-  'http://localhost:3000',
-  'http://localhost:3002',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3000',
-];
-
-let cachedWorkingOrigin = null;
-
-async function getWorkingApiBase() {
-  // A saved server address (popup -> Connect) wins over looking for a local one.
-  const saved = await chrome.storage.local.get(['serverUrl']);
-  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
-
-  if (cachedWorkingOrigin) {
-    try {
-      const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1200) });
-      if (ping.ok) return `${cachedWorkingOrigin}/api`;
-    } catch {}
-  }
-
-  for (const origin of CANDIDATE_ORIGINS) {
-    try {
-      const ping = await fetch(`${origin}/api/projects`, { signal: AbortSignal.timeout(1200) });
-      if (ping.ok) {
-        cachedWorkingOrigin = origin;
-        await chrome.storage.local.set({ apiBaseUrl: `${origin}/api`, apiOrigin: origin });
-        return `${origin}/api`;
-      }
-    } catch {}
-  }
-
-  const storage = await chrome.storage.local.get(['apiBaseUrl']);
-  return storage.apiBaseUrl || 'http://localhost:3001/api';
-}
 
 chrome.runtime.onInstalled.addListener(async () => {
   chrome.contextMenus.create({
@@ -218,8 +183,9 @@ async function saveAtomToPlatform(atomPayload) {
       } catch {}
     }
 
+    // Never send to a project nobody picked: the old fallback silently used a demo project id.
     if (!projectId) {
-      projectId = 'proj-ai-main';
+      return { success: false, error: 'No project selected. Pick a project first.' };
     }
 
     const completePayload = {
@@ -244,15 +210,21 @@ async function saveAtomToPlatform(atomPayload) {
     // Update last push time
     await chrome.storage.local.set({ lastPushTime: new Date().toISOString() });
 
-    return { 
-      success: true, 
+    const origin = await getServerOrigin();
+    return {
+      success: true,
       data: data.data,
-      projectTitle: storage.activeProjectTitle || 'Active Project' 
+      projectTitle: storage.activeProjectTitle || 'Active Project',
+      serverHost: origin ? new URL(origin).host : '',
     };
   } catch (error) {
+    // Not connected, or the server refused the token: do not queue it (it would look sent and never be). Tell the person.
+    if (error && (error.needsConnect || error.status === 401)) {
+      return { success: false, needsConnect: true, error: 'Not connected to Researchie. Press Connect in the extension popup.' };
+    }
+    // The server could not be reached: keep it in the offline queue and say so.
     await enqueueOffline(atomPayload, error);
-    // 401 = no token or a refused one: it will not sync until the extension is connected.
-    return { success: false, queued: true, needsConnect: Boolean(error && error.status === 401) };
+    return { success: false, queued: true, error: 'The server could not be reached. Saved offline; it will send when it is back.' };
   }
 }
 
@@ -355,7 +327,8 @@ async function doFlushOfflineQueue(includeRejected) {
 
   for (const item of todo) {
     const { queueId, queuedAt, rejected, lastError, ...payload } = item;
-    if (!payload.projectId) payload.projectId = activeProjectId || 'proj-ai-main';
+    if (!payload.projectId) payload.projectId = activeProjectId;
+    if (!payload.projectId) continue; // no project chosen: keep it queued until one is
     try {
       const res = await fetch(`${apiBase}/atoms`, {
         method: 'POST',
@@ -664,7 +637,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const storage = await chrome.storage.local.get(['activeProjectId']);
 
       const payload = {
-        projectId: message.projectId || storage.activeProjectId || 'proj-ai-main',
+        projectId: message.projectId || storage.activeProjectId,
         type: 'image',
         title: customTitle,
         content: {

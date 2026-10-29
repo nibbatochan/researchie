@@ -1,39 +1,3 @@
-const CANDIDATE_ORIGINS = [
-  'http://localhost:3001',
-  'http://localhost:3000',
-  'http://localhost:3002',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3000',
-];
-
-let cachedWorkingOrigin = null;
-
-async function getWorkingApiBase() {
-  // A saved server address (popup -> Connect) wins over looking for a local one.
-  const saved = await chrome.storage.local.get(['serverUrl']);
-  if (saved.serverUrl) return saved.serverUrl.replace(/\/+$/, '') + '/api';
-
-  if (cachedWorkingOrigin) {
-    try {
-      const ping = await fetch(`${cachedWorkingOrigin}/api/projects`, { signal: AbortSignal.timeout(1000) });
-      if (ping.ok) return `${cachedWorkingOrigin}/api`;
-    } catch {}
-  }
-
-  for (const origin of CANDIDATE_ORIGINS) {
-    try {
-      const ping = await fetch(`${origin}/api/projects`, { signal: AbortSignal.timeout(1000) });
-      if (ping.ok) {
-        cachedWorkingOrigin = origin;
-        await chrome.storage.local.set({ apiBaseUrl: `${origin}/api`, apiOrigin: origin });
-        return `${origin}/api`;
-      }
-    } catch {}
-  }
-
-  const storage = await chrome.storage.local.get(['apiBaseUrl']);
-  return storage.apiBaseUrl || 'http://localhost:3001/api';
-}
 
 const DEFAULT_PROJECTS = [
   {
