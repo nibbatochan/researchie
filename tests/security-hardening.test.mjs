@@ -103,3 +103,18 @@ test('every response can be set to refuse framing and type guessing', () => {
   assert.match(SECURITY_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/);
   assert.equal(SECURITY_HEADERS['X-Content-Type-Options'], 'nosniff');
 });
+
+import { httpUrlOnly, isPlainId } from '../src/lib/security/inputChecks.ts';
+
+test('record ids and source links from a client are checked before they are stored', () => {
+  assert.equal(isPlainId('atom-1a2b3c4d5e6f7a8b'), true);
+  assert.equal(isPlainId('"><img src=x onerror=alert(1)>'), false);
+  assert.equal(isPlainId(''), false);
+  assert.equal(isPlainId('a'.repeat(101)), false);
+  assert.equal(isPlainId(42), false);
+  assert.equal(httpUrlOnly('https://example.com/a?b=1'), 'https://example.com/a?b=1');
+  assert.equal(httpUrlOnly('http://localhost:3001/x'), 'http://localhost:3001/x');
+  for (const bad of ['javascript:alert(1)', 'data:text/html,<b>x', 'file:///etc/passwd', 'not a url', '', undefined, null, 5]) {
+    assert.equal(httpUrlOnly(bad), undefined, String(bad));
+  }
+});

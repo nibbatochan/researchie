@@ -316,7 +316,7 @@ function renderProjectMenuItems() {
   const projectRow = (p, extraClass, parentId, withFolder) => {
     const color = p.color || p.color_badge || '#325FEC';
     return `
-      <div class="sp-project-item ${extraClass} ${p.id === activeProjectId ? 'active' : ''}" data-id="${p.id}" data-title="${escapeHtml(p.title)}" data-color="${color}" data-parent-id="${parentId}">
+      <div class="sp-project-item ${extraClass} ${p.id === activeProjectId ? 'active' : ''}" data-id="${escapeHtml(p.id)}" data-title="${escapeHtml(p.title)}" data-color="${escapeHtml(color)}" data-parent-id="${escapeHtml(parentId)}">
         ${withFolder ? `<span class="sp-folder-ico">${FOLDER}</span>` : ''}
         <div class="sp-item-title ${withFolder ? 'parent-title' : 'sub-title'}">${escapeHtml(p.title)}</div>
       </div>
@@ -539,7 +539,7 @@ function renderFilteredAtoms() {
     }
 
     html += `
-      <div class="sp-card" data-id="${atom.id}">
+      <div class="sp-card" data-id="${escapeHtml(atom.id)}">
         <div class="sp-card-header">
           <span class="sp-card-type-badge badge-${type}">${type}</span>
           <span class="sp-card-time">${time}</span>
@@ -550,7 +550,7 @@ function renderFilteredAtoms() {
           <div class="sp-card-tags">${tagsHtml}</div>
           <div class="sp-card-actions">
             ${jumpAction}
-            <button class="sp-del-btn" data-id="${atom.id}" title="Delete clip" aria-label="Delete clip"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+            <button class="sp-del-btn" data-id="${escapeHtml(atom.id)}" title="Delete clip" aria-label="Delete clip"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
           </div>
         </div>
       </div>

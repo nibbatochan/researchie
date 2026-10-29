@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { authorize, AUTH_REQUIRED } from '@/lib/auth/server';
 import { store, STORE_SOURCE } from '@/lib/data/store';
 import { canWrite } from '@/lib/data/roles';
+import { httpUrlOnly, isPlainId } from '@/lib/security/inputChecks';
 
 // Vercel rejects request bodies over 4.5 MB before our code runs; this gives a readable message first.
 const MAX_BODY_BYTES = 4_300_000;
@@ -142,7 +143,8 @@ export async function POST(request: Request) {
     }
 
     const newAtomPayload = {
-      id: body.id || `atom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      // The extension picks an id before its first try; anything that is not a plain id is replaced.
+      id: isPlainId(body.id) ? body.id : `atom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       projectId: targetProjectId,
       userId: body.userId || 'user-01',
       type: body.type,
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
         rawText: blockRawText,
         text: blockRawText,
         markdownContent: body.content?.markdownContent || (rawQuoteText ? `> "${rawQuoteText}"` : undefined),
-        targetUrl: body.content?.targetUrl || body.metadata?.sourceUrl,
+        targetUrl: httpUrlOnly(body.content?.targetUrl) || httpUrlOnly(body.metadata?.sourceUrl),
         description: body.content?.description,
         imageUrl: finalImageUrl,
         sanitizedHtml: blockSanitizedHtml,
@@ -161,7 +163,7 @@ export async function POST(request: Request) {
       },
       metadata: {
         ...(body.metadata || {}),
-        sourceUrl: body.metadata?.sourceUrl || 'https://example.com',
+        sourceUrl: httpUrlOnly(body.metadata?.sourceUrl) || 'https://example.com',
         pageTitle: body.metadata?.pageTitle || 'Web Source',
         domainFavicon: domainFavicon,
         scrollToTextFragment: scrollToText,

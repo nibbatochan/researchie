@@ -16,6 +16,8 @@
 - **View links:** no private notes, account ids or unlisted metadata.
 - **Image uploads:** write access checked first; png/jpeg/webp/gif only, 4 MB, per-user limit, random names under the user's folder.
 - **Clipped HTML:** style allow-list; no `srcset`.
+- **Database policies (migration 007):** profile e-mail cannot be edited; a parent project and a document's project must be yours; `user_openalex_keys` table created; `anthropic` allowed as a key provider.
+- **Clip ids and links:** a client-sent id must be a plain id; source links must be http(s); the side panel escapes ids and colours.
 
 ### Added
 - **Papers: Recent row.** The newest four papers sit in a Recent row above All papers. Hidden while a search or filter is on.
