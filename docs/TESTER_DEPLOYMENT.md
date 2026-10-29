@@ -31,6 +31,7 @@ The free plan has **no automatic backups** and pauses a project after **1 week w
 | `AUTH_REQUIRED` | `true` |
 | `NEXT_PUBLIC_AUTH_REQUIRED` | `true` |
 | `NEXT_PUBLIC_SUPABASE_URL` | from Supabase |
+| `NEXT_PUBLIC_SITE_URL` | the public address of the site, for example `https://researchie.example`. Password-reset links point here. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase. Server only. Never prefix it `NEXT_PUBLIC_`. |
 | `KEY_ENCRYPTION_SECRET` | 32 or more random characters. Make one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. **Back it up**: if it is lost or changed, every saved AI key becomes unreadable and users must paste theirs again. |

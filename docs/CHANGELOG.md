@@ -1,5 +1,45 @@
 # Version Changelog
 
+## [Unreleased] — 2026-10-29 (Research AI notes, papers page, forgot password, timeline pages, deploy prep)
+### Security
+- **Knowledge graph route:** `projectId` is validated and the script runs without a shell (was command injection).
+- **API CORS:** without accounts, only this app, this computer and the extension may call `/api`; with accounts, no credentials header.
+- **Server fetches:** redirects and resolved addresses are checked for page rebuild and OCR on the accounts deployment.
+- **Extension:** project-sync and drawer messages are accepted only from the right sender.
+- **Extension pages:** the side panel files use a dynamic URL; the popup is no longer web-accessible.
+- **Change password:** needs a reset-link session or the current password; cross-site writes refused; wrong tries limited.
+- **Forgot password:** rate limited per email and caller; the link uses `NEXT_PUBLIC_SITE_URL` when set.
+- **Admin client:** no silent fallback to the anon key when accounts are on.
+- **Dependencies:** `sanitize-html` updated (clears its own and `deepmerge` advisories).
+
+### Added
+- **Papers: Recent row.** The newest four papers sit in a Recent row above All papers. Hidden while a search or filter is on.
+- **Papers: sort and filter.** Sort by last edited, name or newest created. Filter by template and by data source.
+- **Papers: Delete all in the trash.** One confirm, then every paper in the trash is removed for good. Only your own papers. Endpoint: `POST /api/papers` with `{ action: 'purge_trash' }`.
+- **Login: Forgot password.** A link under Password sends a reset email. The reply is the same whether or not the email has an account. The link opens `/login/reset` to choose a new password (8+ characters). Routes: `/api/auth/forgot`, `/api/auth/password`.
+- **Timeline: pages of 25 clips.** Previous and Next under the list when there are more than 25. A new search, filter or project starts at page 1.
+- **Paper: numbers go to their own row.** Clicking a citation number scrolls to that source's row in References.
+- **Paper: toast on references.** Placing a clip shows "Added to references: <name>" for new sources and "Already in references: <name>" for ones already listed.
+- **Research AI: pick the save project.** The edit window saves to a chosen project or sub-project.
+- **Research AI: Get citation lists sources.** A saved note's references sit under Get citation, not in the text.
+
+### Changed
+- **Research AI notes are named by origin.** Notes saved from Research AI show "Research AI answer" in place of a web address and are titled "Paraphrased answer". Template tags are no longer added to saved notes.
+- **Edit window.** AI markers ([1], [Source: …], [Page …]) are removed from the text on the left; the window is 90% of screen height.
+- **Paper sidebar.** A note from Research AI is labelled "Paraphrased" and shows its own text.
+- **Trash page.** "Back to papers" has a back arrow.
+- **Clips with a web address are citable.** A clip with no citation but a web address is cited as a web page with what is known (title, address). It gets a number and a reference line. It is not listed on the Citations tab. A placeholder address (`https://example.com`) is ignored.
+
+### Fixed
+- **Overview label and sparkle on AI text.** AI-formatted text with no heading showed an "Overview" title and a sparkle icon. It now shows neither.
+- **Source numbers in chat did nothing for deliverables.** Clicking a source number in a deliverable now scrolls to and highlights its clip (`atom-breathe`).
+- **Paper notes lost their paragraphs.** A note's own paragraphs (blank-line breaks) are kept when placed in a paper.
+- **Paper citations did not number.** Clips with only a web address had no number or reference line; they do now.
+
+### Tests
+- `tests/note-clip-text.test.mjs` (note text, paragraphs, web-address records). Unit suite 673/673.
+- `e2e/25-paper-workspace.spec.ts`: back-arrow assertion updated. Delete all is not covered by e2e (it would empty a real trash).
+
 ## [Unreleased] — 2026-10-28 (Paper export menu, Word export, columns per section, tables)
 ### Added
 - **Paper editor: Export menu.** One Export button with Word (.docx), PDF (print) and Markdown (.md).

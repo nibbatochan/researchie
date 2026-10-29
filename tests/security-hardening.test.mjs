@@ -39,3 +39,12 @@ test('fetchPublic refuses a private address before connecting', async () => {
     await assert.rejects(fetchPublic(url), /not a public web page/, url);
   }
 });
+
+import { siteOrigin } from '../src/lib/auth/redirect.ts';
+
+test('email links use the configured site address, else the request origin', () => {
+  assert.equal(siteOrigin('https://app.example.com/some/path', 'https://evil.example'), 'https://app.example.com');
+  assert.equal(siteOrigin(undefined, 'https://app.example.com'), 'https://app.example.com');
+  assert.equal(siteOrigin('javascript:alert(1)', 'https://app.example.com'), 'https://app.example.com');
+  assert.equal(siteOrigin('not a url', 'https://app.example.com'), 'https://app.example.com');
+});

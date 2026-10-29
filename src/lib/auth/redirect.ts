@@ -10,6 +10,20 @@ export function safeNext(input: unknown): string {
   return next;
 }
 
+/**
+ * The address links in emails point at. NEXT_PUBLIC_SITE_URL wins when it is a valid http(s) address, so a forged
+ * Host header cannot steer a reset link elsewhere; otherwise the request's own origin is used.
+ */
+export function siteOrigin(configured: string | undefined, requestOrigin: string): string {
+  try {
+    const url = new URL((configured ?? '').trim());
+    if (url.protocol === 'https:' || url.protocol === 'http:') return url.origin;
+  } catch {
+    // not set, or not an address: fall through
+  }
+  return requestOrigin;
+}
+
 /** A recently created account: made within the last minute, and signed in for the first time just now. */
 export function isNewAccount(createdAt: string | undefined, lastSignInAt: string | undefined, now: number = Date.now()): boolean {
   const created = Date.parse(createdAt ?? '');

@@ -10,6 +10,7 @@ import { isNewAccount, safeNext } from '@/lib/auth/redirect';
 // cookie email sign-in uses. A brand-new account made through Google must pass the invite code, if one is required,
 // exactly as email sign-up does: otherwise Google would be a way around it. Such an account is removed again.
 const INVITE_COOKIE = 'rs_invite';
+const RESET_COOKIE = 'rs_reset';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -39,6 +40,11 @@ export async function GET(request: Request) {
 
     const res = NextResponse.redirect(`${origin}${next}`);
     res.cookies.set(INVITE_COOKIE, '', { path: '/', maxAge: 0 });
+    // A reset link proves the person owns the email, so /api/auth/password may skip the current password for a
+    // short while. The cookie names the user, so it cannot be used for another account.
+    if (user && next === '/login/reset') {
+      res.cookies.set(RESET_COOKIE, user.id, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 900 });
+    }
     return res;
   } catch {
     return NextResponse.redirect(`${origin}/login?error=google`);

@@ -415,3 +415,65 @@
 **Chat:** the side panel has a "Papers" toggle that routes the question to `/api/papers/ask`. **Not done:** a paper picker in the web app chat, and full text. Clip answers still come from `/api/ai/qna`. Groq stays the answer writer.
 
 **Reasoning:** OpenAlex finds and describes papers; it cannot write answers, so the AI provider remains the writer.
+
+### `DECISION` — 2026-10-29 · Research AI notes are named by origin · Source: user request
+
+**Decision:** A note saved from Research AI carries `metadata.origin = 'research-ai'`. The timeline shows "Research AI answer" in place of its web address, the paper labels it "Paraphrased", and its references are kept in `metadata.references`. Template tags (`ai-synthesis`, the template id) are no longer added to saved notes.
+
+**Why:** Saved notes had no web address, so the server stored `https://example.com` and the card showed it. The "Overview" label came from AI text with no heading. Researchers asked for the notes to read as their own work.
+
+**Reasoning:** the origin is a marker on the note, not a new atom type, so existing notes and the paper keep working.
+
+### `DECISION` — 2026-10-29 · Clips with a web address are cited as web pages · Source: user request
+
+**Decision:** A clip without a citation record but with a web address is cited as a `web_page` record built from its title and address (status `incomplete`, no authors). It is numbered in the paper and listed in References. It does not appear on the Citations tab (`webFallback` on the clip info). A placeholder address (`https://example.com`) is never cited.
+
+**Why:** Research AI notes cite the clips they were written from. Those clips rarely have a verified citation, so their notes showed no numbers.
+
+**Reasoning:** the record says what is known and marks the rest "n.d." rather than guessing an author or year.
+
+### `DECISION` — 2026-10-29 · Papers page: recent row, sort, filters, delete all in trash · Source: user request
+
+**Decision:** The newest four papers sit in a Recent row; the rest are under All papers, sortable by last edited, name or newest created, and filterable by template and data source. The Recent row is hidden while a search or filter is on. Trash has Delete all: one confirm, then `purge_trash` removes every trashed paper of the signed-in person.
+
+**Why:** A long paper list was hard to scan. Delete all was requested; removing trashed papers one at a time was too slow for a full trash.
+
+**Limits:** Delete all is permanent and has no undo. It is not covered by e2e, because a test would empty a real trash.
+
+### `DECISION` — 2026-10-29 · Forgot password through a Supabase reset link · Source: user request
+
+**Decision:** "Forgot password?" sends a reset email from `/api/auth/forgot`. The link goes through `/auth/callback` (the existing code exchange) to `/login/reset`, where `/api/auth/password` sets the new password for the signed-in recovery session (8 to 200 characters). The forgot reply is the same for every email.
+
+**Why:** Users were locked out with no way back. The same reply for every email stops the form from revealing which accounts exist.
+
+**Requirement:** in Supabase, **Authentication → URL Configuration**, the Vercel domain must be listed under Redirect URLs (`https://<domain>/**`), or the link is refused.
+
+### `DECISION` — 2026-10-29 · Timeline pages of 25 clips · Source: user request
+
+**Decision:** The timeline shows 25 clips per page with Previous and Next. A new search, filter or project returns to page 1. "Select all" still selects every matching clip, not just the page.
+
+**Why:** Long projects rendered every clip at once.
+
+### `DECISION` — 2026-10-29 · NEXT_PUBLIC_AUTH_REQUIRED is a public, non-secret flag · Source: deploy
+
+**Decision:** `NEXT_PUBLIC_AUTH_REQUIRED=true` is set in Vercel as a Config variable, not a Secret. It is read in browser code (`src/lib/auth/authContext.tsx`), so it must have the `NEXT_PUBLIC_` prefix. Vercel's warning about the prefix is ignored for it.
+
+**Why:** Vercel refuses a `NEXT_PUBLIC_` variable as a Secret. The value is not secret.
+
+**Keep private:** `SUPABASE_SERVICE_ROLE_KEY` and `KEY_ENCRYPTION_SECRET` have no prefix and stay Secret.
+
+### `DECISION` — 2026-10-29 · Security audit fixes: graph route, CORS, SSRF, extension messages · Source: security audit
+
+**Decision:** four fixes. (1) `/api/ai/graph` accepts only `projectId` matching `^[A-Za-z0-9_-]{1,100}$` and starts the Python script with `execFile` and an argument array, not a shell string. (2) CORS for `/api` is decided per request in `src/middleware.ts` (`src/lib/auth/cors.ts`). Without accounts, only this app, loopback pages and `chrome-extension://` origins pass; any other origin gets 403. With accounts, any origin may call, but `Access-Control-Allow-Credentials` is no longer sent. (3) Server-side fetches of user-supplied URLs on the accounts deployment (`rebuild-context`, OCR) go through `fetchPublic` (`src/lib/security/safeFetch.ts`): it checks every redirect hop and the addresses the host resolves to. (4) The extension content script accepts `RESEARCHIE_SET_ACTIVE_PROJECT` only from its own window and from a Researchie origin (loopback or the connected server), and the side-panel drawer accepts messages only from its own iframe.
+
+**Why:** the graph route was unauthenticated shell injection, and the wildcard CORS let any website a developer visited call it (and read or write local clips). The old URL check read text only, so a redirect or a DNS record could reach internal addresses. Any web page could post a message to switch the extension's active project.
+
+**Not done:** DNS rebinding between the lookup and the fetch (needs a pinned-IP agent). The extension's `web_accessible_resources` still list the side panel and popup for all sites. The extension's direct-fetch fallback to `localhost` from a page depends on loopback CORS and is unchanged. Dependency updates (`katex`, `next`, `sanitize-html`) are pending.
+
+### `DECISION` — 2026-10-29 · Security audit fixes, second batch · Source: security audit
+
+**Decision:** (1) Extension: the web-accessible side panel files use `use_dynamic_url`, and `popup.*` is no longer web-accessible. (2) `POST /api/auth/password` needs either the `rs_reset` cookie (set by `/auth/callback` after a reset link, 15 minutes, bound to the user id) or the current password, checked with a separate client; wrong tries are limited to 5 per 15 minutes per user. It also refuses cross-site writes. (3) `POST /api/auth/forgot` is limited to 3 requests per email and 10 per caller per 15 minutes (per server instance), and builds the reset link from `NEXT_PUBLIC_SITE_URL` when it is set. (4) With `AUTH_REQUIRED=true` and no `SUPABASE_SERVICE_ROLE_KEY`, using `supabaseAdmin` throws instead of falling back to the anon key. (5) `sanitize-html` updated (fixes `sanitize-html` and `deepmerge`); `katex` updated within 0.16.
+
+**Why:** a stolen session cookie was enough to change the password; reset emails could be flooded; a forged Host header could steer the reset link; a missing key failed in odd ways.
+
+**Not done:** `next` (and its `postcss`) needs a major upgrade to 16.x; `katex` 0.19 is a major bump for a low advisory. A Google-only account has no password, so it must use the reset link to set one. The rate limits are per server instance, not shared. `use_dynamic_url` is not yet tested in Chrome. Set `NEXT_PUBLIC_SITE_URL` on the deployment.
