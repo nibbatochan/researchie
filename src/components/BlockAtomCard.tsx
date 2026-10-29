@@ -216,16 +216,16 @@ export const BlockAtomCard: React.FC<BlockAtomCardProps> = ({
                   alt="Visual Raster Snapshot"
                   className="max-h-full max-w-full object-contain rounded shadow-lg transition-transform duration-200 group-hover:scale-[1.01]"
                 />
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-xs flex items-center gap-1">
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                   <span>📸 1:1 Pixel Freeze-Frame</span>
                 </div>
-                <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-mono bg-black/80 text-white/90 backdrop-blur-xs flex items-center gap-1.5 shadow-md">
+                <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-mono bg-black/80 text-white/90 flex items-center gap-1.5 shadow-md">
                   <ImageIcon size={12} className="text-[#518FFF]" />
                   <span>Raster Snapshot (Source Drift Safe)</span>
                 </div>
               </div>
             ) : (
-              <div className="w-full h-[300px] rounded-lg overflow-hidden flex flex-col justify-between bg-gradient-to-b from-[#0F172A] to-[#09090B] text-slate-100 p-3.5 relative border border-slate-800 shadow-inner">
+              <div className="w-full h-[300px] rounded-lg overflow-hidden flex flex-col justify-between bg-[#0F172A] dark:bg-[#09090B] text-slate-100 p-3.5 relative border border-slate-800 shadow-inner">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1.5">

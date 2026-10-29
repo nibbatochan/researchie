@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { 
-  Sparkle, 
+  ChatCircleText, 
   Quotes, 
   FileText, 
   PuzzlePiece, 
@@ -39,7 +39,7 @@ export const ContentCardShell: React.FC<ContentCardShellProps> = ({
     const grayscaleBadge = 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700';
     switch (card.sourceType) {
       case 'ai':
-        return { label: 'Researchie AI', icon: Sparkle, badgeClass: grayscaleBadge, iconClass: 'text-[#325FEC] dark:text-[#518FFF]' };
+        return { label: 'Researchie AI', icon: ChatCircleText, badgeClass: grayscaleBadge, iconClass: 'text-[#325FEC] dark:text-[#518FFF]' };
       case 'pdf':
         return { label: 'Document Vault', icon: FileText, badgeClass: grayscaleBadge, iconClass: 'text-emerald-600 dark:text-emerald-400' };
       case 'clip':

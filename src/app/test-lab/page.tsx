@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowSquareOut, CheckCircle, Table, Quotes, Image as ImageIcon, Sparkle } from '@phosphor-icons/react';
+import { ArrowSquareOut, CheckCircle, Table, Quotes, Image as ImageIcon, ChatCircleText } from '@phosphor-icons/react';
 
 export default function TestLabPage() {
   return (
@@ -12,7 +12,7 @@ export default function TestLabPage() {
         <header className="border-b border-slate-800 pb-6 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-lime animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-lime" />
               <span className="font-mono text-xs text-lime uppercase tracking-wider font-bold">
                 Researchie Testing Lab
               </span>
@@ -67,7 +67,7 @@ export default function TestLabPage() {
 
           <div className="p-4 rounded-xl bg-[#161922] border border-slate-800">
             <div className="flex items-center gap-2 text-emerald-400 font-display font-bold text-sm mb-1">
-              <Sparkle size={16} />
+              <ChatCircleText size={16} />
               <span>4. Summarize/Q&A</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">

@@ -205,7 +205,7 @@ export function PaperPreview({ doc, style, onStyleChange }: { doc: PreviewDoc; s
 
   return (
     <div data-testid="paper-preview" className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#E5E8EE] dark:bg-[#18181B]">
-      <div role="note" data-testid="preview-banner" className="sticky top-0 z-10 border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-xs font-semibold text-amber-900">
+      <div role="note" data-testid="preview-banner" className="sticky top-0 z-10 border-b border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-4 py-2 text-center text-xs font-semibold text-slate-700 dark:text-zinc-300">
         {PREVIEW_ONLY_NOTE}
       </div>
 

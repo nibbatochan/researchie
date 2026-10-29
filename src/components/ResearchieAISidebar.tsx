@@ -17,7 +17,7 @@ import {
   Trash,
   CaretRight,
   CaretLeft,
-  Sparkle,
+  ChatCircleText,
   BookOpen,
   Scales,
   WarningCircle,
@@ -971,7 +971,7 @@ User Question: ${query.trim()}`,
                             {/* Integrated Key Takeaway Banner */}
                             {msg.directAnswer && (
                               <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-blue-950 dark:text-blue-200 text-sm leading-relaxed flex items-start gap-2.5">
-                                <Sparkle size={17} weight="fill" className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0 mt-0.5" />
+                                <ChatCircleText size={17} weight="fill" className="text-[#325FEC] dark:text-[#518FFF] flex-shrink-0 mt-0.5" />
                                 <div>
                                   <span className="font-semibold text-xs uppercase tracking-wider text-[#325FEC] dark:text-[#518FFF] block mb-0.5 font-mono">
                                     Key Takeaway
@@ -1139,7 +1139,7 @@ User Question: ${query.trim()}`,
                 <button
                   type="submit"
                   disabled={isAsking || !inputQuery.trim()}
-                  className="absolute right-2.5 bottom-2.5 p-2 rounded-lg bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-30 text-white transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                  className="absolute right-2.5 bottom-2.5 p-2 rounded-lg btn-gradient disabled:opacity-30 transition-all shadow-sm flex items-center justify-center cursor-pointer"
                   title="Send Question (Enter)"
                 >
                   <PaperPlaneTilt size={15} weight="fill" />
@@ -1266,21 +1266,21 @@ User Question: ${query.trim()}`,
 
                     if (!isSufficient) {
                       return (
-                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs space-y-3 animate-fadeIn">
-                          <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-300">
+                        <div className="p-4 rounded-2xl bg-white dark:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] text-xs space-y-3 animate-fadeIn">
+                          <div className="flex items-start gap-2.5 text-[#0F172A] dark:text-white">
                             <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                             <div className="space-y-1">
                               <span className="font-semibold font-display text-sm block">
                                 Not enough clips
                               </span>
-                              <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                              <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
                                 We couldn't find enough clips in this project for a complete <strong>{currentTemplate.label}</strong> (requires at least {currentTemplate.minClipsRequired} clips, found {inputClips.length}).
                               </p>
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t border-amber-200/80 dark:border-amber-900/60 space-y-2">
-                            <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 block">
+                          <div className="pt-2 border-t border-[#D2DCEA] dark:border-[#27272A] space-y-2">
+                            <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 block">
                               What specifically are you looking for?
                             </span>
                             {currentTemplate.quickFocusOptions.length > 0 && (
@@ -1292,7 +1292,7 @@ User Question: ${query.trim()}`,
                                       setFocusInput(opt);
                                       handleGenerateDeliverable(opt);
                                     }}
-                                    className="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/80 text-amber-950 dark:text-amber-200 text-xs font-medium transition-colors cursor-pointer"
+                                    className="px-2.5 py-1 rounded-lg bg-[#EEF3F8] dark:bg-[#27272A] hover:bg-[#E4ECF6] dark:hover:bg-[#3F3F46] text-[#0F172A] dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
                                   >
                                     {opt}
                                   </button>
@@ -1346,7 +1346,7 @@ User Question: ${query.trim()}`,
                             disabled={isGenerating}
                             className="w-full py-2.5 rounded-xl bg-[#325FEC] hover:bg-[#274AC4] text-white font-display font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
                           >
-                            <Sparkle size={15} weight="fill" className={isGenerating ? 'animate-spin' : ''} />
+                            <ChatCircleText size={15} weight="fill" className={isGenerating ? 'animate-spin' : ''} />
                             <span>Generate {currentTemplate.label}</span>
                           </button>
                         </div>
@@ -1484,7 +1484,7 @@ User Question: ${query.trim()}`,
                     <button
                       type="submit"
                       disabled={isGenerating || !deliverableInputQuery.trim()}
-                      className="absolute right-2.5 bottom-2.5 p-2 rounded-lg bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-30 text-white transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                      className="absolute right-2.5 bottom-2.5 p-2 rounded-lg btn-gradient disabled:opacity-30 transition-all shadow-sm flex items-center justify-center cursor-pointer"
                       title="Send Request"
                     >
                       <PaperPlaneTilt size={15} weight="fill" />

@@ -756,3 +756,22 @@ a.bg-\[\#325FEC\]:not([class*="duration-"]):active { transform: scale(0.98); }
 /* A chat source the researcher clicked: the clip it names breathes in the timeline for a moment. */
 @keyframes atomBreathe { 0%, 100% { box-shadow: 0 0 0 0 rgba(50, 95, 236, 0); } 50% { box-shadow: 0 0 0 6px rgba(50, 95, 236, 0.35); } }
 .atom-breathe { animation: atomBreathe 1.2s ease-in-out 2; border-radius: 0.75rem; }
+
+/* Gradient button: the Synthesize style from the design system. Blue gradient, inset top light, soft lift on hover. */
+.btn-gradient {
+  background: linear-gradient(135deg, var(--accent-color) 0%, color-mix(in srgb, var(--accent-color) 60%, #000) 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 150ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.btn-gradient:hover:not(:disabled) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 6px 14px -10px var(--accent-color);
+  transform: translateY(-1px);
+}
+.btn-gradient:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.btn-gradient:disabled {
+  box-shadow: none;
+}

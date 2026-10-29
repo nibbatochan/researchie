@@ -332,7 +332,7 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
             {showTrash ? <ArrowLeft size={14} /> : <Trash size={14} />}{showTrash ? 'Back to papers' : `Trash${trash.length ? ` (${trash.length})` : ''}`}
           </button>
           {!showTrash && (
-            <button type="button" onClick={() => setCreating(true)} data-testid="new-paper-button" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#325FEC] text-white hover:bg-[#2A4FCC] cursor-pointer">
+            <button type="button" onClick={() => setCreating(true)} data-testid="new-paper-button" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold btn-gradient cursor-pointer">
               <Plus size={14} weight="bold" /> Create new paper
             </button>
           )}

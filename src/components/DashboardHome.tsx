@@ -22,6 +22,7 @@ import { GetExtensionModal } from './GetExtensionModal';
 import { WelcomeModal, WELCOME_SEEN_KEY, WELCOME_VERSION } from './WelcomeModal';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 import { ProjectAvatar } from './ProjectAvatar';
+import { FolderContentsModal } from './FolderContentsModal';
 
 interface DashboardHomeProps {
   projects: ResearchProject[];
@@ -159,6 +160,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [extensionOpen, setExtensionOpen] = useState(false);
+  // The folder whose contents (main project and sub-projects) are open. Any click on a folder card opens it.
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null);
   const prefs = usePrefs();
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [welcomeFirstRun, setWelcomeFirstRun] = useState(false);
@@ -256,6 +259,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const MUTED = 'text-slate-500 dark:text-zinc-400';
 
   // ─── Folder card: one blue folder for every project, same height for all; papers show how full it is ───
+  const openFolder = openFolderId ? allMainProjects.find((p) => p.id === openFolderId) ?? null : null;
+
   const renderFolderCard = (mainProj: ResearchProject, index = 0) => {
     const subProjects = subProjectsByParent.get(mainProj.id) || [];
     const total = folderClips(mainProj);
@@ -264,7 +269,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     const papers = total === 0 ? 0 : total < 10 ? 1 : total < 50 ? 2 : 3;
 
     return (
-      <div key={mainProj.id} style={{ ['--i' as string]: index } as React.CSSProperties} className="animate-cardIn group relative pt-16">
+      <div key={mainProj.id} style={{ ['--i' as string]: index } as React.CSSProperties} onClick={() => setOpenFolderId(mainProj.id)} className="animate-cardIn group relative pt-16 cursor-pointer">
         {/* The folder behind: tab, back, and a paper for each step of content */}
         <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
           <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
@@ -285,11 +290,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           )}
         </div>
 
-        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-gradient-to-b from-[#3F6CE8] to-[#2A4FC4] dark:from-[#1B3078] dark:to-[#122255] border-white/25 dark:border-white/10 text-white">
+        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-[#325FEC] dark:bg-[#1B3078] border-white/25 dark:border-white/10 text-white">
           <div className="flex items-start justify-between gap-2 min-h-[3.75rem]">
             <div className="min-w-0 space-y-0.5">
               <h3
-                onClick={() => onSelectProject(mainProj.id, 'feed')}
                 title={mainProj.title}
                 className="font-display font-semibold text-[15px] leading-snug tracking-tight cursor-pointer line-clamp-2"
               >
@@ -348,7 +352,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <div
                     key={sp.id}
                     data-testid="subproject-card"
-                    onClick={() => onSelectProject(sp.id, 'feed')}
                     title={sp.title}
                     className="flex items-center gap-1.5 px-1.5 py-1 rounded-lg cursor-pointer transition-colors hover:bg-white/15"
                   >
@@ -364,7 +367,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           <div className="mt-3 pt-3 flex items-center justify-between gap-2 border-t border-white/25">
             {canManage ? (
               <button
-                onClick={() => onOpenCreateModal(mainProj.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCreateModal(mainProj.id);
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer bg-white/15 border-white/30 text-white hover:bg-white/25"
                 title="Add a sub-project"
               >
@@ -376,8 +382,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
 
             <button
-              onClick={() => onSelectProject(mainProj.id, 'feed')}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-white text-[#325FEC] dark:text-[#27428F] text-xs font-semibold shadow-sm hover:bg-[#F2F6FF] transition-colors cursor-pointer"
+              onClick={() => setOpenFolderId(mainProj.id)}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl btn-gradient text-xs font-semibold shadow-sm transition-colors cursor-pointer"
             >
               <span>Open Folder</span>
               <ArrowRight size={12} weight="bold" />
@@ -393,17 +399,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header with Download Extension */}
         <div className="flex items-center justify-end gap-2 h-8 -mx-4 -mt-4 px-4 mb-4">
-          {onOpenPapers && (
-            <button
-              type="button"
-              onClick={onOpenPapers}
-              data-testid="paper-mode-button"
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-sans font-semibold rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-[#0F172A] dark:text-[#FAFAFA] border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
-            >
-              <Article size={15} weight="bold" />
-              <span>Paper mode</span>
-            </button>
-          )}
           <button
             type="button"
             onClick={() => {
@@ -430,6 +425,20 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
         <GetExtensionModal isOpen={extensionOpen} onClose={() => setExtensionOpen(false)} />
         <WelcomeModal isOpen={welcomeOpen} onClose={closeWelcome} firstRun={welcomeFirstRun} />
+        {openFolder && (
+          <FolderContentsModal
+            folder={openFolder}
+            subProjects={subProjectsByParent.get(openFolder.id) || []}
+            canManage={!isShared(openFolder)}
+            onOpenProject={(id) => onSelectProject(id, 'feed')}
+            onDeleteProject={onDeleteProject}
+            onAddSubProject={() => {
+              setOpenFolderId(null);
+              onOpenCreateModal(openFolder.id);
+            }}
+            onClose={() => setOpenFolderId(null)}
+          />
+        )}
 
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}
         <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8 pt-[20px] pb-1">
@@ -455,12 +464,23 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             <div className="pt-1.5 flex items-center gap-2.5 flex-wrap">
               <button
                 onClick={() => onOpenCreateModal()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-sans font-semibold bg-[#325FEC] hover:bg-[#274AC4] text-white shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-sans font-semibold btn-gradient border border-transparent shadow-sm transition-all cursor-pointer"
               >
                 <Plus size={14} weight="bold" />
                 <span>New Project Folder</span>
               </button>
 
+              {onOpenPapers && (
+                <button
+                  type="button"
+                  onClick={onOpenPapers}
+                  data-testid="paper-mode-button"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-sans font-semibold bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] text-slate-700 dark:text-zinc-200 border border-[#D2DCEA] dark:border-[#27272A] shadow-xs transition-all cursor-pointer"
+                >
+                  <Article size={14} weight="bold" className="text-[#325FEC] dark:text-[#518FFF]" />
+                  <span>Written papers</span>
+                </button>
+              )}
               {onOpenDocuments && (
                 <button
                   type="button"

@@ -14,7 +14,7 @@ import {
   MagnifyingGlassPlus,
   MagnifyingGlassMinus,
   MagnifyingGlass,
-  Sparkle,
+  ChatCircleText,
   BookmarkSimple,
   Check,
   UploadSimple,
@@ -1383,7 +1383,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                               setActiveDocId(recentDoc.id);
                               setIsLibraryView(false);
                             }}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#325FEC] hover:bg-[#274AC4] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl btn-gradient text-xs font-semibold shadow-sm transition-all cursor-pointer"
                           >
                             <BookOpen size={14} weight="bold" />
                             <span>Resume Reading (p. {currentPage || 1})</span>
@@ -1701,7 +1701,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                   </div>
                   <CitationPreview record={activeDocument.citation!} style={docCitationStyle} testIdPrefix="doc-citation" />
                   {isRetracted(activeDocument.citation) ? (
-                    <div data-testid="doc-retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
+                    <div data-testid="doc-retraction-warning" className="mt-2 rounded-md border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-2 text-[11px]">
                       <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>
                     </div>
                   ) : null}
@@ -1727,7 +1727,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                 : 'bg-white dark:bg-[#18181B] text-slate-700 dark:text-zinc-300 border border-[#E2E5EB] dark:border-[#27272A] hover:bg-[#F1F4F9] dark:hover:bg-[#222226]'
             }`}
           >
-            <Sparkle size={14} weight="fill" className={isAiOpen ? 'text-white' : 'text-[#325FEC] dark:text-[#518FFF]'} />
+            <ChatCircleText size={14} weight="fill" className={isAiOpen ? 'text-white' : 'text-[#325FEC] dark:text-[#518FFF]'} />
             <span>Doc Assistant</span>
           </button>
         </div>
@@ -1739,7 +1739,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
         {/* ── Custom Native-Style PDF Canvas (PDF.js Renderer with Integrated Left Panel) ── */}
         <div
           ref={pagesContainerRef}
-          className="grid-soft flex-1 overflow-hidden flex flex-col items-center bg-gradient-to-br from-[#E3EAF6] via-[#D8E1F1] to-[#C8D4EA] dark:bg-none dark:bg-[#09090B] relative transition-colors"
+          className="grid-soft flex-1 overflow-hidden flex flex-col items-center bg-[#E3EAF6] dark:bg-[#09090B] relative transition-colors"
         >
           {isLoadingDocs ? (
             /* ── Rich Document Reader Loading Skeleton (Smooth transition between sub-projects) ── */
@@ -1889,7 +1889,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
             />
             <div className="px-3 py-2 border-b border-[#E2E5EB] dark:border-[#27272A] flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <Sparkle size={14} className="text-[#325FEC] dark:text-[#518FFF]" weight="fill" />
+                <ChatCircleText size={14} className="text-[#325FEC] dark:text-[#518FFF]" weight="fill" />
                 <span className="text-xs font-display font-bold text-[#0F172A] dark:text-[#FAFAFA]">Doc Assistant</span>
               </div>
               <button onClick={() => setIsAiOpen(false)} className="p-0.5 text-slate-400 hover:text-[#0F172A] dark:hover:text-white cursor-pointer">
@@ -2016,7 +2016,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
               <button
                 onClick={handleAiQuestion}
                 disabled={!aiInput.trim() || isAiLoading}
-                className="p-1 bg-[#325FEC] hover:bg-[#274AC4] disabled:opacity-40 text-white rounded-md transition-colors shadow-xs"
+                className="p-1 btn-gradient disabled:opacity-40 rounded-md transition-colors shadow-xs"
               >
                 <PaperPlaneRight size={12} weight="fill" />
               </button>
@@ -2371,7 +2371,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
                     {/* Animated Progress Bar */}
                     <div className="w-full h-2 bg-slate-200 dark:bg-[#27272A] rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-zinc-800">
                       <div
-                        className="h-full bg-gradient-to-r from-[#325FEC] via-[#518FFF] to-[#38BDF8] rounded-full transition-all duration-300 ease-out relative"
+                        className="h-full bg-[#325FEC] rounded-full transition-all duration-300 ease-out relative"
                         style={{ width: `${Math.max(4, uploadProgress)}%` }}
                       >
                         {uploadProgress < 100 && (

@@ -28,7 +28,6 @@ import {
   SquaresFour,
   CornersOut,
   CornersIn,
-  Sparkle,
   Tag,
   MagnifyingGlass,
   Check,

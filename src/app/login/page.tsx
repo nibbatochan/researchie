@@ -9,7 +9,7 @@ import {
   EnvelopeSimple,
   User,
   ArrowRight,
-  Sparkle,
+  ChatCircleText,
   CheckCircle,
   ShieldCheck,
   House,
@@ -460,7 +460,7 @@ function LoginContent() {
                 onClick={() => handleDemoAccess('pro')}
                 className="font-semibold text-[#325FEC] dark:text-[#518FFF] hover:underline cursor-pointer flex items-center gap-1 text-xs"
               >
-                <Sparkle size={13} weight="fill" />
+                <ChatCircleText size={13} weight="fill" />
                 <span>Launch Instant Pro Demo</span>
               </button>
             </div>

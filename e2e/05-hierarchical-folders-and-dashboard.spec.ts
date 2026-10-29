@@ -50,13 +50,16 @@ test.describe('5. Nested Folders, Dashboard Hub & Document Vault Suite', () => {
       await page.waitForTimeout(400);
     }
 
-    // Click on a sub-project card or project card
+    // Clicking anywhere on a folder card opens its contents: the main project and its sub-projects
     const subProjectBtn = page.locator('[data-testid="subproject-card"]').first();
     await expect(subProjectBtn).toBeVisible({ timeout: 10000 });
     await subProjectBtn.click();
-    await page.waitForTimeout(600);
+    await expect(page.getByTestId('folder-contents-modal')).toBeVisible();
+    await expect(page.getByTestId('folder-main-row')).toHaveCount(1);
 
-    // Verify timeline workspace opened with heading
+    // Open on a row goes into that project's workspace
+    await page.getByTestId('folder-sub-row').first().getByRole('button', { name: 'Open' }).click();
+    await expect(page.getByTestId('folder-contents-modal')).toHaveCount(0);
     const projectHeader = page.locator('h1').first();
     await expect(projectHeader).toBeVisible({ timeout: 10000 });
   });

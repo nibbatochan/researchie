@@ -11,7 +11,7 @@ import {
   BookmarkSimple, 
   Rows, 
   ListDashes, 
-  Sparkle, 
+  ChatCircleText, 
   Checks, 
   X,
   CaretDown,
@@ -359,7 +359,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const [showCanvasMinimap, setShowCanvasMinimap] = useState(false);
 
   return (
-    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-gradient-to-br from-[#E3EAF6] via-[#D8E1F1] to-[#C8D4EA] dark:bg-none dark:bg-[#09090B] transition-colors">
+    <div className="grid-edges flex-1 flex flex-col h-full overflow-hidden bg-[#E3EAF6] dark:bg-[#09090B] transition-colors">
       {/* Sticky Toolbar */}
       <div className="px-3 py-1.5 md:px-5 md:py-2 border-b border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         {/* Project Title and Round Tags Button at the Left */}
@@ -767,7 +767,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                 }}
                 className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#325FEC] hover:bg-[#274AC4] text-white font-semibold text-xs transition-colors shadow-sm"
               >
-                <Sparkle size={12} weight="fill" />
+                <ChatCircleText size={12} weight="fill" />
                 <span>Generate Summary ({selectedIds.size})</span>
               </button>
             )}

@@ -566,7 +566,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               <div className="mt-1.5">
                 <CitationPreview record={citation} style={citationStyle} />
                 {isRetracted(citation) ? (
-                  <div data-testid="retraction-warning" className="mt-2 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 text-[11px]">
+                  <div data-testid="retraction-warning" className="mt-2 rounded-md border border-[#D2DCEA] dark:border-[#27272A] bg-white dark:bg-[#18181B] p-2 text-[11px]">
                     <p className="font-medium text-amber-700 dark:text-amber-400">{RETRACTED_MESSAGE}</p>
                   </div>
                 ) : null}

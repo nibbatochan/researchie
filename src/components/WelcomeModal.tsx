@@ -10,7 +10,7 @@ import {
   DownloadSimple,
   PuzzlePiece,
   Key,
-  Sparkle,
+  ChatCircleText,
   BookOpenText,
   FilePdf,
   SelectionPlus,
@@ -116,7 +116,7 @@ const WHAT_IT_IS: { icon: React.ElementType; title: string; body: string; tone: 
     ),
   },
   {
-    icon: Sparkle,
+    icon: ChatCircleText,
     title: 'Ask and cite',
     body: 'Ask AI answers from your clips and points back to them. Cite copies Vancouver, APA or AMA.',
     tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
@@ -137,7 +137,7 @@ const USE_CASES: { icon: React.ElementType; title: string; who: string; what: st
     steps: ['Make a project for the thesis and a sub-project per chapter.', 'Select a sentence in a paper and press Send (Alt+S).', 'Press Cite on a clip and pick Vancouver, APA or AMA.'],
   },
   {
-    icon: Sparkle,
+    icon: ChatCircleText,
     title: 'Ask your own reading',
     who: 'Anyone with a pile of clips and a question',
     what: 'Get answers drawn only from what you saved, each pointing back to the clips it used.',
@@ -385,7 +385,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, fir
                 </span>
               </span>
               <span className="ob-drift absolute right-[5%] bottom-[12%] w-60 opacity-60 rounded-2xl border border-white/20 bg-white/10 p-3" style={{ animationDelay: '2.1s', ['--ob-rot' as string]: '-3deg' }}>
-                <span className="flex items-center gap-2 text-[11px] font-semibold text-white/80"><Sparkle size={14} weight="bold" /> Ask AI</span>
+                <span className="flex items-center gap-2 text-[11px] font-semibold text-white/80"><ChatCircleText size={14} weight="bold" /> Ask AI</span>
                 <span className="mt-2 block text-xs leading-snug text-white">Survival improved to 17 months <span className="font-mono text-white/70">[1]</span></span>
                 <span className="mt-2 flex gap-1.5">
                   {['Vancouver', 'APA', 'AMA'].map((c) => (
@@ -666,7 +666,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose, fir
                           </div>
                           {/* A timeline, not cards: one line that draws down, a node per step. */}
                           <ol className="relative ml-1 pl-9 space-y-5">
-                            <span aria-hidden className="ob-line absolute left-[11px] top-2 bottom-2 w-px bg-gradient-to-b from-[#325FEC] via-[#325FEC]/40 to-transparent" />
+                            <span aria-hidden className="ob-line absolute left-[11px] top-2 bottom-2 w-px bg-[#325FEC]/40" />
                             {uc.steps.map((t, i) => (
                               <li key={t} className="ob-rise relative" style={rise(i + 1)}>
                                 <span aria-hidden className="absolute -left-9 top-0 flex w-6 h-6 items-center justify-center rounded-full bg-white dark:bg-[#0C0C0E] ring-2 ring-[#325FEC] text-[10px] font-mono font-semibold text-[#325FEC] dark:text-[#8DB4FF]">
@@ -750,7 +750,7 @@ const ExtensionIllustration: React.FC = () => (
   <div
     role="img"
     aria-label="Animation: the extension zip is downloaded, the Researchie puzzle piece lands in the browser toolbar, and a Send button appears on the page."
-    className="relative h-28 overflow-hidden rounded-2xl bg-gradient-to-br from-[#DCE7FA] to-[#EEF3F8] dark:from-[#14224F] dark:to-[#101018]"
+    className="relative h-28 overflow-hidden rounded-2xl bg-[#DCE7FA] dark:bg-[#14224F]"
   >
     <div aria-hidden className="absolute left-5 top-1/2 -translate-y-1/2 flex w-20 flex-col items-center gap-1 rounded-xl bg-white dark:bg-[#0C0C0E] px-3 py-3 shadow-sm ring-1 ring-black/5 dark:ring-white/10">
       <DownloadSimple size={20} weight="bold" className="text-[#325FEC] dark:text-[#8DB4FF]" />
@@ -781,7 +781,7 @@ const KeyIllustration: React.FC = () => (
   <div
     role="img"
     aria-label="Animation: a key slides into a field, the key is typed in as hidden dots, and a check mark confirms it is saved."
-    className="relative h-28 overflow-hidden rounded-2xl bg-gradient-to-br from-[#E6E3FB] to-[#EEF3F8] dark:from-[#251B4F] dark:to-[#101018]"
+    className="relative h-28 overflow-hidden rounded-2xl bg-[#E6E3FB] dark:bg-[#251B4F]"
   >
     <div aria-hidden className="absolute inset-x-6 top-1/2 -translate-y-1/2 max-w-md mx-auto">
       <div className="relative flex items-center gap-3 rounded-2xl bg-white dark:bg-[#0C0C0E] px-4 py-3 shadow-sm ring-1 ring-black/5 dark:ring-white/10">

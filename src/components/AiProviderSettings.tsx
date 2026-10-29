@@ -21,7 +21,7 @@ type Notice = { kind: 'ok' | 'error'; text: string; helpUrl?: string } | null;
 
 const LEVEL_STYLE = {
   ok: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300',
-  check: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300',
+  check: 'bg-white dark:bg-[#18181B] border-[#D2DCEA] dark:border-[#27272A] text-slate-700 dark:text-zinc-300',
   warn: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900 text-red-800 dark:text-red-300',
 } as const;
 

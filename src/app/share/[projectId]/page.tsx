@@ -5,7 +5,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Sparkle,
+  ChatCircleText,
+  CircleNotch,
   ShareNetwork,
   Copy,
   Check,
@@ -161,7 +162,7 @@ export default function PublicSharePage() {
     return (
       <div className="ob-grid min-h-screen bg-[#F8FAFC] dark:bg-[#09090B] text-slate-900 dark:text-zinc-100 flex flex-col items-center justify-center p-6 font-sans">
         <div className="w-12 h-12 rounded-2xl bg-[#325FEC]/10 flex items-center justify-center text-[#325FEC] animate-pulse mb-4">
-          <Sparkle size={24} weight="fill" />
+          <ChatCircleText size={24} weight="fill" />
         </div>
         <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">Loading research stream...</p>
       </div>
@@ -330,7 +331,7 @@ export default function PublicSharePage() {
               </>
             ) : duplicating ? (
               <>
-                <Sparkle size={14} className="animate-spin" />
+                <CircleNotch size={14} className="animate-spin" />
                 <span>Forking Stream...</span>
               </>
             ) : (

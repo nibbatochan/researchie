@@ -652,7 +652,7 @@ function EditorBody({ paper, onClose, onReload }: { paper: Paper; onClose: () =>
       )}
 
       {status.kind === 'conflict' && (
-        <div role="alert" className="flex flex-wrap items-center gap-3 px-4 py-2 text-xs bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border-b border-amber-300">
+        <div role="alert" className="flex flex-wrap items-center gap-3 px-4 py-2 text-xs bg-white dark:bg-[#18181B] text-slate-700 dark:text-zinc-300 border-b border-[#D2DCEA] dark:border-[#27272A]">
           <span>This paper was changed in another tab or window. Load that version, or keep yours (it saves over the other one).</span>
           <button type="button" onClick={onReload} data-testid="conflict-load" className="rounded-md border border-amber-400 px-2 py-1 font-semibold cursor-pointer">Load that version</button>
           <button type="button" onClick={autosave.keepMine} data-testid="conflict-keep" className="rounded-md bg-amber-600 px-2 py-1 font-semibold text-white cursor-pointer">Keep mine</button>

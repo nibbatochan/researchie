@@ -50,7 +50,7 @@ export const ResearchieAIFAB: React.FC<ResearchieAIFABProps> = ({
     >
       {/* Popover Action Menu on Hover */}
       {isHovered && !isOpen && (
-        <div className="mb-2.5 w-60 bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-2xl shadow-2xl p-1.5 space-y-1 animate-popIn backdrop-blur-md">
+        <div className="mb-2.5 w-60 bg-white dark:bg-[#121214] border border-[#E2E5EB] dark:border-[#27272A] rounded-2xl shadow-2xl p-1.5 space-y-1 animate-popIn">
           {/* Ask AI Option */}
           <button
             onClick={() => {

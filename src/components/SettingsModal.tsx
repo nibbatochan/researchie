@@ -17,7 +17,6 @@ import {
   Key,
   Eye,
   EyeSlash,
-  Sparkle,
   Warning,
   CheckCircle,
   FileCode,
