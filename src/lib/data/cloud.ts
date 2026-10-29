@@ -55,6 +55,10 @@ export function mapProject(p: any, role: Role = 'owner'): ResearchProject {
   } as ResearchProject;
 }
 
+// The clip columns the app uses. A clip row also holds its search embedding (768 numbers), which the list never
+// needs and which made every clip list several times bigger than it had to be.
+const ATOM_COLUMNS = 'id, project_id, user_id, type, title, content, metadata, tags, user_notes, captured_at';
+
 export function mapAtom(a: any): ResearchAtom {
   return {
     id: a.id,
@@ -88,9 +92,12 @@ export function makeCloud(db: Db) {
   /** Every project this user can reach, with their role: their own, ones shared with them, and the sub-projects of those. */
   async function accessibleRoles(userId: string): Promise<Map<string, Role>> {
     const out = new Map<string, Role>();
-    const { data: mine } = await db.from('projects').select('id').eq('user_id', userId);
+    // independent reads, run together
+    const [{ data: mine }, { data: member }] = await Promise.all([
+      db.from('projects').select('id').eq('user_id', userId),
+      db.from('project_members').select('project_id, role').eq('user_id', userId),
+    ]);
     for (const p of mine ?? []) out.set(p.id, 'owner');
-    const { data: member } = await db.from('project_members').select('project_id, role').eq('user_id', userId);
     const memberRole = new Map<string, Role>();
     for (const m of member ?? []) memberRole.set(m.project_id, m.role);
     if (memberRole.size) {
@@ -110,8 +117,9 @@ export function makeCloud(db: Db) {
 
   /** The project and its sub-projects, when the user may read the project. */
   async function projectFamily(userId: string, projectId: string): Promise<string[]> {
-    if (!canRead(await roleOn(userId, projectId))) return [];
-    const { data } = await db.from('projects').select('id').eq('parent_id', projectId);
+    // the role check and the sub-project lookup do not depend on each other; the lookup is dropped when access is refused
+    const [role, { data }] = await Promise.all([roleOn(userId, projectId), db.from('projects').select('id').eq('parent_id', projectId)]);
+    if (!canRead(role)) return [];
     return [projectId, ...(data ?? []).map((r: any) => r.id)];
   }
 
@@ -168,8 +176,7 @@ export function makeCloud(db: Db) {
 
   /** The user's own projects, then the ones shared with them (each marked with their role). */
   async function listProjects(userId: string): Promise<ResearchProject[]> {
-    const own = await listOwnProjects(userId);
-    const roles = await accessibleRoles(userId);
+    const [own, roles] = await Promise.all([listOwnProjects(userId), accessibleRoles(userId)]);
     const sharedIds = [...roles.entries()].filter(([, role]) => role !== 'owner').map(([id]) => id);
     if (sharedIds.length === 0) return own;
     const { data } = await db.from('projects').select('*').in('id', sharedIds).order('updated_at', { ascending: false });
@@ -226,13 +233,13 @@ export function makeCloud(db: Db) {
     const ids = await scopeIds(userId, scope);
     if (ids.length === 0) return [];
     const rows = await readAllRows(() =>
-      db.from('atoms').select('*').in('project_id', ids).order('captured_at', { ascending: false }).order('id', { ascending: false })
+      db.from('atoms').select(ATOM_COLUMNS).in('project_id', ids).order('captured_at', { ascending: false }).order('id', { ascending: false })
     );
     return rows.map(mapAtom);
   }
 
   async function atomRow(id: string) {
-    const { data } = await db.from('atoms').select('*').eq('id', id).maybeSingle();
+    const { data } = await db.from('atoms').select(ATOM_COLUMNS).eq('id', id).maybeSingle();
     return data ?? null;
   }
 

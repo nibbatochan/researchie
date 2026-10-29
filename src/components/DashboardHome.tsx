@@ -33,6 +33,8 @@ interface DashboardHomeProps {
   onOpenDocuments?: () => void;
   onOpenPapers?: () => void;
   onOpenShareModal?: (project: ResearchProject) => void;
+  /** True while the project list is still loading: folder cards are drawn as placeholders. */
+  loading?: boolean;
 }
 
 // ─── Illustration: clips of every kind rising out of a project folder ───
@@ -157,6 +159,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onDeleteProject,
   onOpenDocuments,
   onOpenShareModal,
+  loading = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [extensionOpen, setExtensionOpen] = useState(false);
@@ -601,7 +604,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
           {/* Folders: one card each */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-            {filteredMainProjects.map((m, i) => renderFolderCard(m, i))}
+            {loading && projects.length === 0
+              ? [0, 1, 2].map((i) => (
+                  <div key={i} data-testid="folder-skeleton" aria-hidden className="pt-16">
+                    <div className="h-56 rounded-3xl bg-[#E4ECF6] dark:bg-[#18181B] animate-pulse" />
+                  </div>
+                ))
+              : filteredMainProjects.map((m, i) => renderFolderCard(m, i))}
           </div>
         </section>
 

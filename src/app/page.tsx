@@ -87,6 +87,9 @@ export default function DashboardPage() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [sharingProject, setSharingProject] = useState<ResearchProject | null>(null);
 
+  const userIdRef = useRef<string | undefined>(undefined);
+  userIdRef.current = user?.id;
+
   // Fetch Projects
   const fetchProjects = useCallback(async () => {
     try {
@@ -103,7 +106,14 @@ export default function DashboardPage() {
             }
             return json.data;
           });
+          try {
+            if (userIdRef.current) localStorage.setItem(`researchie.projects.${userIdRef.current}`, JSON.stringify(json.data));
+          } catch {
+            // storage full or off: the cache is only a speed-up
+          }
+          // 'all' is a view, not a row in the list: keep it, or every refresh would jump to the first project.
           setActiveProjectId((prev) => {
+            if (prev === 'all') return prev;
             const match = json.data.find((p: any) => p.id === prev);
             return match ? prev : json.data[0].id;
           });
@@ -116,15 +126,35 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // The project on screen, and the clips already fetched for each project this visit. Opening a project again shows its
+  // clips at once while a fresh copy loads. Only an answer for the project on screen may change the screen: a slow
+  // answer for an earlier project must never replace the clips of this one (that made content jump between projects).
+  const activeProjectRef = useRef<string | null>(null);
+  activeProjectRef.current = activeProjectId;
+  const atomsCache = useRef(new Map<string, ResearchAtom[]>());
+  const atomsSeq = useRef(0);
+  const atomsApplied = useRef(0);
+  const atomsAbort = useRef<AbortController | null>(null);
+
   // Fetch Atoms for Active Project
   const fetchAtoms = useCallback(async (projId: string, background = false) => {
-    if (!background) setLoadingAtoms(true);
+    const seq = ++atomsSeq.current;
+    let signal: AbortSignal | undefined;
+    if (!background) {
+      atomsAbort.current?.abort(); // a project opened before this one no longer needs its answer
+      atomsAbort.current = new AbortController();
+      signal = atomsAbort.current.signal;
+      setLoadingAtoms(true);
+    }
     try {
       const url = projId === 'all' ? '/api/atoms' : `/api/atoms?projectId=${encodeURIComponent(projId)}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal });
       if (res.ok) {
         const json = await res.json();
+        if (projId !== activeProjectRef.current || seq < atomsApplied.current) return; // stale
+        atomsApplied.current = seq;
         if (json.data && Array.isArray(json.data)) {
+          atomsCache.current.set(projId, json.data);
           setAtoms((prev) => {
             if (
               prev.length === json.data.length &&
@@ -137,9 +167,9 @@ export default function DashboardPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load atoms:', err);
+      if ((err as Error)?.name !== 'AbortError') console.error('Failed to load atoms:', err);
     } finally {
-      if (!background) setLoadingAtoms(false);
+      if (!background && projId === activeProjectRef.current) setLoadingAtoms(false);
     }
   }, []);
 
@@ -148,11 +178,30 @@ export default function DashboardPage() {
     fetchProjects();
   }, [fetchProjects]);
 
+  // The project list from the last visit (kept per account in this browser) paints at once; the fresh list replaces it
+  // when it arrives. Without it the dashboard was empty until Supabase answered.
+  const PROJECTS_CACHE = (id: string) => `researchie.projects.${id}`;
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const raw = localStorage.getItem(PROJECTS_CACHE(user.id));
+      const cached = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(cached) && cached.length > 0) {
+        setProjects((prev) => (prev.length > 0 ? prev : cached));
+        setActiveProjectId((prev) => prev ?? cached[0].id);
+        setLoadingProjects(false);
+      }
+    } catch {
+      // no storage: the list just loads
+    }
+  }, [user?.id]);
+
   // When activeProjectId changes, fetch its atoms
   useEffect(() => {
-    if (activeProjectId) {
-      fetchAtoms(activeProjectId);
-    }
+    if (!activeProjectId) return;
+    const cached = atomsCache.current.get(activeProjectId);
+    setAtoms(cached ?? []); // never show the previous project's clips under this one
+    void fetchAtoms(activeProjectId, Boolean(cached)); // cached clips show at once; no spinner while the fresh copy loads
   }, [activeProjectId, fetchAtoms]);
 
   // Global Alt+P / Option+P keyboard shortcut to enter feed from dashboard
@@ -189,14 +238,22 @@ export default function DashboardPage() {
     }
   };
 
-  // 2.5-Second Auto-Sync Polling for Real-Time Extension Updates & Project Counts
+  // Background sync for clips the extension adds. Every 15 seconds, only while the tab is visible and only in a project
+  // view (not the dashboard or papers), never two at once, and again as soon as the tab comes back. Project counts refresh
+  // every fourth round. It used to run every 2.5 seconds everywhere, which queued requests faster than the server
+  // could answer them and made every project open slower the longer the page stayed open.
   useEffect(() => {
-    if (!activeProjectId) return;
+    if (!activeProjectId || workspaceMode === 'dashboard' || workspaceMode === 'papers') return;
 
-    const interval = setInterval(() => {
-      fetchAtoms(activeProjectId, true);
-      // Also refresh projects count in background
-      fetch('/api/projects')
+    let busy = false;
+    let round = 0;
+    const refresh = async () => {
+      if (busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      try {
+        await fetchAtoms(activeProjectId, true);
+        if (++round % 4 !== 0) return;
+        await fetch('/api/projects')
         .then((r) => r.json())
         .then((j) => {
           if (j.data && Array.isArray(j.data)) {
@@ -212,10 +269,19 @@ export default function DashboardPage() {
           }
         })
         .catch(() => {});
-    }, 2500);
+      } finally {
+        busy = false;
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, [activeProjectId, fetchAtoms]);
+    const interval = setInterval(() => void refresh(), 15000);
+    const onVisible = () => void refresh();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [activeProjectId, workspaceMode, fetchAtoms]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -487,6 +553,7 @@ export default function DashboardPage() {
         ) : workspaceMode === 'dashboard' ? (
           <DashboardHome
             projects={projects}
+            loading={loadingProjects}
             atoms={atoms}
             onSelectProject={(id, mode = 'feed') => handleSelectProject(id, mode)}
             onOpenCreateModal={handleOpenCreateModal}
