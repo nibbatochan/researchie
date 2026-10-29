@@ -67,6 +67,11 @@ export const localStore: DataStore = {
     return getLocalAtoms(scope);
   },
 
+  async atomsStamp(_userId, scope) {
+    const list = getLocalAtoms(scope);
+    return { count: list.length, latest: list.reduce<string | null>((m, a) => (a.capturedAt && (!m || a.capturedAt > m) ? a.capturedAt : m), null) };
+  },
+
   async getAtom(_userId, id) {
     return getLocalAtoms().find((a) => a.id === id) ?? null;
   },

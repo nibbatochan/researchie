@@ -238,6 +238,16 @@ export function makeCloud(db: Db) {
     return rows.map(mapAtom);
   }
 
+  async function atomsStamp(userId: string, scope?: string): Promise<{ count: number; latest: string | null }> {
+    const ids = await scopeIds(userId, scope);
+    if (ids.length === 0) return { count: 0, latest: null };
+    const [{ count }, { data }] = await Promise.all([
+      db.from('atoms').select('id', { count: 'exact', head: true }).in('project_id', ids),
+      db.from('atoms').select('captured_at').in('project_id', ids).order('captured_at', { ascending: false }).limit(1),
+    ]);
+    return { count: count ?? 0, latest: data?.[0]?.captured_at ?? null };
+  }
+
   async function atomRow(id: string) {
     const { data } = await db.from('atoms').select(ATOM_COLUMNS).eq('id', id).maybeSingle();
     return data ?? null;
@@ -346,6 +356,7 @@ export function makeCloud(db: Db) {
     createProject,
     deleteProject,
     listAtoms,
+    atomsStamp,
     getAtom,
     insertAtom,
     updateAtom,

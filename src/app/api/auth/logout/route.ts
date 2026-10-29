@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AUTH_REQUIRED } from '@/lib/auth/server';
+import { AUTH_REQUIRED, clearAuthCache } from '@/lib/auth/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { isCrossSiteWrite } from '@/lib/auth/tokens';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       if (!ok) console.warn('Sign-out: could not revoke extension tokens for', who.user.id);
     }
     await supabase.auth.signOut({ scope: body?.everywhere ? 'global' : 'local' });
+    clearAuthCache();
   } catch {
     // The cookies are cleared below either way.
   }

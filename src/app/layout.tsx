@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AgentationWrapper } from '@/components/AgentationWrapper';
 import { ThemeProvider } from '@/lib/theme';
 import { AuthProvider } from '@/lib/auth/authContext';
 import { PrefsProvider } from '@/lib/prefs/prefsContext';
@@ -48,7 +47,6 @@ export default function RootLayout({
             <PrefsProvider>
               <SettingsProvider>
                 {children}
-                <AgentationWrapper />
               </SettingsProvider>
             </PrefsProvider>
           </AuthProvider>

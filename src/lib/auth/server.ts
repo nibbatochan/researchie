@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -20,6 +21,16 @@ export type AuthResult = { user: AuthedUser; response?: undefined } | { user?: u
 
 function json(status: number, error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ success: false, error, ...extra }, { status });
+}
+
+// One page load makes several API calls, and each one used to ask the Supabase auth server to check the same session.
+// A session that passed that check is remembered for 30 seconds, by a hash of its token, on the warm server that
+// checked it. A forged or unknown token is never in the map, so it still goes to the auth server and fails. The cost:
+// a session ended elsewhere can still pass on that server for up to 30 seconds (sign-out here clears the map).
+const AUTH_CACHE_MS = 30_000;
+const authCache = new Map<string, { user: AuthedUser; expires: number }>();
+export function clearAuthCache(): void {
+  authCache.clear();
 }
 
 /** The signed-in user for this request, or null. Never throws. */
@@ -48,10 +59,21 @@ export async function getRequestUser(request: Request, opts: { allowToken?: bool
   try {
     if (isCrossSiteWrite(request.method, request.headers.get('origin'), request.headers.get('host'))) return null;
     const supabase = await createServerSupabaseClient();
+    // Only the token is read here, to key the memory; it is not trusted until getUser() has checked it.
+    const { data: stored } = await supabase.auth.getSession();
+    const token = stored.session?.access_token;
+    const key = token ? createHash('sha256').update(token).digest('hex') : null;
+    const hit = key ? authCache.get(key) : undefined;
+    if (hit && hit.expires > Date.now()) return hit.user;
     // getUser() asks the auth server to check the session, so a forged cookie does not pass.
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) return null;
-    return { id: data.user.id, email: data.user.email ?? undefined, via: 'cookie' };
+    const user: AuthedUser = { id: data.user.id, email: data.user.email ?? undefined, via: 'cookie' };
+    if (key) {
+      if (authCache.size > 500) authCache.clear();
+      authCache.set(key, { user, expires: Date.now() + AUTH_CACHE_MS });
+    }
+    return user;
   } catch {
     return null;
   }

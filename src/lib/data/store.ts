@@ -29,6 +29,8 @@ export interface DataStore {
   deleteProject(userId: string, projectId: string, moveTo?: string): Promise<boolean>;
 
   listAtoms(userId: string, scope?: string): Promise<ResearchAtom[]>;
+  /** A cheap fingerprint of the clips in scope (how many, and the newest capture time), so the page can tell whether the full list changed. */
+  atomsStamp(userId: string, scope?: string): Promise<{ count: number; latest: string | null }>;
   getAtom(userId: string, id: string): Promise<ResearchAtom | null>;
   /** Returns the clip, or null when the project is not usable. A second save of the same id returns the first. */
   insertAtom(userId: string, atom: ResearchAtom): Promise<ResearchAtom | null>;

@@ -25,13 +25,30 @@ export async function OPTIONS() {
   });
 }
 
+// An image kept inside its clip as base64 text can be several hundred KB, and the list carried every one of them: in a
+// real project they were 80% of the response. With ?slim=1 the timeline gets a short address for such an image, and the
+// browser loads the picture itself (and keeps it) from /api/atoms/<id>/image.
+const INLINE_IMAGE_MIN = 2000;
+function slimImage<T extends { id: string; content?: any }>(atom: T): T {
+  const url = atom.content?.imageUrl;
+  if (typeof url === 'string' && url.startsWith('data:image/') && url.length > INLINE_IMAGE_MIN) {
+    return { ...atom, content: { ...atom.content, imageUrl: `/api/atoms/${encodeURIComponent(atom.id)}/image` } };
+  }
+  return atom;
+}
+
 export async function GET(request: Request) {
   const auth = await authorize(request);
   if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId') || undefined;
-    const data = await store.listAtoms(auth.user.id, projectId);
+    // ?stamp=1: how many clips and the newest, for the page's background check; the full list is fetched only when it changed
+    if (searchParams.get('stamp') === '1') {
+      return NextResponse.json({ success: true, ...(await store.atomsStamp(auth.user.id, projectId)) });
+    }
+    const list = await store.listAtoms(auth.user.id, projectId);
+    const data = searchParams.get('slim') === '1' ? list.map(slimImage) : list;
     return NextResponse.json({ success: true, source: STORE_SOURCE, data });
   } catch (error) {
     console.error('GET /api/atoms error:', error);

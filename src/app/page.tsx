@@ -147,7 +147,7 @@ export default function DashboardPage() {
       setLoadingAtoms(true);
     }
     try {
-      const url = projId === 'all' ? '/api/atoms' : `/api/atoms?projectId=${encodeURIComponent(projId)}`;
+      const url = projId === 'all' ? '/api/atoms?slim=1' : `/api/atoms?projectId=${encodeURIComponent(projId)}&slim=1`;
       const res = await fetch(url, { signal });
       if (res.ok) {
         const json = await res.json();
@@ -247,11 +247,21 @@ export default function DashboardPage() {
 
     let busy = false;
     let round = 0;
+    let lastStamp: string | null = null;
+    const controller = new AbortController(); // leaving this project cancels a check still running
     const refresh = async () => {
       if (busy || document.visibilityState !== 'visible') return;
       busy = true;
       try {
-        await fetchAtoms(activeProjectId, true);
+        // A small question first: how many clips, and the newest. The whole list is fetched only if the answer changed.
+        const stampUrl = activeProjectId === 'all' ? '/api/atoms?stamp=1' : `/api/atoms?projectId=${encodeURIComponent(activeProjectId)}&stamp=1`;
+        const res = await fetch(stampUrl, { signal: controller.signal });
+        const stamp = res.ok ? await res.json() : null;
+        const key = stamp && typeof stamp.count === 'number' ? `${stamp.count}|${stamp.latest}` : null;
+        if (key === null || key !== lastStamp) {
+          lastStamp = key;
+          await fetchAtoms(activeProjectId, true);
+        }
         if (++round % 4 !== 0) return;
         await fetch('/api/projects')
         .then((r) => r.json())
@@ -269,6 +279,8 @@ export default function DashboardPage() {
           }
         })
         .catch(() => {});
+      } catch {
+        // cancelled or offline: the next round tries again
       } finally {
         busy = false;
       }
@@ -278,6 +290,7 @@ export default function DashboardPage() {
     const onVisible = () => void refresh();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      controller.abort();
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };

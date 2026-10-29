@@ -14,22 +14,32 @@ export async function OPTIONS() {
   });
 }
 
+// Invitations are looked for at most once a minute per person on a warm server, not on every project list.
+const lastInviteCheck = new Map<string, number>();
+
 export async function GET(request: Request) {
   const auth = await authorize(request);
   if (auth.response) return auth.response;
   // Only a browser session knows the person's own address (an extension token does not carry it).
-  if (AUTH_REQUIRED && auth.user.via === 'cookie' && auth.user.email) {
+  if (AUTH_REQUIRED && auth.user.via === 'cookie' && auth.user.email && Date.now() - (lastInviteCheck.get(auth.user.id) ?? 0) > 60_000) {
+    lastInviteCheck.set(auth.user.id, Date.now());
     try {
       await sharing.claimInvites(auth.user.id, auth.user.email);
     } catch {
       // an invitation that cannot be claimed now is tried again on the next load
     }
   }
-  let data = await store.listProjects(auth.user.id);
+  // The list and the waiting counts do not depend on each other, so they are read together.
+  const wantsCounts = AUTH_REQUIRED && auth.user.via === 'cookie';
+  const [listed, countsResult] = await Promise.all([
+    store.listProjects(auth.user.id),
+    wantsCounts ? sharing.pendingRequestCounts(auth.user.id).then((m) => ({ ok: true as const, m }), () => ({ ok: false as const })) : Promise.resolve(null),
+  ]);
+  let data = listed;
   // The owner sees how many people are waiting for access on each of their projects.
-  if (AUTH_REQUIRED && auth.user.via === 'cookie') {
+  if (countsResult && countsResult.ok) {
     try {
-      const waiting = await sharing.pendingRequestCounts(auth.user.id);
+      const waiting = countsResult.m;
       if (waiting.size > 0) data = data.map((p) => (waiting.has(p.id) ? { ...p, pendingRequests: waiting.get(p.id) } : p));
     } catch {
       // the count is a convenience
