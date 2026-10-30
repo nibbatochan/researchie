@@ -8,6 +8,7 @@ import {
   deleteLocalAtom,
   createLocalProject,
   deleteLocalProject,
+  updateLocalProject,
 } from './researchStore';
 import { getProjectDocuments, getDocumentById, addDocument as addLocalDocument, deleteDocument as deleteLocalDocument, setDocumentCitation as setLocalDocumentCitation } from './sampleDocuments';
 import type { DataStore } from './store';
@@ -47,6 +48,10 @@ export const localStore: DataStore = {
       parentId: input.parentId ?? null,
       folderIcon: input.folderIcon,
     });
+  },
+
+  async updateProject(_userId, projectId, patch) {
+    return updateLocalProject(projectId, patch);
   },
 
   // Deleting a project that is already gone still answers "done": a repeated delete is harmless.

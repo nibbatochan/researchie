@@ -428,7 +428,32 @@ export function makeSharing(db: Db, roleOn: (userId: string, projectId: string) 
     return out;
   }
 
-  return { notifications, listAccess, invite, cancelInvite, setRole, removeMember, claimInvites, createLink, revokeLink, resolveLink, readByLink, joinViaLink, accessState, requestAccess, decideRequest, pendingRequestCounts };
+  /** The requests still waiting on projects this person owns, newest first, for the notification box. */
+  async function pendingRequests(userId: string): Promise<{ id: string; projectId: string; projectTitle: string; who: string; message: string; createdAt: string }[]> {
+    const { data: mine } = await db.from('projects').select('id, title').eq('user_id', userId);
+    const titles = new Map<string, string>((mine ?? []).map((p: any) => [p.id, p.title]));
+    if (titles.size === 0) return [];
+    const { data } = await db
+      .from('access_requests')
+      .select('id, project_id, user_id, message, created_at')
+      .in('project_id', [...titles.keys()])
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) return [];
+    const people = await profiles(rows.map((r) => r.user_id));
+    return rows.map((r) => ({
+      id: r.id,
+      projectId: r.project_id,
+      projectTitle: titles.get(r.project_id) ?? '',
+      who: person(people, r.user_id).name,
+      message: r.message || '',
+      createdAt: r.created_at,
+    }));
+  }
+
+  return { notifications, pendingRequests,listAccess, invite, cancelInvite, setRole, removeMember, claimInvites, createLink, revokeLink, resolveLink, readByLink, joinViaLink, accessState, requestAccess, decideRequest, pendingRequestCounts };
 }
 
 export type Sharing = ReturnType<typeof makeSharing>;

@@ -57,7 +57,7 @@ const DEFAULT_DEMO_USER: UserProfile = {
 };
 
 // Pages a signed-out visitor may open on the tester deployment.
-const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/share'];
+const PUBLIC_PATHS = ['/login', '/signup', '/auth', '/share', '/welcome'];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

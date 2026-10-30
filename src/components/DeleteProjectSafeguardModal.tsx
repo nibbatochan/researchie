@@ -11,6 +11,8 @@ interface DeleteProjectSafeguardModalProps {
   subProjects?: ResearchProject[];
   atoms: ResearchAtom[];
   onConfirmDelete: (projectId: string, moveAtomsToUnfiled?: boolean) => void;
+  /** Where "Preserve clips" sends the clips: the parent folder, another folder, or a new "Unfiled clips" project. */
+  keepTarget?: string;
 }
 
 export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalProps> = ({
@@ -20,6 +22,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
   subProjects = [],
   atoms,
   onConfirmDelete,
+  keepTarget,
 }) => {
   const [confirmationInput, setConfirmationInput] = useState('');
   const [strategy, setStrategy] = useState<'archive_clips' | 'hard_purge'>('archive_clips');
@@ -114,7 +117,7 @@ export const DeleteProjectSafeguardModal: React.FC<DeleteProjectSafeguardModalPr
                   className="accent-[#325FEC]"
                 />
                 <span className="text-xs">
-                  <strong>Preserve clips:</strong> Move {affectedAtoms.length} clips to Global Feed
+                  <strong>Preserve clips:</strong> Move {affectedAtoms.length} {affectedAtoms.length === 1 ? 'clip' : 'clips'} to {keepTarget ?? 'another project'}. The sub-projects are still deleted.
                 </span>
               </label>
 

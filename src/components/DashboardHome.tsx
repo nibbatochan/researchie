@@ -16,13 +16,14 @@ import {
   Trash,
   ShareNetwork,
   PuzzlePiece,
-  BookOpenText, Article } from '@phosphor-icons/react';
+  BookOpenText, Article, DotsThree } from '@phosphor-icons/react';
 import { ResearchProject, ResearchAtom } from '@/lib/types/research';
 import { GetExtensionModal } from './GetExtensionModal';
 import { WelcomeModal, WELCOME_SEEN_KEY, WELCOME_VERSION } from './WelcomeModal';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 import { ProjectAvatar } from './ProjectAvatar';
 import { FolderContentsModal } from './FolderContentsModal';
+import { ProjectSettingsModal, type ProjectSettingsPatch } from './ProjectSettingsModal';
 
 interface DashboardHomeProps {
   projects: ResearchProject[];
@@ -30,6 +31,8 @@ interface DashboardHomeProps {
   onSelectProject: (projectId: string, mode?: 'feed' | 'canvas' | 'reader') => void;
   onOpenCreateModal: (parentId?: string) => void;
   onDeleteProject?: (projectId: string) => void;
+  /** Saves a project's name or avatar. Throws when the server refuses. */
+  onUpdateProject?: (projectId: string, patch: ProjectSettingsPatch) => Promise<void>;
   onOpenDocuments?: () => void;
   onOpenPapers?: () => void;
   onOpenShareModal?: (project: ResearchProject) => void;
@@ -157,6 +160,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onSelectProject,
   onOpenCreateModal,
   onDeleteProject,
+  onUpdateProject,
   onOpenDocuments,
   onOpenShareModal,
   loading = false,
@@ -165,6 +169,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [extensionOpen, setExtensionOpen] = useState(false);
   // The folder whose contents (main project and sub-projects) are open. Any click on a folder card opens it.
   const [openFolderId, setOpenFolderId] = useState<string | null>(null);
+  // The folder whose settings (name, avatar) are open from its three dots.
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  const settingsProject = settingsId ? projects.find((p) => p.id === settingsId) ?? null : null;
   const prefs = usePrefs();
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [welcomeFirstRun, setWelcomeFirstRun] = useState(false);
@@ -270,13 +277,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     const canManage = !isShared(mainProj);
     // No clips: an empty folder. Then 1, 2 and 3 papers as it fills up.
     const papers = total === 0 ? 0 : total < 10 ? 1 : total < 50 ? 2 : 3;
+    // The colour chosen when the folder was made. The tab and the back are the same colour, a little darker.
+    const color = mainProj.color || '#325FEC';
 
     return (
       <div key={mainProj.id} style={{ ['--i' as string]: index } as React.CSSProperties} onClick={() => setOpenFolderId(mainProj.id)} className="animate-cardIn group relative pt-16 cursor-pointer">
         {/* The folder behind: tab, back, and a paper for each step of content */}
         <div className="absolute inset-x-0 top-0 h-28 pointer-events-none">
-          <div className="absolute left-0 top-0 h-9 w-28 rounded-t-2xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
-          <div className="absolute inset-x-0 top-5 bottom-0 rounded-t-3xl bg-[#3F6CE8] dark:bg-[#1D3680]" />
+          <div className="folder-tone-back absolute left-0 top-0 h-9 w-28 rounded-t-2xl" style={{ ['--folder' as string]: color } as React.CSSProperties} />
+          <div className="folder-tone-back absolute inset-x-0 top-5 bottom-0 rounded-t-3xl" style={{ ['--folder' as string]: color } as React.CSSProperties} />
           {papers >= 3 && (
             <div className="absolute inset-x-8 top-6 bottom-0 rounded-t-2xl rotate-[1.6deg] origin-bottom-right shadow-sm bg-white/80 dark:bg-[#BFCDEC]" />
           )}
@@ -293,7 +302,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           )}
         </div>
 
-        <div className="relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 bg-[#325FEC] dark:bg-[#1B3078] border-white/25 dark:border-white/10 text-white">
+        <div className="folder-tone relative rounded-3xl border p-4 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.35)] transition-transform group-hover:-translate-y-0.5 border-white/25 dark:border-white/10 text-white" style={{ ['--folder' as string]: color } as React.CSSProperties}>
           <div className="flex items-start justify-between gap-2 min-h-[3.75rem]">
             <div className="min-w-0 space-y-0.5">
               <h3
@@ -342,6 +351,20 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <Trash size={14} />
                 </button>
               )}
+              {onUpdateProject && canManage && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSettingsId(mainProj.id);
+                  }}
+                  className="p-1.5 rounded-lg transition-colors cursor-pointer text-white/80 hover:text-white hover:bg-white/15"
+                  title={`Settings for ${mainProj.title}`}
+                  aria-label={`Settings for ${mainProj.title}`}
+                >
+                  <DotsThree size={16} weight="bold" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -367,14 +390,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
           </div>
 
-          <div className="mt-3 pt-3 flex items-center justify-between gap-2 border-t border-white/25">
+          <div className="mt-3 pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/25">
             {canManage ? (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenCreateModal(mainProj.id);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium border transition-colors cursor-pointer bg-white/15 border-white/30 text-white hover:bg-white/25"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-sans font-medium whitespace-nowrap border transition-colors cursor-pointer bg-white/15 border-white/30 text-white hover:bg-white/25"
                 title="Add a sub-project"
               >
                 <Plus size={13} weight="bold" />
@@ -385,10 +408,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
 
             <button
-              onClick={() => setOpenFolderId(mainProj.id)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl btn-gradient text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectProject(mainProj.id, 'feed');
+              }}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl btn-gradient text-xs font-semibold whitespace-nowrap shadow-sm transition-colors cursor-pointer"
             >
-              <span>Open Folder</span>
+              <span>Open folder</span>
               <ArrowRight size={12} weight="bold" />
             </button>
           </div>
@@ -435,12 +461,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             canManage={!isShared(openFolder)}
             onOpenProject={(id) => onSelectProject(id, 'feed')}
             onDeleteProject={onDeleteProject}
+            onRenameProject={onUpdateProject ? (id, title) => onUpdateProject(id, { title }) : undefined}
             onAddSubProject={() => {
               setOpenFolderId(null);
               onOpenCreateModal(openFolder.id);
             }}
             onClose={() => setOpenFolderId(null)}
           />
+        )}
+
+        {onUpdateProject && (
+          <ProjectSettingsModal project={settingsProject} onSave={onUpdateProject} onClose={() => setSettingsId(null)} />
         )}
 
         {/* ─── TOP HERO: UNBOXED, LEFT-ALIGNED (120px Top Padding) ── */}

@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/lib/theme';
 import { AuthProvider } from '@/lib/auth/authContext';
 import { PrefsProvider } from '@/lib/prefs/prefsContext';
 import { SettingsProvider } from '@/lib/settings/settingsContext';
+import { DeleteToastProvider } from '@/components/DeleteToast';
 
 export const metadata: Metadata = {
   title: 'Researchie — In-Situ AI Research Workbench',
@@ -46,7 +47,7 @@ export default function RootLayout({
           <AuthProvider>
             <PrefsProvider>
               <SettingsProvider>
-                {children}
+                <DeleteToastProvider>{children}</DeleteToastProvider>
               </SettingsProvider>
             </PrefsProvider>
           </AuthProvider>

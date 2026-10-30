@@ -337,6 +337,54 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
   const pageCount = Math.max(1, Math.ceil(filteredAtoms.length / TIMELINE_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const pageAtoms = filteredAtoms.slice(currentPage * TIMELINE_PAGE_SIZE, (currentPage + 1) * TIMELINE_PAGE_SIZE);
+  // Page numbers: the first and last page, and the pages next to the current one; a gap is shown as dots.
+  const pageNumbers: (number | 'gap')[] = [];
+  for (let i = 0; i < pageCount; i++) {
+    if (i === 0 || i === pageCount - 1 || Math.abs(i - currentPage) <= 1) pageNumbers.push(i);
+    else if (pageNumbers[pageNumbers.length - 1] !== 'gap') pageNumbers.push('gap');
+  }
+  // The pager sits above the list, not below it: a shorter last page would pull the scroll position back to the top.
+  const pager = pageCount > 1 && (
+    <nav aria-label="Timeline pages" data-testid="timeline-pager" className="sticky top-0 z-10 -mt-1 flex items-center justify-between gap-2 py-2 bg-[#EAEEF4] dark:bg-[#09090B] text-xs text-slate-600 dark:text-zinc-400">
+      <button
+        type="button"
+        onClick={() => setPage(currentPage - 1)}
+        disabled={currentPage === 0}
+        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
+      >
+        <CaretLeft size={13} /> Previous
+      </button>
+      <div className="flex items-center gap-1">
+        {pageNumbers.map((n, i) =>
+          n === 'gap' ? (
+            <span key={`gap-${i}`} className="px-1.5 text-slate-400">…</span>
+          ) : (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setPage(n)}
+              aria-current={n === currentPage ? 'page' : undefined}
+              className={`min-w-[2rem] px-2 py-1.5 rounded-lg border font-mono font-semibold cursor-pointer ${
+                n === currentPage
+                  ? 'border-[#325FEC] dark:border-[#518FFF] bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white'
+                  : 'border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#18181B]'
+              }`}
+            >
+              {n + 1}
+            </button>
+          )
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setPage(currentPage + 1)}
+        disabled={currentPage >= pageCount - 1}
+        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
+      >
+        Next <CaretRight size={13} />
+      </button>
+    </nav>
+  );
 
   const selectedFilterObj = FILTER_OPTIONS.find((f) => f.id === filterType) || FILTER_OPTIONS[0];
   const SelectedFilterIcon = selectedFilterObj.icon;
@@ -845,6 +893,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
               </div>
             ) : (
               <div className="max-w-4xl mx-auto flex flex-col gap-[26px]">
+                {pager}
                 {pageAtoms.map((atom) => (
                   <React.Fragment key={atom.id}>
                     <div className={freshAtomIds.has(atom.id) ? 'animate-clipIn' : undefined}>
@@ -863,27 +912,6 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = ({
                     </div>
                   </React.Fragment>
                 ))}
-                {pageCount > 1 && (
-                  <nav aria-label="Timeline pages" data-testid="timeline-pager" className="flex items-center justify-between gap-3 pt-2 text-xs text-slate-600 dark:text-zinc-400">
-                    <button
-                      type="button"
-                      onClick={() => setPage(currentPage - 1)}
-                      disabled={currentPage === 0}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
-                    >
-                      <CaretLeft size={13} /> Previous
-                    </button>
-                    <span>Page {currentPage + 1} of {pageCount}</span>
-                    <button
-                      type="button"
-                      onClick={() => setPage(currentPage + 1)}
-                      disabled={currentPage >= pageCount - 1}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9E1EC] dark:border-[#27272A] font-semibold hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] disabled:opacity-40 disabled:cursor-default cursor-pointer"
-                    >
-                      Next <CaretRight size={13} />
-                    </button>
-                  </nav>
-                )}
               </div>
             )}
           </div>

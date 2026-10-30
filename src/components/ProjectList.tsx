@@ -509,7 +509,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                                 title="New information updated from plugin"
                               />
                             )}
-                            <ProjectAvatar title={child.title} folderIcon={child.folderIcon} seed={child.id} color={child.color} size={18} />
+                            <ProjectAvatar title={child.title} folderIcon={child.folderIcon} seed={child.id} color={child.color} size={13} />
                             <span className="truncate" title={child.title}>{child.title}</span>
                           </div>
 

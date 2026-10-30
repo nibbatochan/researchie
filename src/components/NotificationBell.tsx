@@ -53,6 +53,23 @@ const ACTION: Record<string, { label: string; share: boolean } | undefined> = {
 // Changes that alter the sidebar's "Shared with me" list.
 const CHANGES_PROJECTS = new Set(['shared', 'role_changed', 'removed', 'request_approved']);
 
+// What the box shows when it opens (see /api/notifications/panel).
+interface PanelClip {
+  id: string;
+  title: string;
+  projectId: string;
+  projectTitle: string;
+  capturedAt: string | null;
+}
+interface PanelRequest {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  who: string;
+  message: string;
+  createdAt: string;
+}
+
 const POLL_MS = 30_000;
 const TOAST_MS = 7_000;
 
@@ -89,6 +106,20 @@ export const NotificationBell: React.FC<Props> = ({ onOpenProject, onProjectsMay
   changed.current = onProjectsMayHaveChanged;
   // Items that were unread when the box opened stay highlighted until it closes.
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+  const [recent, setRecent] = useState<PanelClip[]>([]);
+  const [requests, setRequests] = useState<PanelRequest[]>([]);
+
+  const loadPanel = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications/panel', { cache: 'no-store', credentials: 'same-origin' });
+      const json = await res.json();
+      if (!json.success) return;
+      setRecent(json.activity ?? []);
+      setRequests(json.requests ?? []);
+    } catch {
+      /* the box keeps what it had */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -162,6 +193,7 @@ export const NotificationBell: React.FC<Props> = ({ onOpenProject, onProjectsMay
     if (r) setAnchor({ left: compact ? r.right + 8 : Math.max(8, r.left - 120), bottom: Math.max(8, window.innerHeight - r.top + 8) });
     setFreshIds(new Set(items.filter((i) => !i.read).map((i) => i.id)));
     setOpen(true);
+    void loadPanel();
     setToast(null);
     if (unread > 0) {
       setItems((prev) => prev.map((i) => ({ ...i, read: true })));
@@ -259,7 +291,10 @@ export const NotificationBell: React.FC<Props> = ({ onOpenProject, onProjectsMay
           className="fixed z-[90] w-[22rem] max-w-[calc(100vw-16px)] max-h-[26rem] flex flex-col rounded-2xl border border-[#D2DCEA] dark:border-[#27272A] bg-[#FAFBFD] dark:bg-[#121214] shadow-2xl animate-popIn"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#D2DCEA] dark:border-[#27272A]">
-            <h2 className="text-sm font-display font-bold text-[#0F172A] dark:text-white">Notifications</h2>
+            <h2 className="flex items-center gap-2 text-sm font-display font-bold text-[#0F172A] dark:text-white">
+              <Bell size={15} weight="bold" className="text-[#325FEC] dark:text-[#8DB4FF]" aria-hidden />
+              Notifications
+            </h2>
             {items.length > 0 && (
               <button type="button" onClick={() => void clearAll()} className="text-[11px] font-semibold text-slate-500 hover:text-red-600 dark:text-zinc-400 cursor-pointer">
                 Clear all
@@ -267,13 +302,71 @@ export const NotificationBell: React.FC<Props> = ({ onOpenProject, onProjectsMay
             )}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {items.length === 0 ? (
-              <p className="px-4 py-8 text-center text-xs text-slate-500 dark:text-zinc-400">
-                Nothing new. When someone shares a project with you, asks for access, or answers your request, it shows up here until you remove it.
-              </p>
-            ) : (
-              <ul>
-                {items.map((item) => (
+            <section aria-labelledby="notif-recent" className="px-4 pt-3 pb-2">
+              <h3 id="notif-recent" className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Recent activity</h3>
+              {recent.length === 0 ? (
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-zinc-400">No clips yet. Clips you save from the web app or the extension show here.</p>
+              ) : (
+                <ul className="mt-1.5 space-y-0.5">
+                  {recent.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        data-testid="notification-recent-clip"
+                        onClick={() => {
+                          setOpen(false);
+                          onOpenProject(c.projectId, false);
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] cursor-pointer"
+                      >
+                        <span className="min-w-0 truncate text-xs text-[#0F172A] dark:text-white">{c.title}</span>
+                        <span className="flex-shrink-0 max-w-[40%] truncate text-[10px] text-slate-400 dark:text-zinc-500">
+                          {c.projectTitle}
+                          {c.capturedAt ? ` · ${ago(c.capturedAt)}` : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section aria-labelledby="notif-requests" className="px-4 pt-2 pb-3 border-t border-[#E3EAF3] dark:border-[#1F1F23]">
+              <h3 id="notif-requests" className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Sharing requests</h3>
+              {requests.length === 0 ? (
+                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-zinc-400">Nobody is waiting for access to your projects.</p>
+              ) : (
+                <ul className="mt-1.5 space-y-1">
+                  {requests.map((r) => (
+                    <li key={r.id} data-testid="notification-request" className="px-2 py-1.5 rounded-lg bg-[#EEF3F8]/60 dark:bg-white/[0.03]">
+                      <p className="text-xs text-[#0F172A] dark:text-white leading-snug">
+                        <span className="font-semibold">{r.who}</span> wants access to “{r.projectTitle}”
+                      </p>
+                      {r.message && <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-snug mt-0.5 line-clamp-2">{r.message}</p>}
+                      <div className="flex items-center gap-3 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false);
+                            onOpenProject(r.projectId, true);
+                          }}
+                          className="text-[11px] font-semibold text-[#325FEC] dark:text-[#8DB4FF] hover:underline cursor-pointer"
+                        >
+                          Review request
+                        </button>
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-500">{ago(r.createdAt)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {items.length > 0 && (
+              <section aria-labelledby="notif-updates" className="border-t border-[#E3EAF3] dark:border-[#1F1F23]">
+                <h3 id="notif-updates" className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Sharing updates</h3>
+                <ul>
+                  {items.map((item) => (
                   <li
                     key={item.id}
                     data-testid="notification-item"
@@ -293,7 +386,8 @@ export const NotificationBell: React.FC<Props> = ({ onOpenProject, onProjectsMay
                     </button>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </section>
             )}
           </div>
         </div>

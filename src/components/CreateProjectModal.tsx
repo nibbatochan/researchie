@@ -8,29 +8,7 @@ import { ResearchProject } from '@/lib/types/research';
 // Stored in folderIcon as 'initials' or 'photo:<data URL>'.
 type AvatarMode = 'initials' | 'photo';
 
-// Shrinks a picked photo to a small square JPEG so the stored value stays short.
-async function photoToAvatar(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('Could not read that image'));
-      el.src = url;
-    });
-    const size = 96;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas not available');
-    const side = Math.min(img.width, img.height);
-    ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
-    return canvas.toDataURL('image/jpeg', 0.85);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+import { AvatarPicker } from './AvatarPicker';
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -77,6 +55,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     }
   }, [isOpen, initialParentId]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // Available main projects to be selected as parent
@@ -112,14 +99,19 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="w-full max-w-md bg-[#FAFBFD] dark:bg-[#121214] border border-[#D2DCEA] dark:border-[#27272A] rounded-2xl p-6 shadow-2xl animate-popIn">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#D2DCEA] dark:border-[#27272A] mb-4">
           <div className="flex items-center gap-2">
             <FolderSimple size={18} className="text-[#325FEC] dark:text-[#518FFF]" weight="bold" />
             <h2 className="text-base font-display font-bold text-[#0F172A] dark:text-white">
-              {parentId ? 'Create Nested Sub-Project' : 'Create Research Project'}
+              {parentId ? 'Create nested sub-project' : 'Create new research project'}
             </h2>
           </div>
           <button
@@ -201,41 +193,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               ))}
             </div>
 
+            <AvatarPicker mode={avatarMode} title={title} color={color} photo={avatarPhoto} onPhoto={setAvatarPhoto} />
             {avatarMode === 'initials' && (
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
+              <p className="mt-2 text-xs text-slate-500 dark:text-zinc-400">
                 Shows the first two letters of the name in the folder colour, on a plain circle.
               </p>
-            )}
-
-            {avatarMode === 'photo' && (
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden border border-[#D2DCEA] dark:border-[#27272A] bg-[#EEF3F8] dark:bg-[#18181B] flex items-center justify-center text-[10px] text-slate-400">
-                  {avatarPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarPhoto} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    'No photo'
-                  )}
-                </div>
-                <label className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#D2DCEA] dark:border-[#27272A] text-slate-600 dark:text-zinc-300 hover:bg-[#EEF3F8] dark:hover:bg-[#1C1C20] cursor-pointer">
-                  {avatarPhoto ? 'Change photo' : 'Choose photo'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = '';
-                      if (!file) return;
-                      try {
-                        setAvatarPhoto(await photoToAvatar(file));
-                      } catch {
-                        setAvatarPhoto(null);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
             )}
           </div>
 

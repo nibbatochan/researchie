@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Key, Copy, Check, Trash, CaretRight, CaretDown } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
+import { useDeleteToast } from './DeleteToast';
 
 // The token that connects the Chrome extension to this site. It ends in this site's address, so in the
 // extension you only paste the token: open the popup, click the link icon next to the on/off switch,
@@ -20,6 +21,7 @@ interface TokenRow {
 }
 
 export const ExtensionConnectionSettings: React.FC<{ compact?: boolean; defaultOpen?: boolean }> = ({ compact = false, defaultOpen = false }) => {
+  const notifyDeleted = useDeleteToast();
   const { authRequired } = useAuth();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [fresh, setFresh] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export const ExtensionConnectionSettings: React.FC<{ compact?: boolean; defaultO
       const res = await fetch(`/api/auth/tokens?id=${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Could not revoke the token.');
+      notifyDeleted({ kind: 'extension token' });
       await load();
     } catch (e: any) {
       setError(e.message || 'Could not revoke the token.');

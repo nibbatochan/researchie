@@ -26,9 +26,11 @@ import { isPinned } from '@/lib/atoms/pin';
 import { getEvidenceKind, EVIDENCE_LABEL } from '@/lib/atoms/evidence';
 import { buildDeepLink } from '@/lib/utils/textFragments';
 import { BlockAtomCard } from './BlockAtomCard';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { ImageAtomCard } from './ImageAtomCard';
 import { VideoEmbed } from './VideoEmbed';
 import { FormattedAIMessage } from './FormattedAIMessage';
+import { sourceLabel } from '@/lib/atoms/sourceLabel';
 import type { CitationRecord } from '@/lib/citations/types.ts';
 import { buildWebCitation, refreshWebCitation } from '@/lib/citations/webCitation.ts';
 import { assessCitation, readConfidence, isRetracted, RETRACTED_MESSAGE } from '@/lib/citations/verify.ts';
@@ -422,7 +424,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               />
             )}
             <span className="font-mono text-[10.5px] text-slate-400 dark:text-zinc-500 truncate">
-              {getSourceHostname(atom.metadata?.sourceUrl)}
+              {sourceLabel(atom)}
             </span>
             <span className="font-mono text-[10px] text-slate-400 dark:text-zinc-500 flex-shrink-0">
               • {formatDate(createdAtTime)}
@@ -505,13 +507,24 @@ export const AtomCard: React.FC<AtomCardProps> = ({
         </div>
 
         {refsOpen && atom.metadata?.references && (
-          <ul
-            className="mt-2 mb-1 space-y-1 rounded-md border border-[#E4ECF6] dark:border-[#27272A] p-2.5 text-[12px] text-slate-700 dark:text-zinc-300"
+          // The same stacked citation boxes as the other clips, one per source.
+          <div
+            className="mt-2 mb-1 rounded-md border border-[#E4ECF6] dark:border-[#27272A] p-2.5 text-[12px] text-slate-700 dark:text-zinc-300"
             data-testid="note-references"
             onClick={(e) => e.stopPropagation()}
           >
-            {atom.metadata.references.map((r, i) => <li key={i}>{r}</li>)}
-          </ul>
+            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+              {atom.metadata.references.length} {atom.metadata.references.length === 1 ? 'source' : 'sources'}
+            </div>
+            <ol className="space-y-1.5">
+              {atom.metadata.references.map((r, i) => (
+                <li key={i} className="rounded-md bg-[#F4F4F5] dark:bg-[#1F1F23] p-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+                  <span className="mr-1.5 font-mono text-[#325FEC] dark:text-[#518FFF]">[{i + 1}]</span>
+                  {r}
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
 
         {citationOpen && (
@@ -684,7 +697,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
               sanitizedHtml={atom.content.sanitizedHtml}
               standaloneHtml={(atom.content as any).standaloneHtml}
               rawText={atom.content.rawText}
-              imageUrl={atom.content.imageUrl}
+              citation={atom.metadata?.citation} pageTitle={atom.metadata?.pageTitle}
               selector={atom.metadata?.domCssSelector}
               sourceUrl={atom.metadata?.sourceUrl}
               searchQuery={searchQuery}
@@ -693,7 +706,6 @@ export const AtomCard: React.FC<AtomCardProps> = ({
 
           {atom.type === 'image' && (
             <ImageAtomCard
-              imageUrl={atom.content.imageUrl}
               description={atom.content.description}
               title={atom.title}
               ocrText={atom.content.ocrText}
@@ -776,7 +788,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             />
           ) : null}
           <span className="font-mono text-[11px] text-slate-500 dark:text-zinc-400 truncate font-medium">
-            {atom.metadata?.origin === 'research-ai' ? 'Research AI answer' : getSourceHostname(atom.metadata?.sourceUrl)}
+            {sourceLabel(atom)}
           </span>
           <span className="font-mono text-[11px] text-slate-400 dark:text-zinc-500 flex-shrink-0">
             • {formatDate(createdAtTime)}
@@ -849,9 +861,16 @@ export const AtomCard: React.FC<AtomCardProps> = ({
       <div className="space-y-3">
         {isQuoteType && rawQuote && (
           <div className="space-y-2">
-            <blockquote className="text-[13.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-4 py-0.5 my-1 whitespace-pre-line break-words [&_strong]:font-bold [&_strong]:text-[#0F172A] dark:[&_strong]:text-white">
-              "{renderRichText(rawQuote, searchQuery)}"
-            </blockquote>
+            {/* Copied text keeps its headings, bold and italics (written as markdown when it was captured). */}
+            {/^(#{1,6} |\*\*|\*\S)|^\s*[-*] /m.test(rawQuote) ? (
+              <div className="border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-4 py-0.5 my-1 break-words" data-testid="quote-markdown">
+                <MarkdownRenderer content={rawQuote} size="sm" searchQuery={searchQuery} />
+              </div>
+            ) : (
+              <blockquote className="text-[13.5px] leading-relaxed text-[#0F172A] dark:text-[#E4E4E7] border-l-2 border-[#325FEC] dark:border-[#518FFF] pl-4 py-0.5 my-1 whitespace-pre-line break-words [&_strong]:font-bold [&_strong]:text-[#0F172A] dark:[&_strong]:text-white">
+                "{renderRichText(rawQuote, searchQuery)}"
+              </blockquote>
+            )}
 
             {/* Context Re-Builder Toggle */}
             <div className="pt-0.5 flex items-center gap-2">
@@ -919,7 +938,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
                 {(targetLink || isDocAtom) && (
                   <div className="pt-2 flex items-center justify-between border-t border-[#D9E1EC]/60 dark:border-[#27272A] text-[11px]">
                     <span className="text-slate-400 dark:text-zinc-500 font-mono text-[10px]">
-                      Source: {getSourceHostname(atom.metadata?.sourceUrl)}
+                      Source: {sourceLabel(atom)}
                     </span>
                     <button
                       type="button"
@@ -943,7 +962,7 @@ export const AtomCard: React.FC<AtomCardProps> = ({
             sanitizedHtml={atom.content.sanitizedHtml}
             standaloneHtml={(atom.content as any).standaloneHtml}
             rawText={atom.content.rawText}
-            imageUrl={atom.content.imageUrl}
+            citation={atom.metadata?.citation} pageTitle={atom.metadata?.pageTitle}
             selector={atom.metadata?.domCssSelector}
             sourceUrl={atom.metadata?.sourceUrl}
             searchQuery={searchQuery}
@@ -952,7 +971,6 @@ export const AtomCard: React.FC<AtomCardProps> = ({
 
         {atom.type === 'image' && (
           <ImageAtomCard
-            imageUrl={atom.content.imageUrl}
             description={atom.content.description}
             title={atom.title}
             ocrText={atom.content.ocrText}

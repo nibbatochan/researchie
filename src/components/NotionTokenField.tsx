@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useDeleteToast } from './DeleteToast';
 import { Key } from '@phosphor-icons/react';
 
 // The Notion token on the tester site: saved encrypted in the account (S-46), so it is pasted once, not at every
@@ -11,6 +12,7 @@ const input =
   'w-full px-2.5 py-1.5 text-xs rounded-lg border border-[#CBD5E1] dark:border-[#3F3F46] bg-white dark:bg-[#18181B] text-[#0F172A] dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono';
 
 export const NotionTokenField: React.FC<{ onStatus?: (configured: boolean) => void }> = ({ onStatus }) => {
+  const notifyDeleted = useDeleteToast();
   const [loaded, setLoaded] = useState(false);
   const [last4, setLast4] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
@@ -63,6 +65,7 @@ export const NotionTokenField: React.FC<{ onStatus?: (configured: boolean) => vo
       const res = await fetch('/api/settings/notion-token', { method: 'DELETE', credentials: 'same-origin' });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Could not remove the token.');
+      notifyDeleted({ kind: 'Notion token' });
       apply(false);
     } catch (e: any) {
       setError(e.message || 'Could not remove the token.');

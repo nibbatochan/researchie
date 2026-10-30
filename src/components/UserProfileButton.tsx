@@ -8,7 +8,6 @@ import {
   UserSwitch
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
-import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
 import { forgetAccount, listAccounts } from '@/lib/auth/knownAccounts';
 
 // "Switch account" (S-44). Lists the other addresses used to sign in on this browser. Choosing one signs out and
@@ -148,8 +147,6 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
             </div>
 
             <div className="py-2 space-y-1">
-              <ExtensionConnectionSettings compact />
-
               <SwitchAccount onClose={() => setIsOpen(false)} />
 
               <button
@@ -179,15 +176,17 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
         className="w-full flex items-center justify-between p-2 rounded-xl bg-[#FAFBFD] dark:bg-[#121214] hover:bg-[#EEF3F8] dark:hover:bg-[#18181B] border border-[#D2DCEA] dark:border-[#27272A] transition-all text-xs font-sans cursor-pointer group"
       >
         <div className="flex items-center gap-2 min-w-0 pr-1">
-          <div className="relative w-7 h-7 rounded-full overflow-hidden border border-[#D9E1EC] dark:border-[#27272A] flex-shrink-0">
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-[#325FEC] text-white flex items-center justify-center font-bold text-xs">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white dark:ring-[#121214]" />
+          <div className="relative w-7 h-7 flex-shrink-0">
+            <div className="w-full h-full rounded-full overflow-hidden border border-[#D9E1EC] dark:border-[#27272A]">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-[#325FEC] text-white flex items-center justify-center font-bold text-xs">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#FAFBFD] dark:ring-[#121214]" />
           </div>
           <div className="min-w-0 text-left">
             <div className="flex items-center gap-1">
@@ -205,8 +204,6 @@ export const UserProfileButton: React.FC<{ isCollapsed?: boolean }> = ({ isColla
         <div className="absolute left-0 bottom-12 w-full bg-[#FAFBFD] dark:bg-[#121214] border border-[#D9E1EC] dark:border-[#27272A] rounded-2xl shadow-2xl p-2.5 z-50 text-xs font-sans animate-popIn">
           {/* Action Links */}
           <div className="pt-2 space-y-1">
-            <ExtensionConnectionSettings compact />
-
               <SwitchAccount onClose={() => setIsOpen(false)} />
 
             <button

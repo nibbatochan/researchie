@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useDeleteToast } from './DeleteToast';
 import { CheckCircle, XCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
 import { PERPLEXITY_KEYS_HELP_URL, WEB_EFFORTS, type WebEffort } from '@/lib/ai/webResearch';
@@ -18,6 +19,7 @@ interface WebKeyView {
 }
 
 export const WebSearchKeySettings: React.FC = () => {
+  const notifyDeleted = useDeleteToast();
   const { authRequired } = useAuth();
   const [saved, setSaved] = useState<WebKeyView | null>(null);
   const [key, setKey] = useState('');
@@ -78,6 +80,7 @@ export const WebSearchKeySettings: React.FC = () => {
       if (json.success) {
         setSaved({ configured: false });
         setNotice({ kind: 'ok', text: 'Perplexity key removed.' });
+        notifyDeleted({ kind: 'Perplexity key' });
       } else {
         setNotice({ kind: 'error', text: json.error || 'Could not remove the key.' });
       }

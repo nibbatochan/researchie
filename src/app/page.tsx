@@ -18,7 +18,7 @@ import { ManualClipModal } from '@/components/ManualClipModal';
 import { ExtensionGuideModal } from '@/components/ExtensionGuideModal';
 import { DeleteProjectSafeguardModal } from '@/components/DeleteProjectSafeguardModal';
 import { TrashModal } from '@/components/TrashModal';
-import { UndoToast } from '@/components/UndoToast';
+import { useDeleteToast } from '@/components/DeleteToast';
 import { AuthModal } from '@/components/AuthModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ShareAccessModal } from '@/components/ShareAccessModal';
@@ -200,6 +200,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!activeProjectId) return;
     const cached = atomsCache.current.get(activeProjectId);
+    // Leaving a project that was still loading: stop its request and clear its spinner, or the new project shows it forever.
+    atomsAbort.current?.abort();
+    setLoadingAtoms(false);
     setAtoms(cached ?? []); // never show the previous project's clips under this one
     void fetchAtoms(activeProjectId, Boolean(cached)); // cached clips show at once; no spinner while the fresh copy loads
   }, [activeProjectId, fetchAtoms]);
@@ -356,7 +359,7 @@ export default function DashboardPage() {
   };
 
   // Destructive Deletion Safeguards & Trash Buffer State
-  const [deletedAtomToast, setDeletedAtomToast] = useState<ResearchAtom | null>(null);
+  const notifyDeleted = useDeleteToast();
   const [deletedAtomsHistory, setDeletedAtomsHistory] = useState<{ atom: ResearchAtom; deletedAt: string }[]>([]);
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<ResearchProject | null>(null);
@@ -365,9 +368,12 @@ export default function DashboardPage() {
     const targetAtom = atoms.find((a) => a.id === id);
     if (!targetAtom) return;
 
-    // Optimistic removal + Undo buffer
+    // Optimistic removal + Undo buffer. The cache drops it too, and any list fetch that started before this delete
+    // is ignored, so a poll in flight cannot bring the clip back.
     setAtoms((prev) => prev.filter((a) => a.id !== id));
-    setDeletedAtomToast(targetAtom);
+    for (const [key, list] of atomsCache.current) atomsCache.current.set(key, list.filter((a) => a.id !== id));
+    atomsApplied.current = ++atomsSeq.current;
+    notifyDeleted({ kind: 'clip', name: targetAtom.title || 'Untitled clip', onUndo: () => void handleUndoDeleteAtom(targetAtom) });
     setDeletedAtomsHistory((prev) => [{ atom: targetAtom, deletedAt: new Date().toISOString() }, ...prev]);
 
     try {
@@ -396,7 +402,6 @@ export default function DashboardPage() {
       if (prev.some((a) => a.id === restoredAtom.id)) return prev;
       return [restoredAtom, ...prev];
     });
-    setDeletedAtomToast(null);
     setDeletedAtomsHistory((prev) => prev.filter((d) => d.atom.id !== restoredAtom.id));
 
     try {
@@ -416,7 +421,22 @@ export default function DashboardPage() {
 
   const handleEmptyTrash = () => {
     setDeletedAtomsHistory([]);
-    setDeletedAtomToast(null);
+  };
+
+  // Rename, colour or avatar of a project. The saved copy from the server replaces the one on screen.
+  const handleUpdateProject = async (
+    projectId: string,
+    patch: { title?: string; description?: string; color?: string; folderIcon?: string | null },
+  ) => {
+    const res = await fetch(`/api/projects?id=${encodeURIComponent(projectId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(patch),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) throw new Error(json?.error || 'Could not save the change.');
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...json.data } : p)));
   };
 
   const handleRequestDeleteProject = (projectId: string) => {
@@ -455,6 +475,8 @@ export default function DashboardPage() {
       );
 
       if (res.ok) {
+        const deleted = projects.find((p) => p.id === projectId);
+        if (deleted) notifyDeleted({ kind: deleted.parentId ? 'sub-project' : 'project', name: deleted.title });
         const doomedIds = new Set([projectId, ...projects.filter((p) => p.parentId === projectId).map((p) => p.id)]);
         setProjects((prev) => {
           const remaining = prev.filter((p) => !doomedIds.has(p.id));
@@ -528,6 +550,16 @@ export default function DashboardPage() {
     ? projects.filter((p) => p.parentId === projectToDelete.id)
     : [];
 
+  // Where "Preserve clips" sends the clips. Same rule as handleConfirmDeleteProject: the parent folder for a
+  // sub-project; otherwise another top-level project, or a new "Unfiled clips" project when there is none.
+  const keepTargetTitle = (() => {
+    if (!projectToDelete) return undefined;
+    if (projectToDelete.parentId) return projects.find((p) => p.id === projectToDelete.parentId)?.title;
+    const doomed = new Set([projectToDelete.id, ...projects.filter((p) => p.parentId === projectToDelete.id).map((p) => p.id)]);
+    const other = projects.find((p) => !doomed.has(p.id) && !p.parentId);
+    return other ? other.title : 'a new project "Unfiled clips"';
+  })();
+
   return (
     <div className={`flex flex-col h-screen overflow-hidden text-[#0F172A] dark:text-[#FAFAFA] transition-colors ${workspaceMode === 'dashboard' ? 'dashboard-shell' : 'bg-[#EAEEF4] dark:bg-[#09090B]'}`}>
       {/* Main Workspace Layout */}
@@ -571,6 +603,7 @@ export default function DashboardPage() {
             onSelectProject={(id, mode = 'feed') => handleSelectProject(id, mode)}
             onOpenCreateModal={handleOpenCreateModal}
             onDeleteProject={handleRequestDeleteProject}
+            onUpdateProject={handleUpdateProject}
             onOpenShareModal={authRequired ? (proj) => handleOpenShareModal(proj) : undefined}
             onOpenPapers={() => setWorkspaceMode('papers')}
             onOpenDocuments={() => {
@@ -648,6 +681,7 @@ export default function DashboardPage() {
         atoms={atoms}
         onClose={() => setProjectToDelete(null)}
         onConfirmDelete={handleConfirmDeleteProject}
+        keepTarget={keepTargetTitle}
       />
 
       {/* Recently Deleted Clips Trash Modal */}
@@ -660,14 +694,6 @@ export default function DashboardPage() {
           setDeletedAtomsHistory((prev) => prev.filter((d) => d.atom.id !== id));
         }}
         onEmptyTrash={handleEmptyTrash}
-      />
-
-      {/* Undo Floating Toast Notification */}
-      <UndoToast
-        deletedAtom={deletedAtomToast}
-        onUndo={handleUndoDeleteAtom}
-        onDismiss={() => setDeletedAtomToast(null)}
-        durationMs={3000}
       />
 
       {/* Authentication & Social Login Modal */}

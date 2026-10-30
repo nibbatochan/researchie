@@ -27,6 +27,12 @@ export interface DataStore {
   ): Promise<ResearchProject | null>;
   /** With moveTo the clips go to that project first. False when the project or the target cannot be used. */
   deleteProject(userId: string, projectId: string, moveTo?: string): Promise<boolean>;
+  /** Changes name, description, colour or avatar. Only the owner can; null when the project is not theirs. */
+  updateProject(
+    userId: string,
+    projectId: string,
+    patch: { title?: string; description?: string; color?: string; folderIcon?: string | null },
+  ): Promise<ResearchProject | null>;
 
   listAtoms(userId: string, scope?: string): Promise<ResearchAtom[]>;
   /** A cheap fingerprint of the clips in scope (how many, and the newest capture time), so the page can tell whether the full list changed. */

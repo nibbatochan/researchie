@@ -12,8 +12,11 @@ import {
   Image as ImageIcon,
   LinkSimple,
   Info,
+  Key,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { ExtensionConnectionSettings } from './ExtensionConnectionSettings';
+import { useSetupStatus } from './WelcomeModal';
 
 interface GetExtensionModalProps {
   isOpen: boolean;
@@ -23,9 +26,10 @@ interface GetExtensionModalProps {
 type Step = { title: string; body: string; copy?: boolean };
 
 // One numbered list, grouped under three headings. Numbers run across the groups.
-const GROUPS: { heading: string; hint: string; steps: Step[] }[] = [
+const GROUPS: { heading: string; hint: string; icon: React.ElementType; steps: Step[] }[] = [
   {
     heading: 'Download',
+    icon: DownloadSimple,
     hint: 'One minute',
     steps: [
       {
@@ -36,6 +40,7 @@ const GROUPS: { heading: string; hint: string; steps: Step[] }[] = [
   },
   {
     heading: 'Install in Chrome',
+    icon: PuzzlePiece,
     hint: 'Two minutes, once',
     steps: [
       {
@@ -55,7 +60,8 @@ const GROUPS: { heading: string; hint: string; steps: Step[] }[] = [
     ],
   },
   {
-    heading: 'Connect to your account',
+    heading: 'Connect your account',
+    icon: Key,
     hint: 'Thirty seconds',
     steps: [
       {
@@ -91,6 +97,7 @@ const TROUBLE = [
 export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, onClose }) => {
   const [info, setInfo] = useState<{ version: string; bytes: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const status = useSetupStatus(isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -146,7 +153,7 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
           </span>
           <div className="min-w-0 flex-1">
             <h2 id="get-extension-title" className="text-base font-display font-bold tracking-tight">
-              Researchie for Chrome
+              Researchie plugin for Browser
             </h2>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
               Clip from any page straight into your projects. Installed by hand for now.
@@ -168,6 +175,19 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
             {/* Left: download */}
             <aside className="p-6 md:border-r border-b md:border-b-0 border-[#D2DCEA] dark:border-[#27272A] space-y-6">
               <div className="space-y-3">
+                {status.known && (
+                  <span
+                    data-testid="extension-status"
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${
+                      status.extension === 'done'
+                        ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
+                        : 'text-slate-600 dark:text-zinc-300 bg-white dark:bg-white/5 border-[#D2DCEA] dark:border-white/10'
+                    }`}
+                  >
+                    <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${status.extension === 'done' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    {status.extension === 'done' ? 'Connected' : 'Disconnected'}
+                  </span>
+                )}
                 <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                   Latest version
                 </div>
@@ -193,6 +213,7 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                   For Chrome, Edge and Brave on a computer.
                 </p>
+                <ExtensionConnectionSettings compact />
               </div>
 
               <div className="space-y-2.5">
@@ -215,8 +236,6 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
                   It needs access to the pages you clip from. Nothing is sent to your account until you connect it with your token and press clip.
                 </span>
               </div>
-
-              <ExtensionConnectionSettings compact />
             </aside>
 
             {/* Right: steps */}
@@ -224,7 +243,10 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
               {GROUPS.map((g) => (
                 <section key={g.heading} className="space-y-3">
                   <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="text-sm font-display font-bold tracking-tight">{g.heading}</h3>
+                    <h3 className="flex items-center gap-2 text-sm font-display font-bold tracking-tight">
+                      <g.icon size={16} weight="bold" className="text-[#325FEC] dark:text-[#518FFF] self-center" aria-hidden />
+                      {g.heading}
+                    </h3>
                     <span className="text-[11px] font-mono text-slate-400 dark:text-zinc-500">{g.hint}</span>
                   </div>
                   <ol className="rounded-xl border border-[#D2DCEA] dark:border-[#27272A] divide-y divide-[#D2DCEA] dark:divide-[#27272A] bg-white/60 dark:bg-[#18181B]/50">
@@ -267,12 +289,18 @@ export const GetExtensionModal: React.FC<GetExtensionModalProps> = ({ isOpen, on
               </p>
             </section>
             <section className="space-y-2">
-              <h3 className="text-sm font-display font-bold tracking-tight">If something goes wrong</h3>
+              <h3 className="flex items-center gap-2 text-sm font-display font-bold tracking-tight">
+                <WarningCircle size={16} weight="bold" className="text-amber-600 dark:text-amber-400" aria-hidden />
+                If something goes wrong
+              </h3>
               <dl className="space-y-2.5">
                 {TROUBLE.map((t) => (
                   <div key={t.q} className="text-xs leading-relaxed">
-                    <dt className="font-semibold">{t.q}</dt>
-                    <dd className="text-slate-500 dark:text-zinc-400">{t.a}</dd>
+                    <dt className="font-semibold text-amber-800 dark:text-amber-300">{t.q}</dt>
+                    <dd className="text-slate-500 dark:text-zinc-400">
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Fix: </span>
+                      {t.a}
+                    </dd>
                   </div>
                 ))}
               </dl>

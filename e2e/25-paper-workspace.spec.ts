@@ -88,8 +88,8 @@ test.describe('25. Paper workspace', () => {
 
     await renamed.first().hover();
     await renamed.first().getByTestId('paper-delete').click();
-    await expect(page.getByTestId('paper-undo')).toBeVisible();
-    await page.getByTestId('paper-undo').click();
+    await expect(page.getByTestId('delete-toast')).toContainText('Deleted paper');
+    await page.getByTestId('delete-toast').getByRole('button', { name: 'Undo' }).click();
     await expect(page.getByTestId('paper-row').filter({ hasText: `${TAG} notes` }).first()).toBeVisible();
 
     await page.getByTestId('paper-row').filter({ hasText: `${TAG} notes (copy)` }).hover();

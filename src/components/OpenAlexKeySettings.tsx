@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useDeleteToast } from './DeleteToast';
 import { CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth/authContext';
 
@@ -17,6 +18,7 @@ interface KeyView {
 }
 
 export const OpenAlexKeySettings: React.FC = () => {
+  const notifyDeleted = useDeleteToast();
   const { authRequired } = useAuth();
   const [saved, setSaved] = useState<KeyView | null>(null);
   const [key, setKey] = useState('');
@@ -74,6 +76,7 @@ export const OpenAlexKeySettings: React.FC = () => {
       if (json.success) {
         setSaved({ configured: false });
         setNotice({ kind: 'ok', text: 'OpenAlex key removed. Paper search now shares the free daily allowance.' });
+        notifyDeleted({ kind: 'OpenAlex key' });
       } else {
         setNotice({ kind: 'error', text: json.error || 'Could not remove the key.' });
       }

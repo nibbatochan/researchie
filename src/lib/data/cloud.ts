@@ -207,6 +207,22 @@ export function makeCloud(db: Db) {
     return mapProject(data, 'owner');
   }
 
+  async function updateProject(
+    userId: string,
+    projectId: string,
+    patch: { title?: string; description?: string; color?: string; folderIcon?: string | null },
+  ): Promise<ResearchProject | null> {
+    if (!(await ownsProject(userId, projectId))) return null;
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.description !== undefined) row.description = patch.description;
+    if (patch.color !== undefined) row.color = patch.color;
+    if (patch.folderIcon !== undefined) row.folder_icon = patch.folderIcon;
+    const { data, error } = await db.from('projects').update(row).eq('id', projectId).select().single();
+    if (error || !data) return null;
+    return mapProject(data, 'owner');
+  }
+
   /**
    * Deletes a project and its sub-projects. Only the owner can. With moveTo, their clips and documents are moved
    * to that project first (it must be the user's own and outside the deleted family); without it they are deleted
@@ -355,6 +371,7 @@ export function makeCloud(db: Db) {
     listProjects,
     createProject,
     deleteProject,
+    updateProject,
     listAtoms,
     atomsStamp,
     getAtom,

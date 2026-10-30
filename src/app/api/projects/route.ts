@@ -80,6 +80,32 @@ export async function POST(request: Request) {
   }
 }
 
+// Renames a project or changes its colour and avatar: PATCH /api/projects?id=...  (only the fields sent change)
+export async function PATCH(request: Request) {
+  const auth = await authorize(request);
+  if (auth.response) return auth.response;
+  try {
+    const id = new URL(request.url).searchParams.get('id');
+    if (!id) return NextResponse.json({ success: false, error: 'Project ID is required' }, { status: 400 });
+    const body = await request.json();
+    const patch: { title?: string; description?: string; color?: string; folderIcon?: string | null } = {};
+    if (body.title !== undefined) {
+      if (typeof body.title !== 'string' || !body.title.trim()) {
+        return NextResponse.json({ success: false, error: 'Project title is required' }, { status: 400 });
+      }
+      patch.title = body.title.trim();
+    }
+    if (typeof body.description === 'string') patch.description = body.description.trim();
+    if (typeof body.color === 'string') patch.color = body.color;
+    if (body.folderIcon === null || typeof body.folderIcon === 'string') patch.folderIcon = body.folderIcon;
+    const updated = await store.updateProject(auth.user.id, id, patch);
+    if (!updated) return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
+    return NextResponse.json({ success: true, source: STORE_SOURCE, data: updated });
+  } catch {
+    return NextResponse.json({ success: false, error: 'Failed to update project' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   const auth = await authorize(request);
   if (auth.response) return auth.response;

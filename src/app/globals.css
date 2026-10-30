@@ -317,17 +317,11 @@ body {
   position: relative;
   isolation: isolate;
   background-color: #E6EBF4;
-  background-image:
-    radial-gradient(ellipse 60% 50% at 0% 0%, rgba(50, 95, 236, 0.14) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 55% at 100% 100%, rgba(81, 143, 255, 0.18) 0%, transparent 70%),
-    linear-gradient(135deg, #EEF2F8 0%, #E5EAF3 50%, #D9E1EF 100%);
+  background-image: linear-gradient(135deg, #EEF2F8 0%, #E5EAF3 50%, #D9E1EF 100%);
 }
 .dark .dashboard-shell {
   background-color: #09090B;
-  background-image:
-    radial-gradient(ellipse 70% 40% at 50% -10%, rgba(50, 95, 236, 0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 45% 45% at 100% 100%, rgba(81, 143, 255, 0.07) 0%, transparent 70%),
-    linear-gradient(180deg, #09090B 0%, #0A0B10 100%);
+  background-image: linear-gradient(180deg, #09090B 0%, #0A0B10 100%);
 }
 .dashboard-shell::before {
   content: '';
@@ -360,6 +354,13 @@ body {
     linear-gradient(to right, rgba(81, 143, 255, 0.04) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(81, 143, 255, 0.04) 1px, transparent 1px);
 }
+
+/* Project folder cards: --folder is the colour chosen for the folder. Dark mode shows the same colour about half as
+   bright, so every folder colour stays calm on the dark dashboard. */
+.folder-tone { background-color: var(--folder); }
+.folder-tone-back { background-color: color-mix(in srgb, var(--folder) 85%, #000); }
+.dark .folder-tone { background-color: color-mix(in srgb, var(--folder) 52%, #000); }
+.dark .folder-tone-back { background-color: color-mix(in srgb, var(--folder) 44%, #000); }
 
 /* Grid behind the feed: fine lines, strong lines, and dots where they cross, along a few edges. */
 .grid-edges {
@@ -555,7 +556,7 @@ html:not(.dark) .bg-slate-50 { background-color: #EEF2F8; }
 html:not(.dark) .bg-\[\#F4F6F9\] { background-color: #E9EEF5; }
 html:not(.dark) .bg-\[\#EEF3F8\] { background-color: #E4EAF3; }
 html:not(.dark) .hover\:bg-white:hover { background-color: #F7F9FC; }
-html:not(.dark) .hover\:bg-\[\#EEF3F8\]:hover { background-color: #DCE4EF; }
+html:not(.dark) .hover\:bg-\[\#EEF3F8\]:hover { background-color: #F7F9FC; }
 
 /* ── Motion for small, occasional moments. One curve, transform and opacity only, gentler under reduced motion. ── */
 :root { --ease-ui: cubic-bezier(0.16, 1, 0.3, 1); }

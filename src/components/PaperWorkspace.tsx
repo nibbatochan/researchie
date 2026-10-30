@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, MagnifyingGlass, SquaresFour, ListBullets, Trash, Copy, PencilSimple, ArrowCounterClockwise, ArrowLeft, FolderSimple, Clock, Article, FileDashed } from '@phosphor-icons/react';
 import type { ResearchProject } from '@/lib/types/research';
 import type { PaperSummary } from '@/lib/data/papers';
@@ -10,6 +10,7 @@ import { INFO_PENDING_KEY } from '@/lib/paper/store';
 import { templateToDoc, defaultMeta } from '@/lib/paper/docModel';
 import { buildWireframe } from '@/lib/paper/wireframe';
 import { PageWireframe } from './PageWireframe';
+import { useDeleteToast } from './DeleteToast';
 import { NewPaperFlow, type NewPaperChoice } from './NewPaperFlow';
 import { TemplateIcon } from './templateIcons';
 
@@ -26,7 +27,6 @@ interface Props {
   onOpenPaper?: (paper: PaperSummary & { doc?: unknown; meta?: unknown }) => void;
 }
 
-const UNDO_MS = 8000;
 const VIEW_KEY = 'researchie.paperView';
 const RECENT_COUNT = 4;
 const NO_SOURCE = 'none';
@@ -62,9 +62,8 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
   const [view, setView] = useState<'list' | 'grid'>('grid');
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [undo, setUndo] = useState<PaperSummary | null>(null);
   const [note, setNote] = useState('');
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notifyDeleted = useDeleteToast();
 
   // The editor is a separate chunk. Start loading it when the picker opens, so Create does not wait for it.
   useEffect(() => {
@@ -93,9 +92,6 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
 
   useEffect(() => {
     void load();
-    return () => {
-      if (undoTimer.current) clearTimeout(undoTimer.current);
-    };
   }, [load]);
 
   const projectName = (id: string | null) => (id ? projects.find((p) => p.id === id)?.title ?? 'A project you no longer see' : 'No data source');
@@ -180,13 +176,10 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
     const r = await api(`/api/papers/${p.id}`, { method: 'DELETE' });
     if (!r.ok) return setNote(r.json.error || 'The paper could not be deleted.');
     await load();
-    setUndo(p);
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
+    notifyDeleted({ kind: 'paper', name: p.title, onUndo: () => void restore(p) });
   };
 
   const restore = async (p: PaperSummary) => {
-    setUndo(null);
     const r = await api('/api/papers', { method: 'POST', body: JSON.stringify({ action: 'restore', id: p.id }) });
     if (!r.ok) setNote(r.json.error || 'The paper could not be restored.');
     await load();
@@ -402,16 +395,6 @@ export const PaperWorkspace: React.FC<Props> = ({ projects, defaultProjectId = n
         )}
       </div>
 
-      {undo && (
-        <div role="status" className="fixed bottom-6 right-6 z-50 animate-slideUp">
-          <div className="flex items-center gap-3 px-4 py-2 bg-[#0F172A] dark:bg-[#18181B] text-white rounded-lg shadow-lg">
-            <span className="text-xs">Paper deleted</span>
-            <button type="button" onClick={() => void restore(undo)} data-testid="paper-undo" className="inline-flex items-center gap-1 text-xs font-semibold text-[#518FFF] hover:text-white transition-colors cursor-pointer">
-              <ArrowCounterClockwise size={12} weight="bold" /> Undo
-            </button>
-          </div>
-        </div>
-      )}
 
       {creating && <NewPaperFlow projects={projects} defaultProjectId={defaultProjectId} onCreate={create} onClose={() => setCreating(false)} />}
     </div>

@@ -317,6 +317,19 @@ export function deleteLocalAtom(id: string): boolean {
   return true;
 }
 
+export function updateLocalProject(
+  id: string,
+  patch: { title?: string; description?: string; color?: string; folderIcon?: string | null },
+): ResearchProject | null {
+  const projects = getLocalProjects();
+  const target = projects.find((p) => p.id === id);
+  if (!target) return null;
+  Object.assign(target, patch, { updatedAt: new Date().toISOString() });
+  globalStore.__RESEARCH_PROJECTS_STORE__ = projects;
+  savePersistedState({ projects, atoms: getLocalAtoms() });
+  return target;
+}
+
 export function deleteLocalProject(id: string): boolean {
   const projects = globalStore.__RESEARCH_PROJECTS_STORE__ || [...INITIAL_PROJECTS];
   const atoms = globalStore.__RESEARCH_ATOMS_STORE__ || [...INITIAL_ATOMS];

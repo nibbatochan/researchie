@@ -96,7 +96,7 @@ const WHAT_IT_IS: { icon: React.ElementType; title: string; body: string; tone: 
   {
     icon: Quotes,
     title: 'Clip',
-    body: 'A sentence, a table or card, an image or a link, from any page, with one key press.',
+    body: 'Select text on any page and press Alt+S, or pick a block, image or link with Alt+B, Alt+I or Alt+L. It lands in the project you chose.',
     tone: 'bg-[#325FEC]/10 text-[#325FEC] dark:text-[#8DB4FF]',
     sample: (
       <div className="rounded-lg border border-[#D2DCEA] dark:border-white/10 bg-white dark:bg-[#18181B] p-2.5 text-[11px] leading-snug">
@@ -107,7 +107,7 @@ const WHAT_IT_IS: { icon: React.ElementType; title: string; body: string; tone: 
   {
     icon: LinkIcon,
     title: 'Keep the source',
-    body: 'Every clip remembers its page. Open it and the page scrolls to the quote and highlights it.',
+    body: 'Every clip keeps its page address. Open it and the page scrolls to the quote and highlights it.',
     tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     sample: (
       <div className="flex items-center gap-1.5 rounded-lg border border-[#D2DCEA] dark:border-white/10 bg-white dark:bg-[#18181B] px-2.5 py-2 text-[11px] font-mono text-slate-500 dark:text-zinc-400">
@@ -118,7 +118,7 @@ const WHAT_IT_IS: { icon: React.ElementType; title: string; body: string; tone: 
   {
     icon: ChatCircleText,
     title: 'Ask and cite',
-    body: 'Ask AI answers from your clips and points back to them. Cite copies Vancouver, APA or AMA.',
+    body: 'Ask AI answers only from your clips and links each claim to the clip behind it. Cite copies Vancouver, APA, AMA, BibTeX or RIS.',
     tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
     sample: (
       <div className="rounded-lg border border-[#D2DCEA] dark:border-white/10 bg-white dark:bg-[#18181B] p-2.5 text-[11px] leading-snug text-slate-700 dark:text-zinc-300">
@@ -796,7 +796,7 @@ const KeyIllustration: React.FC = () => (
         <span className="ob-ill-pop flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><CheckCircle size={16} weight="fill" /></span>
       </div>
       <div className="mt-2 flex gap-2">
-        {['Groq', 'Cerebras'].map((n) => (
+        {['Groq', 'Claude'].map((n) => (
           <span key={n} className="inline-flex items-center gap-1 rounded-full bg-white/80 dark:bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:text-zinc-300 ring-1 ring-black/5 dark:ring-white/10">
             <Star size={10} weight="fill" className="text-[#325FEC] dark:text-[#8DB4FF]" /> {n}
           </span>

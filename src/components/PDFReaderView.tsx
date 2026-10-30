@@ -48,6 +48,7 @@ import { stripLinks } from '@/lib/utils/plainText';
 import { buildAnswerLinks, quoteIsOnPage, linkTitle, quoteHighlightText, type AnswerCitation } from '@/lib/qa/answerLinks.ts';
 import { buildManualCitation, isValidManualYear } from '@/lib/citations/manual.ts';
 import { CustomPDFViewer } from './CustomPDFViewer';
+import { useDeleteToast } from './DeleteToast';
 import { FormattedAIMessage } from './FormattedAIMessage';
 import { usePrefs } from '@/lib/prefs/prefsContext';
 
@@ -232,6 +233,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   const [toast, setToast] = useState<ToastNotification | null>(null);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const notifyDeleted = useDeleteToast();
   const showToast = (t: Omit<ToastNotification, 'id'>) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     const newToast = { ...t, id: String(Date.now()) };
@@ -864,11 +866,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
       setSavedHighlights((prev) => prev.filter((h) => h.docId !== docId));
       setDocToDelete(null);
 
-      // 6. Visual confirmation toast
-      showToast({
-        type: 'success',
-        message: `Deleted "${docName}" from project library.`,
-      });
+      notifyDeleted({ kind: 'document', name: docName });
     } catch (err) {
       console.error('Failed to delete doc:', err);
       showToast({
@@ -1001,6 +999,7 @@ export const PDFReaderView: React.FC<PDFReaderViewProps> = ({
   };
 
   const handleDeleteHighlight = (id: string) => {
+    notifyDeleted({ kind: 'highlight' });
     setSavedHighlights((prev) => prev.filter((h) => h.id !== id));
     setSelectedHighlightId((cur) => (cur === id ? null : cur));
     setHighlightToDelete(null);
